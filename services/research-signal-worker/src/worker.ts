@@ -15,12 +15,16 @@
 
 import dotenv from "dotenv";
 import express from "express";
-import { prisma } from "./lib/prisma-client";
+import {
+  prisma,
+  checkDatabaseHealth,
+  disconnectPrisma,
+} from "@maxxit/database";
 import {
   setupGracefulShutdown,
   registerCleanup,
-} from "./lib/graceful-shutdown";
-import { checkDatabaseHealth } from "./lib/prisma-client";
+  createHealthCheckHandler,
+} from "@maxxit/common";
 import {
   createHybridProvider,
   isAnyProviderAvailable,
@@ -48,25 +52,25 @@ let workerInterval: NodeJS.Timeout | null = null;
 
 // Health check server
 const app = express();
-app.get("/health", async (req, res) => {
-  const dbHealthy = await checkDatabaseHealth();
-  const providerAvailable = isAnyProviderAvailable();
-  const providers = getAvailableProviders();
+app.get(
+  "/health",
+  createHealthCheckHandler("research-signal-worker", async () => {
+    const dbHealthy = await checkDatabaseHealth();
+    const providerAvailable = isAnyProviderAvailable();
+    const providers = getAvailableProviders();
 
-  res.status(dbHealthy ? 200 : 503).json({
-    status: dbHealthy && providerAvailable ? "ok" : "degraded",
-    service: "research-signal-worker",
-    mode: "hybrid-non-crypto",
-    interval: INTERVAL,
-    database: dbHealthy ? "connected" : "disconnected",
-    providers: {
-      finnhub: providers.finnhub ? "available" : "not configured",
-      marketaux: providers.marketaux ? "available" : "not configured",
-    },
-    isRunning: workerInterval !== null,
-    timestamp: new Date().toISOString(),
-  });
-});
+    return {
+      database: dbHealthy ? "connected" : "disconnected",
+      mode: "hybrid-non-crypto",
+      interval: INTERVAL,
+      providers: {
+        finnhub: providers.finnhub ? "available" : "not configured",
+        marketaux: providers.marketaux ? "available" : "not configured",
+      },
+      isRunning: workerInterval !== null,
+    };
+  })
+);
 
 const server = app.listen(PORT, () => {
   console.log(
@@ -549,6 +553,8 @@ registerCleanup(async () => {
     clearInterval(workerInterval);
     workerInterval = null;
   }
+  await disconnectPrisma();
+  console.log("✅ Prisma disconnected");
 });
 
 // Setup graceful shutdown
@@ -571,7 +577,7 @@ if (require.main === module) {
 
   // Test database connection before starting
   checkDatabaseHealth()
-    .then((healthy) => {
+    .then((healthy: boolean) => {
       if (!healthy) {
         console.error("❌ FATAL: Cannot connect to database!");
         console.error("   Check DATABASE_URL and database availability.");
@@ -582,7 +588,7 @@ if (require.main === module) {
       // Start worker
       return runWorker();
     })
-    .catch((error) => {
+    .catch((error: Error) => {
       console.error("[ResearchSignal] ❌ Worker failed to start:", error);
       console.error("   Error details:", error.stack);
       process.exit(1);

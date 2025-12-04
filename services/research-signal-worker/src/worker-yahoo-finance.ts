@@ -10,12 +10,16 @@
 
 import dotenv from "dotenv";
 import express from "express";
-import { prisma } from "./lib/prisma-client";
+import {
+  prisma,
+  checkDatabaseHealth,
+  disconnectPrisma,
+} from "@maxxit/database";
 import {
   setupGracefulShutdown,
   registerCleanup,
-} from "./lib/graceful-shutdown";
-import { checkDatabaseHealth } from "./lib/prisma-client";
+  createHealthCheckHandler,
+} from "@maxxit/common";
 import {
   analyzeTokenSignal,
   canUseYahooFinance,
@@ -30,17 +34,17 @@ let workerInterval: NodeJS.Timeout | null = null;
 
 // Health check server
 const app = express();
-app.get("/health", async (req, res) => {
-  const dbHealthy = await checkDatabaseHealth();
-  res.status(dbHealthy ? 200 : 503).json({
-    status: dbHealthy ? "ok" : "degraded",
-    service: "research-signal-worker",
-    interval: INTERVAL,
-    database: dbHealthy ? "connected" : "disconnected",
-    isRunning: workerInterval !== null,
-    timestamp: new Date().toISOString(),
-  });
-});
+app.get(
+  "/health",
+  createHealthCheckHandler("research-signal-worker-yahoo", async () => {
+    const dbHealthy = await checkDatabaseHealth();
+    return {
+      database: dbHealthy ? "connected" : "disconnected",
+      interval: INTERVAL,
+      isRunning: workerInterval !== null,
+    };
+  })
+);
 
 const server = app.listen(PORT, () => {
   console.log(
@@ -336,6 +340,8 @@ registerCleanup(async () => {
     clearInterval(workerInterval);
     workerInterval = null;
   }
+  await disconnectPrisma();
+  console.log("✅ Prisma disconnected");
 });
 
 // Setup graceful shutdown
@@ -343,32 +349,27 @@ setupGracefulShutdown("Research Signal Worker", server);
 
 // Start worker
 if (require.main === module) {
-  runWorker().catch((error) => {
-    console.error("[ResearchSignal] ❌ Worker failed to start:", error);
-    process.exit(1);
-  });
-
-  console.log('✅ Environment check passed');
-  console.log('   DATABASE_URL: [SET]');
-  console.log('   PORT:', PORT);
-  console.log('   NODE_ENV:', process.env.NODE_ENV || 'development');
+  console.log("✅ Environment check passed");
+  console.log("   DATABASE_URL: [SET]");
+  console.log("   PORT:", PORT);
+  console.log("   NODE_ENV:", process.env.NODE_ENV || "development");
 
   // Test database connection before starting
   checkDatabaseHealth()
-    .then(healthy => {
+    .then((healthy: boolean) => {
       if (!healthy) {
-        console.error('❌ FATAL: Cannot connect to database!');
-        console.error('   Check DATABASE_URL and database availability.');
+        console.error("❌ FATAL: Cannot connect to database!");
+        console.error("   Check DATABASE_URL and database availability.");
         process.exit(1);
       }
-      console.log('✅ Database connection verified');
-      
+      console.log("✅ Database connection verified");
+
       // Start worker
       return runWorker();
     })
-    .catch(error => {
-      console.error('[ResearchSignal] ❌ Worker failed to start:', error);
-      console.error('   Error details:', error.stack);
+    .catch((error: Error) => {
+      console.error("[ResearchSignal] ❌ Worker failed to start:", error);
+      console.error("   Error details:", error.stack);
       process.exit(1);
     });
 }
