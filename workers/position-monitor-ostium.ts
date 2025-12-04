@@ -7,15 +7,14 @@
  * - Similar to Hyperliquid monitor but for Arbitrum-based Ostium
  */
 
-import { PrismaClient } from '@prisma/client';
 import { TradeExecutor } from '../lib/trade-executor';
+import { prisma } from '../lib/prisma';
 import { getOstiumPositions, getOstiumBalance } from '../lib/adapters/ostium-adapter';
 import { updateMetricsForDeployment } from '../lib/metrics-updater';
 import * as fs from 'fs';
 import * as path from 'path';
 import axios from 'axios';
 
-const prisma = new PrismaClient();
 const executor = new TradeExecutor();
 
 // Lock file to prevent concurrent monitor instances

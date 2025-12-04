@@ -4,6 +4,7 @@
  */
 
 import { PrismaClient, Signal, Venue, AgentDeployment } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { createSafeWallet, getChainIdForVenue, SafeWalletService } from './safe-wallet';
 import { createSpotAdapter, SpotAdapter } from './adapters/spot-adapter';
 import { createGMXAdapter, GMXAdapter } from './adapters/gmx-adapter';
@@ -20,8 +21,6 @@ import {
   getOstiumBalance,
   transferOstiumUSDC,
 } from './adapters/ostium-adapter';
-
-const prisma = new PrismaClient();
 
 export interface ExecutionResult {
   success: boolean;

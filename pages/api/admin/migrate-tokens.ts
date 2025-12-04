@@ -1,8 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
-
+import { prisma } from '../../../lib/prisma';
 /**
  * API endpoint to migrate missing token addresses
  * Call: GET /api/admin/migrate-tokens
@@ -70,8 +67,7 @@ export default async function handler(
       success: false,
       error: error.message,
     });
-  } finally {
-    await prisma.$disconnect();
   }
+  // Note: Don't disconnect - using singleton
 }
 

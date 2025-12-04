@@ -213,7 +213,13 @@ export function OstiumConnect({
       const signer = ethersProvider.getSigner();
       const contract = new ethers.Contract(OSTIUM_TRADING_CONTRACT, OSTIUM_TRADING_ABI, signer);
 
-      const tx = await contract.setDelegate(agentAddress);
+      // Estimate gas with 50% buffer for reliability
+      const gasEstimate = await contract.estimateGas.setDelegate(agentAddress);
+      const gasLimit = gasEstimate.mul(150).div(100); // 50% buffer
+      
+      console.log(`[OstiumConnect] Gas estimate: ${gasEstimate.toString()}, with 50% buffer: ${gasLimit.toString()}`);
+
+      const tx = await contract.setDelegate(agentAddress, { gasLimit });
       setTxHash(tx.hash);
 
       await tx.wait();
@@ -287,7 +293,10 @@ export function OstiumConnect({
           data: approveData,
         });
         
-        const gasWithBuffer = gasEstimate.mul(120).div(100);
+        // 50% gas buffer for reliability
+        const gasWithBuffer = gasEstimate.mul(150).div(100);
+        console.log(`[OstiumConnect] USDC Storage approval - Gas estimate: ${gasEstimate.toString()}, with 50% buffer: ${gasWithBuffer.toString()}`);
+        
         const txHash = await provider.request({
           method: 'eth_sendTransaction',
           params: [{
@@ -310,7 +319,10 @@ export function OstiumConnect({
           data: approveDataTrading,
         });
         
-        const gasWithBufferTrading = gasEstimateTrading.mul(120).div(100);
+        // 50% gas buffer for reliability
+        const gasWithBufferTrading = gasEstimateTrading.mul(150).div(100);
+        console.log(`[OstiumConnect] USDC Trading approval - Gas estimate: ${gasEstimateTrading.toString()}, with 50% buffer: ${gasWithBufferTrading.toString()}`);
+        
         const txHashTrading = await provider.request({
           method: 'eth_sendTransaction',
           params: [{

@@ -1,8 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../../lib/prisma';
 import { createSignalGenerator } from '../../../lib/signal-generator';
-
-const prisma = new PrismaClient();
 
 /**
  * Admin endpoint to generate trading signals from classified tweets

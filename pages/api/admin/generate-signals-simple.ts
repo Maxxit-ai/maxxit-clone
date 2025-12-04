@@ -1,9 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../../lib/prisma';
 import { createSignalGenerator } from '../../../lib/signal-generator';
 import { ProofVerificationService } from '../../../lib/proof-verification-service';
-
-const prisma = new PrismaClient();
 
 /**
  * Simple signal generation from CT account's signal candidate tweets
