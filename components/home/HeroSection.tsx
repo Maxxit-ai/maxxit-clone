@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import LightPillar from './LightPillar';
+import SplitText from '../SplitText';
 
 interface HeroSectionProps {
   onDeployScroll: () => void;
@@ -31,9 +32,35 @@ const HeroSection = ({ onDeployScroll, onLearnMoreScroll }: HeroSectionProps) =>
         </p>
 
         <h1 className="font-display text-5xl md:text-7xl lg:text-8xl leading-[0.9] mb-8">
-          TRADE LIKE AN<br />
-          <span className="text-accent">INSTITUTION</span>
-          <span className="cursor-blink text-[var(--text-primary)]"></span>
+          <SplitText
+            text="TRADE LIKE AN"
+            tag="span"
+            className="font-display text-5xl md:text-7xl lg:text-8xl block"
+            delay={50}
+            duration={0.8}
+            ease="power3.out"
+            splitType="chars"
+            from={{ opacity: 0, y: 50, rotationX: -90 }}
+            to={{ opacity: 1, y: 0, rotationX: 0 }}
+            threshold={0.3}
+            rootMargin="0px"
+            textAlign="center"
+          />
+          <SplitText
+            text="INSTITUTION"
+            tag="span"
+            className="font-display text-5xl md:text-7xl lg:text-8xl text-accent block"
+            delay={50}
+            duration={0.8}
+            ease="power3.out"
+            splitType="chars"
+            from={{ opacity: 0, y: 50, rotationX: -90 }}
+            to={{ opacity: 1, y: 0, rotationX: 0 }}
+            threshold={0.3}
+            rootMargin="0px"
+            textAlign="center"
+          />
+          {/* <span className="cursor-blink text-[var(--text-primary)] delay-75"></span> */}
         </h1>
 
         <p className="max-w-3xl mx-auto mb-10 text-base md:text-lg text-[var(--text-secondary)] leading-relaxed">
