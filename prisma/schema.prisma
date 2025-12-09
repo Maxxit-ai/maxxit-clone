@@ -403,6 +403,14 @@ model telegram_posts {
   signal_type             String?
   processed_for_signals   Boolean               @default(false)
   created_at              DateTime              @default(now()) @db.Timestamptz(6)
+  
+  // EigenAI Signature Verification Fields
+  llm_signature           String?               // Cryptographic signature from EigenAI
+  llm_raw_output          String?               // Full raw output from LLM (for verification)
+  llm_model_used          String?               // Model ID used (e.g., "gpt-oss-120b-f16")
+  llm_chain_id            Int?                  // Chain ID for signature verification
+  llm_reasoning           String?               // LLM reasoning for classification
+  
   telegram_sources        telegram_sources?     @relation(fields: [source_id], references: [id], onDelete: Cascade)
   telegram_alpha_users    telegram_alpha_users? @relation(fields: [alpha_user_id], references: [id], onDelete: Cascade)
 
@@ -496,6 +504,18 @@ model venue_markets {
   @@index([last_synced])
   @@index([venue, is_active])
   @@index([venue, token_symbol])
+}
+
+model ostium_available_pairs {
+  id                  Int       @id
+  symbol              String
+  max_leverage        Float?
+  maker_max_leverage  Float?
+  group               String?
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@index([group])
 }
 
 model venue_routing_config {

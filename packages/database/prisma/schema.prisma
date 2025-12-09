@@ -403,6 +403,14 @@ model telegram_posts {
   signal_type             String?
   processed_for_signals   Boolean               @default(false)
   created_at              DateTime              @default(now()) @db.Timestamptz(6)
+  
+  // EigenAI Signature Verification Fields
+  llm_signature           String?               // Cryptographic signature from EigenAI
+  llm_raw_output          String?               // Full raw output from LLM (for verification)
+  llm_model_used          String?               // Model ID used (e.g., "gpt-oss-120b-f16")
+  llm_chain_id            Int?                  // Chain ID for signature verification
+  llm_reasoning           String?               // LLM reasoning for classification
+  
   telegram_sources        telegram_sources?     @relation(fields: [source_id], references: [id], onDelete: Cascade)
   telegram_alpha_users    telegram_alpha_users? @relation(fields: [alpha_user_id], references: [id], onDelete: Cascade)
 

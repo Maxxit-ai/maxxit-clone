@@ -123,19 +123,40 @@ async function generateSignals() {
 
         console.log(`  🤖 ${subscribedAgents.length} agent(s) subscribed`);
 
-        // Generate signal for each subscribed agent
-        for (const agent of subscribedAgents) {
-          try {
-            // Generate signals for each extracted token
-            for (const token of tweet.extracted_tokens) {
-              await generateSignalForAgentAndToken(tweet, agent, token);
-              signalsGenerated++;
+        // Precompute LunarCrush per token (avoid repeating identical calls per agent)
+        for (const token of tweet.extracted_tokens) {
+          let lunarCrushData: any = undefined;
+
+          if (canUseLunarCrush()) {
+            try {
+              lunarCrushData = await getLunarCrushScore(
+                token,
+                tweet.confidence_score || 0.5
+              );
+            } catch (error: any) {
+              console.log(
+                `    ⚠️  LunarCrush scoring failed for ${token}: ${error.message}`
+              );
+              lunarCrushData = null; // Mark as attempted to avoid re-calling inside generate
             }
-          } catch (error: any) {
-            console.log(
-              `  ❌ Error generating signal for agent ${agent.name}:`,
-              error.message
-            );
+          }
+
+          // Generate signal for each subscribed agent using the precomputed data
+          for (const agent of subscribedAgents) {
+            try {
+              await generateSignalForAgentAndToken(
+                tweet,
+                agent,
+                token,
+                lunarCrushData
+              );
+              signalsGenerated++;
+            } catch (error: any) {
+              console.log(
+                `  ❌ Error generating signal for agent ${agent.name}:`,
+                error.message
+              );
+            }
           }
         }
 
@@ -185,32 +206,51 @@ async function generateSignals() {
 
         console.log(`  🤖 ${subscribedAgents.length} agent(s) subscribed`);
 
-        // Generate signal for each subscribed agent
-        for (const agent of subscribedAgents) {
-          try {
-            // Generate signals for each extracted token
-            for (const token of message.extracted_tokens) {
+        // Normalize Telegram message to match expected tweet shape once
+        const normalizedMessage = {
+          ...message,
+          tweet_id: message.message_id,
+          tweet_text: message.message_text,
+          tweet_created_at: message.message_created_at,
+          ct_accounts: {
+            impact_factor: message.telegram_alpha_users?.impact_factor || 0.5,
+          },
+        };
+
+        // Precompute LunarCrush per token (avoid repeating identical calls per agent)
+        for (const token of message.extracted_tokens) {
+          let lunarCrushData: any = undefined;
+
+          if (canUseLunarCrush()) {
+            try {
+              lunarCrushData = await getLunarCrushScore(
+                token,
+                message.confidence_score || 0.5
+              );
+            } catch (error: any) {
+              console.log(
+                `    ⚠️  LunarCrush scoring failed for ${token}: ${error.message}`
+              );
+              lunarCrushData = null; // Mark as attempted to avoid re-calling inside generate
+            }
+          }
+
+          // Generate signal for each subscribed agent using the precomputed data
+          for (const agent of subscribedAgents) {
+            try {
               await generateSignalForAgentAndToken(
-                {
-                  ...message,
-                  tweet_id: message.message_id,
-                  tweet_text: message.message_text,
-                  tweet_created_at: message.message_created_at,
-                  ct_accounts: {
-                    impact_factor:
-                      message.telegram_alpha_users?.impact_factor || 0.5,
-                  },
-                },
+                normalizedMessage,
                 agent,
-                token
+                token,
+                lunarCrushData
               );
               signalsGenerated++;
+            } catch (error: any) {
+              console.log(
+                `  ❌ Error generating signal for agent ${agent.name}:`,
+                error.message
+              );
             }
-          } catch (error: any) {
-            console.log(
-              `  ❌ Error generating signal for agent ${agent.name}:`,
-              error.message
-            );
           }
         }
 
@@ -248,7 +288,13 @@ async function generateSignals() {
 async function generateSignalForAgentAndToken(
   tweet: any,
   agent: any,
-  token: string
+  token: string,
+  lunarCrushData?: {
+    success: boolean;
+    score: number | null;
+    reasoning: string | null;
+    breakdown: any | null;
+  } | null
 ) {
   try {
     // Stablecoins should NOT be traded (they are base currency)
@@ -344,21 +390,46 @@ async function generateSignalForAgentAndToken(
     let lunarcrushBreakdown: any = null;
 
     // Get LunarCrush score for dynamic position sizing (0-10%)
-    if (canUseLunarCrush()) {
+    const hasPrecomputedLunar = typeof lunarCrushData !== "undefined";
+    const lunarDataToUse = lunarCrushData;
+
+    if (lunarDataToUse) {
+      if (lunarDataToUse.success && lunarDataToUse.score !== null) {
+        lunarcrushScore = lunarDataToUse.score;
+        lunarcrushReasoning = lunarDataToUse.reasoning;
+        lunarcrushBreakdown = lunarDataToUse.breakdown;
+
+        if (lunarcrushScore > 0) {
+          positionSizePercent = Math.max(
+            0.5,
+            Math.min(10, lunarcrushScore * 10)
+          );
+          console.log(
+            `    📊 LunarCrush: ${token} score=${lunarcrushScore.toFixed(
+              3
+            )}, position=${positionSizePercent.toFixed(2)}%`
+          );
+        } else {
+          positionSizePercent = 0.5;
+          console.log(
+            `    📊 LunarCrush: ${token} score=${lunarcrushScore.toFixed(
+              3
+            )} - CAUTION: minimum position (${positionSizePercent}%)`
+          );
+        }
+      }
+    } else if (!hasPrecomputedLunar && canUseLunarCrush()) {
       try {
         const lcResult = await getLunarCrushScore(
           token,
           tweet.confidence_score || 0.5
         );
-        if (lcResult.success && lcResult.score) {
+        if (lcResult.success && lcResult.score !== null) {
           lunarcrushScore = lcResult.score;
           lunarcrushReasoning = lcResult.reasoning;
           lunarcrushBreakdown = lcResult.breakdown;
 
-          // LunarCrush determines position size (0.5-10%)
-          // Positive score = larger position, negative/zero = minimum position
           if (lunarcrushScore > 0) {
-            // Convert score (0 to 1) to position size (0.5-10%)
             positionSizePercent = Math.max(
               0.5,
               Math.min(10, lunarcrushScore * 10)
@@ -369,7 +440,6 @@ async function generateSignalForAgentAndToken(
               )}, position=${positionSizePercent.toFixed(2)}%`
             );
           } else {
-            // Negative/zero score = use minimum position (0.5%) instead of blocking
             positionSizePercent = 0.5;
             console.log(
               `    📊 LunarCrush: ${token} score=${lunarcrushScore.toFixed(
@@ -383,7 +453,7 @@ async function generateSignalForAgentAndToken(
           `    ⚠️  LunarCrush scoring failed: ${lcError.message} - using default 5%`
         );
       }
-    } else {
+    } else if (!hasPrecomputedLunar) {
       console.log(
         `    ⚠️  LunarCrush not configured - using default 5% position size`
       );
