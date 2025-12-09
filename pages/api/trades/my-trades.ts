@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { prisma } from '@maxxit/database';
+import { prisma } from '../../../lib/prisma';
 
 /**
  * API endpoint to fetch user's open trades with eigenAI signature data
