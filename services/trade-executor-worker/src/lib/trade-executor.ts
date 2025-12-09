@@ -306,9 +306,11 @@ async function executeOstiumTrade(
       console.log(`[TradeExecutor] No user preferences found, using default ${leveragePercentage}% of max leverage`);
     }
     
-    // Calculate final leverage as percentage of max leverage
-    const leverage = Math.max(1, Math.floor((maxLeverage * leveragePercentage) / 100));
-    console.log(`[TradeExecutor] Calculated leverage: ${leverage}x (${leveragePercentage}% of max ${maxLeverage}x)`);
+    // Use default max leverage of 10x if not available
+    const defaultMaxLeverage = 10;
+    const effectiveMaxLeverage = maxLeverage || defaultMaxLeverage;
+    const leverage = Math.max(1, Math.floor((effectiveMaxLeverage * leveragePercentage) / 100));
+    console.log(`[TradeExecutor] Calculated leverage: ${leverage}x (${leveragePercentage}% of max ${effectiveMaxLeverage}x)`);
     
     // Calculate collateral based on signal's size_model (Agent HOW percentage)
     let collateralUSDC: number;
