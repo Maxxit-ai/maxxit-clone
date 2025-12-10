@@ -26,6 +26,7 @@ export function MultiVenueSelector({
     hasHyperliquid: boolean;
     hasOstium: boolean;
   } | null>(null);
+  const [notification, setNotification] = useState<string>('');
 
   useEffect(() => {
     if (authenticated && user?.wallet?.address) {
@@ -48,13 +49,9 @@ export function MultiVenueSelector({
         const hasOstium = data.hasOstiumDeployment || false;
 
         setSetupStatus({ hasHyperliquid, hasOstium });
-
-        // Only check Ostium since Hyperliquid is coming soon
-        if (hasOstium) {
-          setTimeout(() => onComplete(), 500);
-        } else {
-          setLoading(false);
-        }
+        
+        // Don't auto-close - let user see status and choose to set up other venues
+        setLoading(false);
       } else {
         setLoading(false);
       }
@@ -87,6 +84,18 @@ export function MultiVenueSelector({
   const handleVenueClick = (venueId: string) => {
     if (!authenticated) {
       login();
+      return;
+    }
+
+    // Check if venue is already set up
+    const isAlreadySetup =
+      (venueId === 'HYPERLIQUID' && setupStatus?.hasHyperliquid) ||
+      (venueId === 'OSTIUM' && setupStatus?.hasOstium);
+
+    if (isAlreadySetup) {
+      // Show notification that venue is already active
+      setNotification(`${venueId} is already active for this agent`);
+      setTimeout(() => setNotification(''), 3000);
       return;
     }
 
@@ -178,6 +187,14 @@ export function MultiVenueSelector({
 
           {/* Content */}
           <div className="p-4">
+            {/* Notification Toast */}
+            {notification && (
+              <div className="mb-4 p-3 border border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] text-sm flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                <span>{notification}</span>
+              </div>
+            )}
+
             {/* Venue buttons - horizontal layout */}
             <div className="grid grid-cols-3 gap-3">
               {venues.map((venue) => {
@@ -188,10 +205,10 @@ export function MultiVenueSelector({
                 return (
                   <button
                     key={venue.id}
-                    onClick={() => !venue.disabled && !isAlreadySetup && handleVenueClick(venue.id)}
-                    disabled={venue.disabled || isAlreadySetup}
-                    className={`p-4 border transition-all text-center disabled:opacity-50 disabled:cursor-not-allowed ${isAlreadySetup
-                      ? 'border-[var(--accent)] bg-[var(--accent)]/5'
+                    onClick={() => !venue.disabled && handleVenueClick(venue.id)}
+                    disabled={venue.disabled}
+                    className={`p-4 border transition-all text-center ${venue.disabled ? 'disabled:opacity-50 disabled:cursor-not-allowed' : ''} ${isAlreadySetup
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/5 cursor-pointer'
                       : 'border-[var(--border)] hover:border-[var(--accent)]'
                       }`}
                   >
@@ -220,9 +237,12 @@ export function MultiVenueSelector({
                           COMING SOON
                         </div>
                       ) : isAlreadySetup ? (
-                        <div className="mt-2 px-3 py-1 bg-[var(--accent)] text-[var(--bg-deep)] font-bold text-xs inline-flex items-center gap-1.5">
-                          <CheckCircle className="w-3 h-3" />
-                          ACTIVE
+                        <div className="mt-2 space-y-1">
+                          <div className="px-3 py-1 bg-[var(--accent)] text-[var(--bg-deep)] font-bold text-xs inline-flex items-center gap-1.5">
+                            <CheckCircle className="w-3 h-3" />
+                            ACTIVE
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)] italic">Click for details</p>
                         </div>
                       ) : (
                         <div className="mt-2 px-3 py-1 border border-[var(--accent)] text-[var(--accent)] font-bold text-xs inline-flex items-center gap-1.5">
@@ -253,6 +273,16 @@ export function MultiVenueSelector({
                 </li>
               </ol>
             </div>
+
+            {/* Done button - only show if at least one venue is active */}
+            {(setupStatus?.hasHyperliquid || setupStatus?.hasOstium) && (
+              <button
+                onClick={onComplete}
+                className="w-full mt-4 py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors"
+              >
+                DONE
+              </button>
+            )}
           </div>
         </div>
       </div>

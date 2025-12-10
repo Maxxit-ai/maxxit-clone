@@ -71,7 +71,7 @@ export function Header() {
                 data-testid="nav-your-trades"
               >
                 <TrendingUp className="h-4 w-4" />
-                <span className="hidden sm:inline">Your Trades</span>
+                <span className="hidden sm:inline">My Trades</span>
               </button>
             </Link>
             <Link href="/creator">
