@@ -260,16 +260,16 @@ export class LLMTweetClassifier {
    */
   private buildPromptWithMarketData(tweetText: string, marketData: any | null): string {
     let marketContext = 'NO MARKET DATA AVAILABLE';
-    
+
     if (marketData) {
       console.log('[LLMClassifier] Market data for prompt:', JSON.stringify(marketData, null, 2));
-      
+
       const pct24h = marketData.percent_change_24h ?? 0;
       const pct7d = marketData.percent_change_7d ?? 0;
       const pct30d = marketData.percent_change_30d ?? 0;
       const vol = marketData.volume_24h ?? 0;
       const volM = (vol / 1e6).toFixed(1);
-      
+
       marketContext = `
 ${marketData.symbol}: Price=$${marketData.price?.toFixed(2)}, MCap=$${(marketData.market_cap / 1e9).toFixed(1)}B
 24h=${pct24h.toFixed(2)}% | 7d=${pct7d.toFixed(2)}% | 30d=${pct30d.toFixed(2)}% | Vol=${volM}M
@@ -289,11 +289,11 @@ DATA MEANING:
 • AltRank: Performance (1-100 excellent, 100-500 average, >500 weak)
 • Volatility: Stability (<0.02 stable, 0.02-0.05 normal, >0.05 risky)
 
-ANALYZE Hy, volume, contradictions)
-4. Opportunity strength (gOLISTICALLY:
+ANALYZE HOLISTICALLY:
 1. Signal clarity (specific targets vs vague sentiment)
 2. Market momentum alignment with signal direction
-3. Risk factors (volatilitalaxy score, alt rank, liquidity)
+3. Risk factors (volatility, volume, contradictions)
+4. Opportunity strength (galaxy score, alt rank, liquidity)
 
 KEY SCENARIOS:
 • BULLISH signal + positive momentum + vol>50M = STRONG (0.7-1.0)

@@ -245,10 +245,10 @@ async function executeOstiumTrade(
     const usdcBalance = parseFloat(balanceData.usdcBalance || '0');
     
     // Ostium minimum order size is $10
-    const OSTIUM_MIN_ORDER = 10;
+    const OSTIUM_MIN_ORDER = 0.1;
     
     if (usdcBalance < OSTIUM_MIN_ORDER) {
-      throw new Error(`Order must have minimum value of $10. Balance: $${usdcBalance.toFixed(2)}`);
+      throw new Error(`Order must have minimum value of $0.1. Balance: $${usdcBalance.toFixed(2)}`);
     }
 
     // ====== STEP 1: Find max leverage for this token from ostium_available_pairs ======
