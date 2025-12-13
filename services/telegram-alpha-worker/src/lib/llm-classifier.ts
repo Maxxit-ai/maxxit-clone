@@ -450,8 +450,35 @@ CRITICAL: Output ONLY valid JSON. Start with { end with }. NO explanations outsi
       console.warn("[EigenAI] Response keys:", Object.keys(data));
     }
 
-    const rawOutput = data.choices[0].message.tool_calls[0];
+    // Validate response structure
+    if (!data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
+      throw new Error("EigenAI API response missing 'choices' array");
+    }
+
+    if (!data.choices[0] || !data.choices[0].message) {
+      throw new Error("EigenAI API response missing 'message' in choices[0]");
+    }
+
+    const message = data.choices[0].message;
+
+    // Check if response contains tool_calls instead of content
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      throw new Error(
+        `EigenAI API returned tool_calls instead of content. The model tried to call function: ${message.tool_calls[0]?.function?.name || "unknown"}. This will trigger OpenAI fallback.`
+      );
+    }
+
+    // Get content from message
+    const rawOutput = message.content;
+
+    if (!rawOutput || typeof rawOutput !== "string") {
+      throw new Error(
+        `EigenAI API response missing or invalid 'content' field. Got: ${typeof rawOutput}. Finish reason: ${data.choices[0].finish_reason}`
+      );
+    }
+
     console.log("[EigenAI] Raw message:", rawOutput);
+
     // Extract content from <|channel|>final<|message|> tag
     const finalChannelMatch = rawOutput.match(
       /<\|channel\|>final<\|message\|>([\s\S]*?)(?:<\|end\|>|$)/
