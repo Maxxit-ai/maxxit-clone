@@ -127,6 +127,23 @@ export default function MyTrades() {
     closed: 0,
   });
   const [untradedSignals, setUntradedSignals] = useState<UntradedSignal[]>([]);
+
+  // Prevent background scroll when verification modal is open
+  useEffect(() => {
+    if (verificationModalOpen) {
+      const originalHtmlOverflow = document.documentElement.style.overflow;
+      const originalBodyOverflow = document.body.style.overflow;
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.documentElement.style.overflow = originalHtmlOverflow;
+        document.body.style.overflow = originalBodyOverflow;
+      };
+    } else {
+      document.documentElement.style.overflow = "";
+      document.body.style.overflow = "";
+    }
+  }, [verificationModalOpen]);
   const cacheRef = useRef<Record<string, TradesResponse>>({});
 
   useEffect(() => {
@@ -179,6 +196,7 @@ export default function MyTrades() {
       if (!response.ok) throw new Error("Failed to fetch trades");
 
       const data = await response.json();
+      console.log("data", data);
       setTrades(data.trades || []);
       setTotal(data.total || 0);
       if (data.summary) {
@@ -1061,7 +1079,11 @@ export default function MyTrades() {
 
       {/* Verification Modal */}
       {verificationModalOpen && selectedTrade && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 overflow-y-auto">
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 overflow-hidden overscroll-contain"
+          onWheel={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+        >
           <div className="bg-[var(--bg-deep)] border border-[var(--border)] max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="border-b border-[var(--border)] p-6 sticky top-0 bg-[var(--bg-deep)] z-10">
@@ -1248,14 +1270,14 @@ export default function MyTrades() {
                       </div>
 
                       {/* Reasoning */}
-                      {selectedTrade.signatureData?.llmReasoning && (
+                      {/* {selectedTrade.signatureData?.llmReasoning && (
                         <div className="border border-[var(--border)] p-4">
                           <p className="data-label mb-3">LLM REASONING</p>
                           <p className="text-xs text-[var(--text-secondary)]">
                             {selectedTrade.signatureData.llmReasoning}
                           </p>
                         </div>
-                      )}
+                      )} */}
                     </div>
                   </div>
 

@@ -197,6 +197,20 @@ export default async function handler(
           orderBy: {
             message_created_at: "desc",
           },
+          select: {
+            id: true,
+            alpha_user_id: true,
+            message_text: true,
+            llm_signature: true,
+            llm_raw_output: true,
+            llm_model_used: true,
+            llm_chain_id: true,
+            llm_reasoning: true,
+            llm_market_context: true,
+            message_created_at: true,
+            confidence_score: true,
+            extracted_tokens: true,
+          },
         });
 
         console.log(
@@ -341,6 +355,20 @@ export default async function handler(
           orderBy: {
             message_created_at: "desc",
           },
+          select: {
+            id: true,
+            alpha_user_id: true,
+            message_text: true,
+            llm_signature: true,
+            llm_raw_output: true,
+            llm_model_used: true,
+            llm_chain_id: true,
+            llm_reasoning: true,
+            llm_market_context: true,
+            message_created_at: true,
+            confidence_score: true,
+            extracted_tokens: true,
+          },
         });
 
         return {
@@ -364,6 +392,7 @@ export default async function handler(
                 llmRawOutput: relatedTelegramPost.llm_raw_output,
                 llmModelUsed: relatedTelegramPost.llm_model_used,
                 llmChainId: relatedTelegramPost.llm_chain_id,
+                llmMarketContext: (relatedTelegramPost as any).llm_market_context || null,
                 llmReasoning: relatedTelegramPost.llm_reasoning,
                 messageCreatedAt:
                   relatedTelegramPost.message_created_at.toISOString(),
