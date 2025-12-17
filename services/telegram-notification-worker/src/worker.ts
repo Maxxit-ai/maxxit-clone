@@ -410,7 +410,7 @@ async function formatSignalExecutedMessage(
   }
 
   message += `\n\n⏰ ${new Date(position.opened_at).toLocaleString()}`;
-  message += `\n\n💡 Track this trade on your [Maxxit Dashboard](https://maxxit.io/my-trades)`;
+  message += `\n\n💡 Track this trade on your [Maxxit Dashboard](https://maxxit.ai/my-trades)`;
 
   return message;
 }
