@@ -6,7 +6,9 @@ import { useState, useEffect, useRef } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { X, Wallet, CheckCircle, AlertCircle, Zap, Activity, ExternalLink } from 'lucide-react';
 import { ethers } from 'ethers';
-import { TradingPreferencesModal, TradingPreferences } from './TradingPreferencesModal';
+import { TradingPreferencesForm, TradingPreferences } from './TradingPreferencesModal';
+import { getOstiumConfig } from '../lib/ostium-config';
+// import { TradingPreferencesModal, TradingPreferences } from './TradingPreferencesModal';
 
 interface OstiumConnectProps {
   agentId: string;
@@ -15,16 +17,13 @@ interface OstiumConnectProps {
   onSuccess?: () => void;
 }
 
-const OSTIUM_TRADING_CONTRACT = '0x6D0bA1f9996DBD8885827e1b2e8f6593e7702411';
+// Get Ostium configuration based on environment
+const { tradingContract: OSTIUM_TRADING_CONTRACT, usdcContract: USDC_TOKEN, storageContract: OSTIUM_STORAGE } = getOstiumConfig();
 const OSTIUM_TRADING_ABI = ['function setDelegate(address delegate) external'];
-
-const USDC_TOKEN = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
 const USDC_ABI = [
   'function approve(address spender, uint256 amount) public returns (bool)',
   'function allowance(address owner, address spender) view returns (uint256)',
 ];
-
-const OSTIUM_STORAGE = '0xccd5891083a8acd2074690f65d3024e7d13d66e7';
 
 export function OstiumConnect({
   agentId,
@@ -41,12 +40,11 @@ export function OstiumConnect({
   const [usdcApproved, setUsdcApproved] = useState(false);
   const [deploymentId, setDeploymentId] = useState<string>('');
   const [step, setStep] = useState<'connect' | 'preferences' | 'agent' | 'delegate' | 'usdc' | 'complete'>('connect');
-  const [showPreferencesModal, setShowPreferencesModal] = useState(false);
-  
+
   // Trading preferences stored locally until all approvals complete
   const [tradingPreferences, setTradingPreferences] = useState<TradingPreferences | null>(null);
   const tradingPreferencesRef = useRef<TradingPreferences | null>(null); // ensures latest prefs are used in async flows
-  
+
   // Guard refs to prevent duplicate API calls
   const isCheckingRef = useRef(false);
   const isAssigningRef = useRef(false);
@@ -58,7 +56,6 @@ export function OstiumConnect({
       setHasInitialized(true);
       // Always show preferences as first step for new deployments
       setStep('preferences');
-      setShowPreferencesModal(true);
     }
   }, [authenticated, user?.wallet?.address, step, hasInitialized]);
 
@@ -159,11 +156,11 @@ export function OstiumConnect({
     setError('');
 
     try {
-      const requestBody: Record<string, unknown> = { 
-        agentId, 
+      const requestBody: Record<string, unknown> = {
+        agentId,
         userWallet: wallet,
       };
-      
+
       // Include trading preferences if available (always use ref to avoid stale state)
       if (tradingPreferencesRef.current) {
         requestBody.tradingPreferences = tradingPreferencesRef.current;
@@ -171,9 +168,9 @@ export function OstiumConnect({
       } else {
         console.warn('[OstiumConnect] Creating deployment without preferences - will use defaults');
       }
-      
+
       console.log('[OstiumConnect] Request body:', requestBody);
-      
+
       const response = await fetch('/api/ostium/create-deployment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -245,7 +242,7 @@ export function OstiumConnect({
         agentId,
         userWallet: user?.wallet?.address,
       };
-      
+
       // Include trading preferences if available (use ref to avoid stale values)
       if (tradingPreferencesRef.current) {
         deployRequestBody.tradingPreferences = tradingPreferencesRef.current;
@@ -253,9 +250,9 @@ export function OstiumConnect({
       } else {
         console.warn('[OstiumConnect] No trading preferences found - using defaults');
       }
-      
+
       console.log('[OstiumConnect] Sending deployment request:', deployRequestBody);
-      
+
       const deployResponse = await fetch('/api/ostium/create-deployment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -301,7 +298,7 @@ export function OstiumConnect({
       const ethersProvider = new ethers.providers.Web3Provider(provider);
       const network = await ethersProvider.getNetwork();
 
-      const ARBITRUM_CHAIN_ID = 42161;
+      const ARBITRUM_CHAIN_ID = 421614;
       if (network.chainId !== ARBITRUM_CHAIN_ID) {
         try {
           await provider.request({
@@ -369,7 +366,7 @@ export function OstiumConnect({
       await ethersProvider.send('eth_requestAccounts', []);
 
       const network = await ethersProvider.getNetwork();
-      const ARBITRUM_CHAIN_ID = 42161;
+      const ARBITRUM_CHAIN_ID = 421614;
       if (network.chainId !== ARBITRUM_CHAIN_ID) {
         throw new Error('Please switch to Arbitrum');
       }
@@ -497,11 +494,24 @@ export function OstiumConnect({
     console.log('[OstiumConnect] Trading preferences set:', preferences);
     tradingPreferencesRef.current = preferences;
     setTradingPreferences(preferences);
-    setShowPreferencesModal(false);
-    
+
     // After preferences are set, proceed to check setup status with fresh prefs
     setLoading(true);
     checkSetupStatus();
+  };
+
+  const goBack = () => {
+    if (step === 'preferences') {
+      setStep('connect');
+    } else if (step === 'agent') {
+      setStep('preferences');
+    } else if (step === 'delegate') {
+      setStep('preferences');
+    } else if (step === 'usdc') {
+      setStep('delegate');
+    } else if (step === 'complete') {
+      setStep('usdc');
+    }
   };
 
   // Prevent body scroll when modal is open
@@ -520,324 +530,458 @@ export function OstiumConnect({
         e.stopPropagation();
       }}
     >
-      <div className="bg-[var(--bg-deep)] border border-[var(--border)] max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden overscroll-contain">
+      <div className="bg-[var(--bg-deep)] border border-[var(--border)] max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden overscroll-contain">
         {/* Header */}
-        <div className="border-b border-[var(--border)] p-6 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 border border-[var(--accent)] flex items-center justify-center">
-                <Zap className="h-5 w-5 text-[var(--accent)]" />
-              </div>
-              <div>
-                <h2 className="font-display text-xl">OSTIUM SETUP</h2>
-                <p className="text-xs text-[var(--text-muted)]">{agentName}</p>
-              </div>
+        <div className="border-b border-[var(--border)] px-6 py-4 flex-shrink-0 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 border border-[var(--accent)] flex items-center justify-center">
+              <Zap className="h-5 w-5 text-[var(--accent)]" />
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            <div>
+              <p className="data-label mb-1">OSTIUM JOURNEY</p>
+              <h2 className="font-display text-xl">Deploy {agentName} on Ostium</h2>
+            </div>
           </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         {/* Content */}
-        <div
-          className="p-6 space-y-4 flex-1 overflow-y-auto custom-scrollbar min-h-0"
-          onWheelCapture={(e) => {
-            const el = e.currentTarget;
-            const isScrollable = el.scrollHeight > el.clientHeight;
-            const isAtTop = el.scrollTop === 0;
-            const isAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
-            if (isScrollable && !(isAtTop && e.deltaY < 0) && !(isAtBottom && e.deltaY > 0)) {
-              e.stopPropagation();
-            }
-          }}
-        >
-          {error && (
-            <div className="flex items-start gap-3 p-4 border border-[var(--danger)] bg-[var(--danger)]/10">
-              <AlertCircle className="w-5 h-5 text-[var(--danger)] flex-shrink-0 mt-0.5" />
-              <span className="text-sm text-[var(--danger)]">{error}</span>
+        <div className="flex-1 flex">
+          {/* Left: Journey steps */}
+          <aside className="hidden md:flex w-64 flex-col border-r border-[var(--border)] bg-[var(--bg-deep)] px-6 py-6 space-y-6">
+            <div>
+              <p className="text-xs font-semibold text-[var(--text-muted)] mb-2">Your setup journey</p>
+              <p className="text-xs text-[var(--text-secondary)]">
+                Follow the steps to connect your wallet, tune how the agent trades, and approve Ostium to execute on your behalf.
+              </p>
             </div>
-          )}
 
-          {/* Step Indicator */}
-          {step !== 'connect' && step !== 'preferences' && (
-            <div className="flex items-center justify-between text-xs font-bold mb-4">
-              <div className={`flex items-center gap-1 ${tradingPreferences ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'}`}>
-                <span className={`w-6 h-6 flex items-center justify-center border ${tradingPreferences ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--bg-deep)]' : 'border-[var(--border)]'}`}>
-                  {tradingPreferences ? '✓' : '1'}
-                </span>
-                PREFS
-              </div>
-              <div className={`flex-1 h-px mx-2 ${tradingPreferences ? 'bg-[var(--accent)]' : 'bg-[var(--border)]'}`} />
-              <div className={`flex items-center gap-1 ${delegateApproved ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'}`}>
-                <span className={`w-6 h-6 flex items-center justify-center border ${delegateApproved ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--bg-deep)]' : 'border-[var(--border)]'}`}>
-                  {delegateApproved ? '✓' : '2'}
-                </span>
-                DELEGATE
-              </div>
-              <div className={`flex-1 h-px mx-2 ${delegateApproved ? 'bg-[var(--accent)]' : 'bg-[var(--border)]'}`} />
-              <div className={`flex items-center gap-1 ${usdcApproved ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'}`}>
-                <span className={`w-6 h-6 flex items-center justify-center border ${usdcApproved ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--bg-deep)]' : 'border-[var(--border)]'}`}>
-                  {usdcApproved ? '✓' : '3'}
-                </span>
-                USDC
-              </div>
-            </div>
-          )}
-
-          {step === 'connect' ? (
-            authenticated && user?.wallet?.address ? (
-              // Show loader if wallet is already connected
-              <div className="text-center space-y-4 py-8">
-                <Activity className="w-16 h-16 mx-auto text-[var(--accent)] animate-pulse" />
-                <div>
-                  <h3 className="font-display text-lg mb-2">INITIALIZING...</h3>
-                  <p className="text-sm text-[var(--text-muted)]">
-                    Setting up your deployment
-                  </p>
-                </div>
-              </div>
-            ) : (
-              // Show connect button if not authenticated
-              <div className="text-center space-y-6 py-4">
-                <div className="w-16 h-16 mx-auto border border-[var(--accent)] flex items-center justify-center">
-                  <Wallet className="w-8 h-8 text-[var(--accent)]" />
-                </div>
-                <div>
-                  <h3 className="font-display text-lg mb-2">CONNECT WALLET</h3>
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    Connect your Arbitrum wallet to whitelist the agent
-                  </p>
-                </div>
-                <button
-                  onClick={handleConnect}
-                  className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-2"
+            <ol className="space-y-4 text-xs">
+              <li className="flex items-start gap-3">
+                <span
+                  className={`flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-bold ${step === 'connect'
+                    ? 'border-[var(--accent)] text-[var(--accent)]'
+                    : 'border-[var(--border)] text-[var(--text-muted)]'
+                    }`}
                 >
-                  <Wallet className="w-5 h-5" />
-                  CONNECT WALLET
-                </button>
+                  1
+                </span>
+                <div>
+                  <p className="font-semibold">Connect wallet</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Authorize your Arbitrum wallet.</p>
+                </div>
+              </li>
+
+              <li className="flex items-start gap-3">
+                <span
+                  className={`flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-bold ${step === 'preferences'
+                    ? 'border-[var(--accent)] text-[var(--accent)]'
+                    : 'border-[var(--border)] text-[var(--text-muted)]'
+                    }`}
+                >
+                  2
+                </span>
+                <div>
+                  <p className="font-semibold">Trading style</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Set risk, frequency, and filters.</p>
+                </div>
+              </li>
+
+              <li className="flex items-start gap-3">
+                <span
+                  className={`flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-bold ${step === 'delegate'
+                    ? 'border-[var(--accent)] text-[var(--accent)]'
+                    : 'border-[var(--border)] text-[var(--text-muted)]'
+                    }`}
+                >
+                  3
+                </span>
+                <div>
+                  <p className="font-semibold">Delegate access</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Whitelist the agent wallet.</p>
+                </div>
+              </li>
+
+              <li className="flex items-start gap-3">
+                <span
+                  className={`flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-bold ${step === 'usdc'
+                    ? 'border-[var(--accent)] text-[var(--accent)]'
+                    : 'border-[var(--border)] text-[var(--text-muted)]'
+                    }`}
+                >
+                  4
+                </span>
+                <div>
+                  <p className="font-semibold">Approve USDC spend</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Let Ostium use your USDC for trades.</p>
+                </div>
+              </li>
+
+              <li className="flex items-start gap-3">
+                <span
+                  className={`flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-bold ${step === 'complete'
+                    ? 'border-[var(--accent)] text-[var(--accent)]'
+                    : 'border-[var(--border)] text-[var(--text-muted)]'
+                    }`}
+                >
+                  ✓
+                </span>
+                <div>
+                  <p className="font-semibold">Agent live</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Signals will start executing automatically.</p>
+                </div>
+              </li>
+            </ol>
+          </aside>
+
+          {/* Right: Active step content */}
+          <div
+            className="flex-1 p-6 space-y-4 overflow-y-auto custom-scrollbar min-h-0"
+            onWheelCapture={(e) => {
+              const el = e.currentTarget;
+              const isScrollable = el.scrollHeight > el.clientHeight;
+              const isAtTop = el.scrollTop === 0;
+              const isAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+              if (isScrollable && !(isAtTop && e.deltaY < 0) && !(isAtBottom && e.deltaY > 0)) {
+                e.stopPropagation();
+              }
+            }}
+          >
+            {error && (
+              <div className="flex items-start gap-3 p-4 border border-[var(--danger)] bg-[var(--danger)]/10">
+                <AlertCircle className="w-5 h-5 text-[var(--danger)] flex-shrink-0 mt-0.5" />
+                <span className="text-sm text-[var(--danger)]">{error}</span>
               </div>
-            )
-          ) : step === 'preferences' ? (
-            <div className="text-center space-y-4 py-8">
-              {loading ? (
-                <>
-                  <Activity className="w-16 h-16 mx-auto text-[var(--accent)] animate-pulse" />
-                  <div>
-                    <h3 className="font-display text-lg mb-2">CHECKING SETUP...</h3>
-                    <p className="text-sm text-[var(--text-muted)]">
-                      Verifying your wallet status
-                    </p>
+            )}
+
+            {step === 'connect' ? (
+              authenticated && user?.wallet?.address ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 p-4 border border-[var(--accent)]/60 bg-[var(--accent)]/5 rounded">
+                    <div className="w-12 h-12 border border-[var(--accent)] flex items-center justify-center bg-[var(--bg-deep)]">
+                      <Wallet className="w-6 h-6 text-[var(--accent)]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">Wallet connected</p>
+                      <p className="text-xs text-[var(--text-secondary)] truncate font-mono">
+                        {user.wallet.address}
+                      </p>
+                    </div>
+                    <div className="text-[10px] px-2 py-1 border border-[var(--accent)] text-[var(--accent)] font-bold">
+                      ARBITRUM
+                    </div>
                   </div>
-                </>
+                  <div className="border border-[var(--border)] p-4 text-sm text-[var(--text-secondary)] rounded">
+                    <p className="font-semibold text-[var(--text-primary)] mb-1">Ready to start</p>
+                    <p>We’ll keep your wallet connected while you finish the steps.</p>
+                  </div>
+                  <button
+                    onClick={() => setStep('preferences')}
+                    className="w-full py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors"
+                  >
+                    Continue
+                  </button>
+                </div>
               ) : (
-                <>
-                  <Zap className="w-16 h-16 mx-auto text-[var(--accent)]" />
+                // Show connect button if not authenticated
+                <div className="text-center space-y-6 py-4">
+                  <div className="w-16 h-16 mx-auto border border-[var(--accent)] flex items-center justify-center">
+                    <Wallet className="w-8 h-8 text-[var(--accent)]" />
+                  </div>
                   <div>
-                    <h3 className="font-display text-lg mb-2">SET YOUR PREFERENCES</h3>
-                    <p className="text-sm text-[var(--text-muted)]">
-                      Configure how the agent will trade for you
+                    <h3 className="font-display text-lg mb-2">CONNECT WALLET</h3>
+                    <p className="text-sm text-[var(--text-secondary)]">
+                      Connect your Arbitrum wallet to whitelist the agent
                     </p>
                   </div>
                   <button
-                    onClick={() => setShowPreferencesModal(true)}
-                    className="px-6 py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors"
+                    onClick={handleConnect}
+                    className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-2"
                   >
-                    SET PREFERENCES
+                    <Wallet className="w-5 h-5" />
+                    CONNECT WALLET
                   </button>
-                </>
-              )}
-            </div>
-          ) : step === 'agent' ? (
-            <div className="text-center space-y-4 py-8">
-              <Activity className="w-16 h-16 mx-auto text-[var(--accent)] animate-pulse" />
-              <div>
-                <h3 className="font-display text-lg mb-2">ASSIGNING AGENT...</h3>
-                <p className="text-sm text-[var(--text-muted)]">
-                  Assigning your agent wallet
-                </p>
-              </div>
-            </div>
-          ) : step === 'delegate' ? (
-            <>
-              <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-4 space-y-2">
-                <p className="text-sm text-[var(--accent)]">AGENT ASSIGNED</p>
-                <p className="text-xs font-mono break-all text-[var(--text-primary)]">{agentAddress}</p>
-              </div>
-
-              <div className="border border-[var(--border)] p-4 space-y-3 text-sm">
-                <p className="font-bold">STEP 1: APPROVE AGENT ACCESS</p>
-                <div className="flex items-start gap-2 text-[var(--text-secondary)]">
-                  <span className="text-[var(--accent)]">→</span>
-                  <span>Sign transaction to whitelist agent</span>
                 </div>
-                <div className="flex items-start gap-2 text-[var(--text-muted)]">
-                  <span>→</span>
-                  <span>Then approve USDC spending</span>
+              )
+            ) : step === 'preferences' ? (
+              <div className="space-y-4 py-2">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 border border-[var(--accent)] flex items-center justify-center">
+                    <Zap className="w-6 h-6 text-[var(--accent)]" />
+                  </div>
+                  <div>
+                    <h3 className="font-display text-lg">Set Your Trading Preferences</h3>
+                    <p className="text-xs text-[var(--text-muted)]">
+                      Configure how this agent should size and filter trades for you.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border border-[var(--border)] bg-[var(--bg-deep)] flex flex-col max-h-[60vh]">
+                  <TradingPreferencesForm
+                    userWallet={user?.wallet?.address || ''}
+                    onClose={onClose}
+                    onBack={goBack}
+                    localOnly={true}
+                    onSaveLocal={handlePreferencesSet}
+                    primaryLabel={loading ? 'Saving...' : 'Save & Continue'}
+                    initialPreferences={tradingPreferences || undefined}
+                  />
                 </div>
               </div>
-
-              <div className="border border-[var(--border)] p-3 text-xs text-[var(--text-secondary)]">
-                <strong className="text-[var(--text-primary)]">NOTE:</strong> Agent can only trade - cannot withdraw funds. You remain in control.
+            ) : step === 'agent' ? (
+              <div className="text-center space-y-4 py-8">
+                <Activity className="w-16 h-16 mx-auto text-[var(--accent)] animate-pulse" />
+                <div>
+                  <h3 className="font-display text-lg mb-2">ASSIGNING AGENT...</h3>
+                  <p className="text-sm text-[var(--text-muted)]">
+                    Assigning your agent wallet
+                  </p>
+                </div>
               </div>
+            ) : step === 'delegate' ? (
+              <>
+                <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-4 space-y-2 rounded">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-[var(--accent)] font-semibold">Step 3 · Delegate access</p>
+                    {delegateApproved && (
+                      <span className="text-[10px] px-2 py-1 border border-[var(--accent)] text-[var(--accent)] font-bold rounded">
+                        Completed
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Whitelist the agent wallet so it can trade on your behalf. This step is permanent unless you revoke delegation.
+                  </p>
+                </div>
 
-              {txHash && (
-                <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-3">
-                  <p className="text-[var(--accent)] text-sm mb-2">✓ Transaction confirmed</p>
+                <div className="grid md:grid-cols-2 gap-3 text-xs">
+                  <div className="border border-[var(--border)] p-3 rounded">
+                    <p className="font-semibold text-[var(--text-primary)]">Agent wallet</p>
+                    <p className="font-mono break-all text-[var(--text-secondary)] mt-1">{agentAddress}</p>
+                  </div>
+                  <div className="border border-[var(--border)] p-3 rounded">
+                    <p className="font-semibold text-[var(--text-primary)]">What this allows</p>
+                    <p className="text-[var(--text-secondary)] mt-1">
+                      Trading delegation only; funds remain in your wallet. USDC spending still needs approval in the next step.
+                    </p>
+                  </div>
+                </div>
+
+                {txHash && (
+                  <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-3">
+                    <p className="text-[var(--accent)] text-sm mb-2">✓ Transaction confirmed</p>
+                    <a
+                      href={`https://sepolia.arbiscan.io/tx/${txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1"
+                    >
+                      View on Arbiscan <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={goBack}
+                    className="w-32 py-3 border border-[var(--accent)]/60 text-[var(--text-primary)] font-semibold hover:border-[var(--accent)] transition-colors"
+                    type="button"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={approveAgent}
+                    disabled={loading || delegateApproved}
+                    className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <>
+                        <Activity className="w-5 h-5 animate-pulse" />
+                        SIGNING...
+                      </>
+                    ) : delegateApproved ? (
+                      <>
+                        <CheckCircle className="w-5 h-5" />
+                        DELEGATE APPROVED
+                      </>
+                    ) : (
+                      'APPROVE AGENT ACCESS →'
+                    )}
+                  </button>
+                  {delegateApproved && (
+                    <button
+                      onClick={() => setStep('usdc')}
+                      className="w-40 py-3 border border-[var(--accent)] text-[var(--accent)] font-semibold hover:bg-[var(--accent)]/10 transition-colors"
+                      type="button"
+                    >
+                      Next: USDC
+                    </button>
+                  )}
+                </div>
+              </>
+            ) : step === 'usdc' ? (
+              <>
+                {/* <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-4 rounded">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-[var(--accent)] font-semibold">Step 3 complete · Delegation approved</p>
+                    <span className="text-[10px] px-2 py-1 border border-[var(--accent)] text-[var(--accent)] font-bold rounded">
+                      Done
+                    </span>
+                  </div>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">
+                    Agent wallet is whitelisted to trade on your behalf.
+                  </p>
+                </div> */}
+
+                <div className="border border-[var(--border)] p-4 space-y-3 text-sm rounded">
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold">STEP 4: APPROVE USDC SPENDING</p>
+                    {!usdcApproved && (
+                      <span className="text-[10px] px-2 py-1 border border-[var(--accent)] text-[var(--accent)] font-bold rounded">
+                        Required
+                      </span>
+                    )}
+                    {usdcApproved && (
+                      <span className="text-[10px] px-2 py-1 border border-[var(--accent)] text-[var(--accent)] font-bold rounded">
+                        Completed
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[var(--text-secondary)]">
+                    Approve USDC so the agent can open and manage positions. Funds stay in your wallet; approval sets a spending limit.
+                  </p>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-3 text-xs">
+                  <div className="border border-[var(--border)] p-3 rounded">
+                    <p className="font-semibold text-[var(--text-primary)]">Suggested allowance</p>
+                    <p className="text-[var(--text-secondary)] mt-1">1,000,000 USDC (to avoid repeated approvals)</p>
+                  </div>
+                  <div className="border border-[var(--border)] p-3 rounded">
+                    <p className="font-semibold text-[var(--text-primary)]">Why needed</p>
+                    <p className="text-[var(--text-secondary)] mt-1">
+                      Lets the agent place and close trades. You can revoke or reduce allowance any time from your wallet.
+                    </p>
+                  </div>
+                </div>
+
+                {txHash && (
+                  <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-3">
+                    <p className="text-[var(--accent)] text-sm mb-2">✓ Transaction confirmed</p>
+                    <a
+                      href={`https://sepolia.arbiscan.io/tx/${txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1"
+                    >
+                      View on Arbiscan <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={goBack}
+                    className="w-32 py-3 border border-[var(--accent)]/60 text-[var(--text-primary)] font-semibold hover:border-[var(--accent)] transition-colors"
+                    type="button"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={approveUsdc}
+                    disabled={loading || usdcApproved}
+                    className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <>
+                        <Activity className="w-5 h-5 animate-pulse" />
+                        SIGNING...
+                      </>
+                    ) : usdcApproved ? (
+                      <>
+                        <CheckCircle className="w-5 h-5" />
+                        USDC APPROVED
+                      </>
+                    ) : (
+                      'APPROVE USDC →'
+                    )}
+                  </button>
+                  {usdcApproved && (
+                    <button
+                      onClick={() => setStep('complete')}
+                      className="w-40 py-3 border border-[var(--accent)] text-[var(--accent)] font-semibold hover:bg-[var(--accent)]/10 transition-colors"
+                      type="button"
+                    >
+                      Next: Finish
+                    </button>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="text-center space-y-6 py-4">
+                <div className="w-16 h-16 mx-auto border border-[var(--accent)] bg-[var(--accent)] flex items-center justify-center">
+                  <CheckCircle className="w-10 h-10 text-[var(--bg-deep)]" />
+                </div>
+                <div>
+                  <h3 className="font-display text-xl mb-2">DEPLOYED</h3>
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Agent is ready to trade on Ostium
+                  </p>
+                </div>
+
+                {txHash && (
                   <a
                     href={`https://sepolia.arbiscan.io/tx/${txHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1"
+                    className="text-sm text-[var(--accent)] hover:underline flex items-center justify-center gap-1"
                   >
-                    View on Arbiscan <ExternalLink className="w-3 h-3" />
+                    View transaction <ExternalLink className="w-3 h-3" />
                   </a>
-                </div>
-              )}
-
-              <button
-                onClick={approveAgent}
-                disabled={loading}
-                className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <Activity className="w-5 h-5 animate-pulse" />
-                    SIGNING...
-                  </>
-                ) : delegateApproved ? (
-                  <>
-                    <CheckCircle className="w-5 h-5" />
-                    DELEGATE APPROVED
-                  </>
-                ) : (
-                  'APPROVE AGENT ACCESS →'
                 )}
-              </button>
-            </>
-          ) : step === 'usdc' ? (
-            <>
-              <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-4">
-                <p className="text-sm text-[var(--accent)]">✓ DELEGATE APPROVED</p>
-                <p className="text-xs text-[var(--text-secondary)] mt-1">
-                  Agent whitelisted to trade on your behalf
-                </p>
-              </div>
 
-              <div className="border border-[var(--border)] p-4 space-y-3 text-sm">
-                <p className="font-bold">STEP 2: APPROVE USDC SPENDING</p>
-                <div className="flex items-start gap-2 text-[var(--text-secondary)]">
-                  <span className="text-[var(--accent)]">→</span>
-                  <span>Sign transaction to approve USDC</span>
+                <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-4 space-y-2 text-sm text-left">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
+                    <span>Agent whitelisted</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
+                    <span>USDC approved</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
+                    <span>Ready to execute signals</span>
+                  </div>
                 </div>
-                <p className="text-xs text-[var(--text-muted)] mt-3">
-                  This allows Ostium to use your USDC for trading.
-                </p>
-              </div>
 
-              <div className="border border-[var(--border)] p-3 text-xs text-[var(--text-secondary)]">
-                <strong className="text-[var(--text-primary)]">TIP:</strong> We're approving $1M to prevent repeated approvals.
-              </div>
-
-              {txHash && (
-                <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-3">
-                  <p className="text-[var(--accent)] text-sm mb-2">✓ Transaction confirmed</p>
-                  <a
-                    href={`https://sepolia.arbiscan.io/tx/${txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1"
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={goBack}
+                    className="px-4 py-3 border border-[var(--accent)]/60 text-[var(--text-primary)] font-semibold hover:border-[var(--accent)] transition-colors"
+                    type="button"
                   >
-                    View on Arbiscan <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              )}
-
-              <button
-                onClick={approveUsdc}
-                disabled={loading}
-                className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <Activity className="w-5 h-5 animate-pulse" />
-                    SIGNING...
-                  </>
-                ) : (
-                  'APPROVE USDC →'
-                )}
-              </button>
-            </>
-          ) : (
-            <div className="text-center space-y-6 py-4">
-              <div className="w-16 h-16 mx-auto border border-[var(--accent)] bg-[var(--accent)] flex items-center justify-center">
-                <CheckCircle className="w-10 h-10 text-[var(--bg-deep)]" />
-              </div>
-              <div>
-                <h3 className="font-display text-xl mb-2">DEPLOYED</h3>
-                <p className="text-sm text-[var(--text-secondary)]">
-                  Agent is ready to trade on Ostium
-                </p>
-              </div>
-
-              {txHash && (
-                <a
-                  href={`https://sepolia.arbiscan.io/tx/${txHash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-[var(--accent)] hover:underline flex items-center justify-center gap-1"
-                >
-                  View transaction <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
-
-              <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-4 space-y-2 text-sm text-left">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
-                  <span>Agent whitelisted</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
-                  <span>USDC approved</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
-                  <span>Ready to execute signals</span>
+                    Back
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="px-4 py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors"
+                    type="button"
+                  >
+                    Close
+                  </button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
-
-      {showPreferencesModal && (
-        <TradingPreferencesModal
-          userWallet={user?.wallet?.address || ''}
-          onClose={() => {
-            // If user closes without saving (Cancel or X button), use default preferences
-            console.log('[OstiumConnect] Preferences modal closed via X/Cancel button');
-            if (!tradingPreferences && !tradingPreferencesRef.current) {
-              console.log('[OstiumConnect] No preferences set yet - using defaults and proceeding');
-              handlePreferencesSet({
-                risk_tolerance: 50,
-                trade_frequency: 50,
-                social_sentiment_weight: 50,
-                price_momentum_focus: 50,
-                market_rank_priority: 50,
-              });
-            } else {
-              console.log('[OstiumConnect] Preferences already set - just closing modal');
-              setShowPreferencesModal(false);
-            }
-          }}
-          localOnly={true}
-          onSaveLocal={handlePreferencesSet}
-          initialPreferences={tradingPreferences || undefined}
-        />
-      )}
     </div>
   );
 }
