@@ -15,6 +15,7 @@ import { OstiumApproval } from '@components/OstiumApproval';
 import { ResearchInstituteSelector } from '@components/ResearchInstituteSelector';
 import { TelegramAlphaUserSelector } from '@components/TelegramAlphaUserSelector';
 import { CtAccountSelector } from '@components/CtAccountSelector';
+import { FaXTwitter } from 'react-icons/fa6';
 
 const wizardSchema = insertAgentSchema.extend({
   description: z.string().max(500).optional(),
@@ -283,13 +284,24 @@ export default function CreateAgent() {
   const steps = [
     { number: 1, label: 'BASIC', icon: User },
     { number: 2, label: 'VENUE', icon: Building2 },
-    { number: 3, label: 'STRATEGY', icon: Sliders },
-    { number: 4, label: 'CT', icon: Twitter },
+    { number: 3, label: 'RESEARCH', icon: Sliders },
+    { number: 4, label: 'CT', icon: FaXTwitter },
     { number: 5, label: 'TELEGRAM', icon: Send },
     { number: 6, label: 'WALLET', icon: Wallet },
     { number: 7, label: 'PROOF', icon: Shield },
     { number: 8, label: 'REVIEW', icon: Eye },
   ];
+
+  const stepDescriptions: Record<number, string> = {
+    1: 'Name your agent and optionally describe its trading style.',
+    2: 'Choose where your agent will execute trades.',
+    3: 'Select research institutes whose signals will drive your agent.',
+    4: 'Pick CT accounts your agent should mirror.',
+    5: 'Connect Telegram alpha sources your agent will listen to.',
+    6: 'Configure the wallet that owns the agent and receives profits.',
+    7: 'Sign a message to prove you are the legitimate creator.',
+    8: 'Review all settings before creating your agent.',
+  };
 
   return (
     <div className="min-h-screen bg-[var(--bg-deep)]">
@@ -334,6 +346,14 @@ export default function CreateAgent() {
                 );
               })}
             </div>
+          </div>
+          <div className="mt-6 text-center">
+            <p className="text-xs font-semibold tracking-[0.16em] text-[var(--text-muted)]">
+              STEP {step} OF {steps.length} · {steps.find((s) => s.number === step)?.label}
+            </p>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              {stepDescriptions[step]}
+            </p>
           </div>
         </div>
 
@@ -583,7 +603,34 @@ export default function CreateAgent() {
           {/* Step 8: Review */}
           {step === 8 && (
             <div className="space-y-6">
-              <h2 className="font-display text-2xl mb-6">REVIEW</h2>
+              <h2 className="font-display text-2xl mb-2">REVIEW</h2>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                <p className="text-sm text-[var(--text-secondary)]">
+                  Review your agent configuration. To change anything, jump back to a step below.
+                </p>
+                <div className="flex items-center gap-2">
+                  <label className="data-label text-xs">JUMP TO STEP</label>
+                  <select
+                    className="px-3 py-2 bg-[var(--bg-deep)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+                    value=""
+                    onChange={(e) => {
+                      const targetStep = Number(e.target.value);
+                      if (!Number.isNaN(targetStep) && targetStep >= 1 && targetStep <= 7) {
+                        setStep(targetStep);
+                      }
+                    }}
+                  >
+                    <option value="">Select…</option>
+                    {steps
+                      .filter((s) => s.number !== 8)
+                      .map((s) => (
+                        <option key={s.number} value={s.number}>
+                          {s.number}. {s.label}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
               <div className="space-y-4">
                 <div className="p-4 border border-[var(--border)] bg-[var(--bg-elevated)]">
                   <p className="data-label mb-1">NAME</p>

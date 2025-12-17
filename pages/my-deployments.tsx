@@ -334,7 +334,7 @@ export default function MyDeployments() {
     <div className="min-h-screen bg-[var(--bg-deep)] border border-[var(--border)]">
       <Header />
 
-      <div className="max-w-6xl mx-auto px-6 py-12">
+      <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Header */}
         <div className="mb-12">
           <p className="data-label mb-2">DASHBOARD</p>
@@ -418,7 +418,7 @@ export default function MyDeployments() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {deployments.map((deployment, index) => (
               <div
                 key={deployment.id}
