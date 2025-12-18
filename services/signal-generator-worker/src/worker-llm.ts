@@ -79,7 +79,7 @@ async function generateAllSignals() {
         // Get all active agents for this signal
         const agents = await prisma.agents.findMany({
           where: {
-            status: "PUBLIC",
+            status: { in: ["PUBLIC", "PRIVATE"] },
             agent_deployments: {
               some: {
                 status: "ACTIVE",
@@ -255,6 +255,74 @@ async function generateSignalForAgentAndToken(
     // Determine side from post sentiment (already classified by LLM)
     const side = post.signal_type === "SHORT" ? "SHORT" : "LONG";
 
+    // Check for existing signal 
+    const now = new Date();
+    const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+
+    const existingSignal = await prisma.signals.findFirst({
+      where: {
+        agent_id: agent.id,
+        deployment_id: deployment.id,
+        token_symbol: token.toUpperCase(),
+        created_at: {
+          gte: sixHoursAgo,
+        },
+      },
+      include: {
+        positions: {
+          where: {
+            deployment_id: deployment.id,
+          },
+          select: {
+            status: true,
+            entry_price: true,
+            qty: true,
+          },
+          take: 1,
+        },
+      },
+    });
+
+    if (existingSignal) {
+      const existingPosition = existingSignal.positions[0];
+
+      if (existingPosition) {
+        const entryPrice = existingPosition.entry_price
+          ? Number(existingPosition.entry_price.toString())
+          : 0;
+        const qty = existingPosition.qty
+          ? Number(existingPosition.qty.toString())
+          : 0;
+
+        const positionFailed =
+          existingPosition.status === "CLOSED" && entryPrice === 0 && qty === 0;
+
+        if (positionFailed) {
+          console.log(
+            `    ⚠️  Existing signal for ${token} failed (position closed with 0 values)`
+          );
+          console.log(
+            `    ✅ Allowing new signal to be created (previous execution failed)`
+          );
+        } else {
+          console.log(
+            `    ⏭️  Signal already exists for ${token} for this deployment (within last 6 hours)`
+          );
+          return false;
+        }
+      } else if (existingSignal.skipped_reason) {
+        console.log(
+          `    ⏭️  Skipped signal already exists for ${token} (within last 6 hours)`
+        );
+        return false;
+      } else {
+        console.log(
+          `    ⏭️  Signal exists but no position yet for ${token} - trade executor will process`
+        );
+        return false;
+      }
+    }
+    
     // Get trading preferences from the specific agent deployment (preferences are per deployment)
     const userTradingPreferences = {
       risk_tolerance: deployment.risk_tolerance,
@@ -436,83 +504,6 @@ async function generateSignalForAgentAndToken(
       }
       
       return false;
-    }
-
-    // This allows each deployment to have separate signals with different LLM decisions
-    const now = new Date();
-    const bucket6hStart = new Date(
-      Math.floor(now.getTime() / (6 * 60 * 60 * 1000)) * 6 * 60 * 60 * 1000
-    );
-
-    // Check if a signal already exists for this deployment/agent/token in the 6-hour window
-    const existingSignal = await prisma.signals.findFirst({
-      where: {
-        agent_id: agent.id,
-        deployment_id: deployment.id,
-        token_symbol: token.toUpperCase(),
-        created_at: {
-          gte: bucket6hStart,
-        },
-      },
-      include: {
-        positions: {
-          where: {
-            deployment_id: deployment.id,
-          },
-          select: {
-            status: true,
-            entry_price: true,
-            qty: true,
-          },
-          take: 1,
-        },
-      },
-    });
-
-    if (existingSignal) {
-      // Signal already exists for this deployment/agent/token in the 6-hour window
-      const existingPosition = existingSignal.positions[0];
-
-      if (existingPosition) {
-        // Check if existing position actually succeeded
-        const entryPrice = existingPosition.entry_price
-          ? Number(existingPosition.entry_price.toString())
-          : 0;
-        const qty = existingPosition.qty
-          ? Number(existingPosition.qty.toString())
-          : 0;
-
-        const positionFailed =
-          existingPosition.status === "CLOSED" && entryPrice === 0 && qty === 0;
-
-        if (positionFailed) {
-          console.log(
-            `    ⚠️  Existing signal for ${token} failed (position closed with 0 values)`
-          );
-          console.log(
-            `    ✅ Allowing new signal to be created (previous execution failed)`
-          );
-          // Continue to create new signal - don't return
-        } else {
-          console.log(
-            `    ⏭️  Signal already exists for ${token} for this deployment (within 6-hour window)`
-          );
-          return false; // Skip - signal and position already exist
-        }
-      } else if (existingSignal.skipped_reason) {
-        console.log(
-          `    ⚠️  Existing signal for ${token} was skipped: ${existingSignal.skipped_reason}`
-        );
-        console.log(
-          `    ✅ Allowing new signal to be created (previous signal was skipped)`
-        );
-        // Continue to create new signal - don't return
-      } else {
-        console.log(
-          `    ⏭️  Signal exists but no position yet for ${token} - trade executor will process`
-        );
-        return false; // Signal exists, trade executor will handle position creation
-      }
     }
 
     // Create signal with LLM decision (per deployment)
