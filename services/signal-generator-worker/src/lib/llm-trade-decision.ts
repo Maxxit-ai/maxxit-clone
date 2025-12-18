@@ -126,6 +126,13 @@ ${lunarcrushSection}
 USER TRADING PREFERENCES:
 ${JSON.stringify(input.userTradingPreferences || "Not available", null, 2)}
 
+Note about Trading Preferences:
+- risk_tolerance (0-100): Higher values indicate greater comfort with risk
+- trade_frequency (0-100): Higher values indicate preference for multiple smaller positions, lower values indicate preference for fewer larger positions
+- social_sentiment_weight (0-100): Higher values indicate more focus on social sentiment in decisions
+- price_momentum_focus (0-100): Higher values indicate more focus on price momentum
+- market_rank_priority (0-100): Higher values indicate more focus on market rankings
+
 USER BALANCE: $${input.userBalance.toFixed(2)} USDC
 MAX ALLOWED LEVERAGE FOR THIS MARKET: ${input.maxLeverage ?? "Unknown"}
 
@@ -148,12 +155,11 @@ GUIDELINES:
 1. Consider the user's trading preferences when making decisions
 2. Account for the confidence score and LunarCrush metrics
 3. Be conservative with high-risk trades
-4. Fund allocation should be proportional to confidence and market conditions
-5. Leverage should be higher for more confident signals with supporting data
+4. Fund allocation and leverage should be proportional to confidence, user's trading preferences and market conditions
 6. Always provide a clear reason for your decision
-7. If confidence is low (<0.5) or data is weak, recommend not trading
-8. A reason should explicitly mention why it chose the fund allocation and leverage given user's balance and trading preferences. (eg. I've $4300 in balance and given my risk tolerance of 80, I'm allocating 25% of my balance to this trade using 3x leverage.)
-9. Do not mention or suggest that any external service or source (such as LunarCrush or other analytics providers) was used to obtain scores or data in your explanation.
+7. A reason should explicitly mention why it chose the fund allocation and leverage given user's balance and trading preferences. (eg. I've $4300 in balance and given my risk tolerance of 80, I'm allocating 25% of my balance to this trade using 3x leverage.)
+8. Do not mention or suggest that any external service or source (such as LunarCrush or other analytics providers) was used to obtain scores or data in your explanation.
+9. Pay special attention to the trade_frequency parameter in user preferences - higher values indicate the user wants to open multiple positions, so fund allocation should reflect this by allowing capital for multiple trades, while lower values indicate preference for fewer, larger positions.
 
 VENUE-SPECIFIC NOTES:
 - For HYPERLIQUID: No explicit leverage (it's built into position sizing)

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Check, Twitter, Search, Plus as PlusIcon, X, Activity } from 'lucide-react';
 import { db } from '../client/src/lib/db';
+import { FaXTwitter } from 'react-icons/fa6';
 
 type CtAccount = {
   id: string;
@@ -64,10 +65,16 @@ export function CtAccountSelector({
     }
   };
 
-  const handleSearchCtAccounts = async () => {
+  useEffect(() => {
     const trimmedSearch = ctAccountSearch.trim();
-    await loadCtAccounts(trimmedSearch || undefined);
-  };
+    if (!trimmedSearch) return;
+
+    const timeoutId = setTimeout(() => {
+      loadCtAccounts(trimmedSearch);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [ctAccountSearch]);
 
   const handleAddCtAccount = async () => {
     if (!newCtUsername.trim()) {
@@ -162,26 +169,14 @@ export function CtAccountSelector({
             type="text"
             value={ctAccountSearch}
             onChange={(e) => {
-              setCtAccountSearch(e.target.value);
-              if (e.target.value === '') loadCtAccounts();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleSearchCtAccounts();
-              }
+              const value = e.target.value;
+              setCtAccountSearch(value);
+              if (value === '') loadCtAccounts();
             }}
             className="w-full pl-10 pr-3 py-2 bg-[var(--bg-deep)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)]"
             placeholder="Search accounts"
           />
         </div>
-        <button
-          type="button"
-          onClick={handleSearchCtAccounts}
-          className="px-4 py-2 bg-[var(--accent)] text-[var(--bg-deep)] font-bold text-sm hover:bg-[var(--accent-dim)] transition-colors"
-        >
-          SEARCH
-        </button>
       </div>
 
       {loadingCtAccounts ? (
@@ -190,7 +185,7 @@ export function CtAccountSelector({
         </div>
       ) : ctAccounts.length === 0 ? (
         <div className="text-center py-12 border border-[var(--border)] bg-[var(--bg-elevated)]">
-          <Twitter className="h-12 w-12 text-[var(--text-muted)] mx-auto mb-3" />
+          <FaXTwitter className="h-12 w-12 text-[var(--text-muted)] mx-auto mb-3" />
           <p className="text-[var(--text-muted)]">
             {ctAccountSearchExecuted ? 'No results found' : 'No accounts yet'}
           </p>
@@ -238,7 +233,7 @@ export function CtAccountSelector({
                         : 'border-[var(--border)]'
                         }`}
                     >
-                      <Twitter
+                      <FaXTwitter
                         className={`h-5 w-5 ${selectedIds.has(account.id) ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'
                           }`}
                       />

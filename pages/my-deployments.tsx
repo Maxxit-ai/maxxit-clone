@@ -77,6 +77,15 @@ export default function MyDeployments() {
   const [agentDeployments, setAgentDeployments] = useState<
     Record<string, string[]>
   >({});
+  const [ostiumDelegationStatus, setOstiumDelegationStatus] = useState<{
+    hasDelegation: boolean;
+    delegatedAddress: string;
+    isDelegatedToAgent: boolean;
+  } | null>(null);
+  const [ostiumUsdcAllowance, setOstiumUsdcAllowance] = useState<{
+    usdcAllowance: number;
+    hasApproval: boolean;
+  } | null>(null);
 
   useEffect(() => {
     if (authenticated && user?.wallet?.address) {
@@ -193,6 +202,43 @@ export default function MyDeployments() {
     }
   }, [activeTab, authenticated, user?.wallet?.address]);
 
+  // Fetch Ostium delegation status and USDC allowance when user has an Ostium address
+  useEffect(() => {
+    async function fetchOstiumStatus() {
+      if (!authenticated || !user?.wallet?.address || !userAgentAddresses?.ostium) {
+        return;
+      }
+
+      try {
+        const [delegationResponse, allowanceResponse] = await Promise.all([
+          fetch(`/api/ostium/check-delegation-status?userWallet=${user.wallet.address}&agentAddress=${userAgentAddresses.ostium}`),
+          fetch(`/api/ostium/check-approval-status?userWallet=${user.wallet.address}`)
+        ]);
+
+        if (delegationResponse.ok) {
+          const delegationData = await delegationResponse.json();
+          setOstiumDelegationStatus({
+            hasDelegation: delegationData.hasDelegation,
+            delegatedAddress: delegationData.delegatedAddress,
+            isDelegatedToAgent: delegationData.isDelegatedToAgent,
+          });
+        }
+
+        if (allowanceResponse.ok) {
+          const allowanceData = await allowanceResponse.json();
+          setOstiumUsdcAllowance({
+            usdcAllowance: allowanceData.usdcAllowance,
+            hasApproval: allowanceData.hasApproval,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching Ostium status:', error);
+      }
+    }
+
+    fetchOstiumStatus();
+  }, [authenticated, user?.wallet?.address, userAgentAddresses?.ostium]);
+
   const handleConnectTelegram = (deploymentId: string) => {
     setSelectedDeploymentId(deploymentId);
     setTelegramModalOpen(true);
@@ -288,7 +334,7 @@ export default function MyDeployments() {
     <div className="min-h-screen bg-[var(--bg-deep)] border border-[var(--border)]">
       <Header />
 
-      <div className="max-w-6xl mx-auto px-6 py-12">
+      <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Header */}
         <div className="mb-12">
           <p className="data-label mb-2">DASHBOARD</p>
@@ -333,6 +379,8 @@ export default function MyDeployments() {
               onDeployClick={handleDeployClick}
               userAgentAddresses={userAgentAddresses}
               agentDeployments={agentDeployments}
+              ostiumDelegationStatus={ostiumDelegationStatus}
+              ostiumUsdcAllowance={ostiumUsdcAllowance}
             />
           </div>
         ) : !authenticated ? (
@@ -370,7 +418,7 @@ export default function MyDeployments() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {deployments.map((deployment, index) => (
               <div
                 key={deployment.id}

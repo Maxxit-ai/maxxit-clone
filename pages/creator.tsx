@@ -325,8 +325,8 @@ export default function Creator() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="container mx-auto px-4 py-8">
-          <h1 className="text-4xl font-bold text-foreground mb-8">
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <h1 className="font-display text-4xl font-bold text-foreground mb-8 uppercase">
             Creator Dashboard
           </h1>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -366,14 +366,14 @@ export default function Creator() {
   return (
     <div className="min-h-screen bg-background border border-[var(--border)]">
       <Header />
-      <div className="container mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h1
               className="text-4xl md:text-5xl font-display font-bold bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent mb-2"
               data-testid="text-title"
             >
-              Creator Dashboard
+              CREATOR DASHBOARD
             </h1>
             <p className="text-muted-foreground">
               Monitor your agents' performance and earnings
