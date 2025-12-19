@@ -26,6 +26,7 @@ if (!BOT_TOKEN) {
 let workerInterval: NodeJS.Timeout | null = null;
 let notificationsSent = 0;
 let notificationsFailed = 0;
+let isCycleRunning = false;
 
 // Health check server
 const app = express();
@@ -40,6 +41,7 @@ app.get("/health", async (req, res) => {
     notificationsSent,
     notificationsFailed,
     timestamp: new Date().toISOString(),
+    isCycleRunning,
   });
 });
 
@@ -48,6 +50,13 @@ const server = app.listen(PORT, () => {
 });
 
 async function processNotifications() {
+  if (isCycleRunning) {
+    console.log("[TelegramNotification] ⏭️ Skipping cycle - previous cycle still running");
+    return;
+  }
+
+  isCycleRunning = true;
+
   console.log(
     "\n╔═══════════════════════════════════════════════════════════════╗"
   );
@@ -345,6 +354,8 @@ async function processNotifications() {
       success: false,
       error: error.message,
     };
+  } finally {
+    isCycleRunning = false;
   }
 }
 
