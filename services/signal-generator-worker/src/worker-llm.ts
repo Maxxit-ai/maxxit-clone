@@ -504,6 +504,7 @@ async function generateSignalForAgentAndToken(
             llm_should_trade: tradeDecision.shouldTrade,
             llm_fund_allocation: tradeDecision.fundAllocation,
             llm_leverage: tradeDecision.leverage,
+            trade_executed: null,
           },
         });
 
@@ -540,6 +541,7 @@ async function generateSignalForAgentAndToken(
           llm_should_trade: tradeDecision.shouldTrade,
           llm_fund_allocation: tradeDecision.fundAllocation,
           llm_leverage: tradeDecision.leverage,
+          trade_executed: null,
         },
       });
 
