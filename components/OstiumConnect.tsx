@@ -40,6 +40,7 @@ export function OstiumConnect({
   const [usdcApproved, setUsdcApproved] = useState(false);
   const [deploymentId, setDeploymentId] = useState<string>('');
   const [step, setStep] = useState<'connect' | 'preferences' | 'agent' | 'delegate' | 'usdc' | 'complete'>('connect');
+  const [joiningAgent, setJoiningAgent] = useState(false);
 
   // Trading preferences stored locally until all approvals complete
   const [tradingPreferences, setTradingPreferences] = useState<TradingPreferences | null>(null);
@@ -113,14 +114,13 @@ export function OstiumConnect({
 
             if (approvalData.hasApproval) {
               // User has valid USDC approval - they've done the flow before
-              // Skip ALL approval steps and just create the deployment
-              console.log('[OstiumConnect] ✅ Wallet already has approvals - skipping to deployment');
+              // Skip ALL approval steps and go to complete step
+              console.log('[OstiumConnect] ✅ Wallet already has approvals - skipping to complete step');
               setAgentAddress(setupData.addresses.ostium);
               setDelegateApproved(true);
               setUsdcApproved(true);
-
-              // Create deployment for this new agent with trading preferences
-              await createDeploymentDirectly(user.wallet.address);
+              setStep('complete');
+              setLoading(false);
               return;
             } else {
               // User has address but USDC approval was revoked - need to re-approve
@@ -163,52 +163,13 @@ export function OstiumConnect({
   };
 
   const createDeploymentDirectly = async (wallet: string) => {
-    setLoading(true);
-    setError('');
-
-    try {
-      const requestBody: Record<string, unknown> = {
-        agentId,
-        userWallet: wallet,
-      };
-
-      // Include trading preferences if available (always use ref to avoid stale state)
-      if (tradingPreferencesRef.current) {
-        requestBody.tradingPreferences = tradingPreferencesRef.current;
-        console.log('[OstiumConnect] Creating deployment directly with preferences:', tradingPreferencesRef.current);
-      } else {
-        console.warn('[OstiumConnect] Creating deployment without preferences - will use defaults');
-      }
-
-      console.log('[OstiumConnect] Request body:', requestBody);
-
-      const response = await fetch('/api/ostium/create-deployment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create deployment');
-      }
-
-      const data = await response.json();
-      setDeploymentId(data.deployment.id);
-      setStep('complete');
-      setDelegateApproved(true);
-      setUsdcApproved(true);
-
-      // Call onSuccess immediately to refresh setup status, but don't auto-close
-      if (onSuccess) {
-        onSuccess();
-      }
-    } catch (err: any) {
-      console.error('Error creating deployment:', err);
-      setError(err.message || 'Failed to create deployment');
-    } finally {
-      setLoading(false);
-    }
+    // Skip deployment creation - just set up the UI state
+    // Deployment will be created when user clicks "Join Agent" in the complete step
+    console.log('[OstiumConnect] ✅ Wallet already has approvals - skipping to complete step without deployment');
+    setDelegateApproved(true);
+    setUsdcApproved(true);
+    setStep('complete');
+    setLoading(false);
   };
 
   const assignAgent = async () => {
@@ -249,35 +210,9 @@ export function OstiumConnect({
       console.log('[OstiumConnect] Agent address assigned:', agentAddr);
       setAgentAddress(agentAddr);
 
-      const deployRequestBody: Record<string, unknown> = {
-        agentId,
-        userWallet: user?.wallet?.address,
-      };
-
-      // Include trading preferences if available (use ref to avoid stale values)
-      if (tradingPreferencesRef.current) {
-        deployRequestBody.tradingPreferences = tradingPreferencesRef.current;
-        console.log('[OstiumConnect] Including trading preferences in deployment:', tradingPreferencesRef.current);
-      } else {
-        console.warn('[OstiumConnect] No trading preferences found - using defaults');
-      }
-
-      console.log('[OstiumConnect] Sending deployment request:', deployRequestBody);
-
-      const deployResponse = await fetch('/api/ostium/create-deployment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(deployRequestBody),
-      });
-
-      if (!deployResponse.ok) {
-        const errorData = await deployResponse.json();
-        throw new Error(errorData.error || 'Failed to create deployment');
-      }
-
-      const deployData = await deployResponse.json();
-      console.log('[OstiumConnect] Deployment created:', deployData.deployment.id);
-      setDeploymentId(deployData.deployment.id);
+      // Don't create deployment here - just assign the agent address
+      // Deployment will be created when user clicks "Join Agent" in the complete step
+      console.log('[OstiumConnect] Agent address assigned, skipping deployment creation');
       setStep('delegate');
     } catch (err: any) {
       console.error('[OstiumConnect] Failed to assign agent:', err);
@@ -285,6 +220,53 @@ export function OstiumConnect({
     } finally {
       setLoading(false);
       isAssigningRef.current = false;
+    }
+  };
+
+  const joinAgent = async () => {
+    setJoiningAgent(true);
+    setError('');
+
+    try {
+      const requestBody: Record<string, unknown> = {
+        agentId,
+        userWallet: user?.wallet?.address,
+      };
+
+      // Include trading preferences if available (always use ref to avoid stale state)
+      if (tradingPreferencesRef.current) {
+        requestBody.tradingPreferences = tradingPreferencesRef.current;
+        console.log('[OstiumConnect] Creating deployment with preferences:', tradingPreferencesRef.current);
+      } else {
+        console.warn('[OstiumConnect] Creating deployment without preferences - will use defaults');
+      }
+
+      console.log('[OstiumConnect] Creating deployment:', requestBody);
+
+      const response = await fetch('/api/ostium/create-deployment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create deployment');
+      }
+
+      const data = await response.json();
+      setDeploymentId(data.deployment.id);
+      console.log('[OstiumConnect] ✅ Deployment created successfully:', data.deployment.id);
+
+      // Call onSuccess to refresh setup status
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (err: any) {
+      console.error('Error creating deployment:', err);
+      setError(err.message || 'Failed to join agent');
+    } finally {
+      setJoiningAgent(false);
     }
   };
 
@@ -475,10 +457,8 @@ export function OstiumConnect({
       setUsdcApproved(true);
       setStep('complete');
 
-      // Call onSuccess but don't auto-close - let user close manually
-      if (onSuccess) {
-        onSuccess();
-      }
+      // Don't call onSuccess here - wait until deployment is actually created
+      // onSuccess will be called in joinAgent function
 
     } catch (err: any) {
       console.error('USDC approval error:', err);
@@ -666,11 +646,11 @@ export function OstiumConnect({
                     : 'border-[var(--border)] text-[var(--text-muted)]'
                     }`}
                 >
-                  ✓
+                  5
                 </span>
                 <div>
-                  <p className="font-semibold">Agent live</p>
-                  <p className="text-[10px] text-[var(--text-muted)]">Signals will start executing automatically.</p>
+                  <p className="font-semibold">Join Agent</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Deploy the agent and start trading.</p>
                 </div>
               </li>
             </ol>
@@ -958,15 +938,15 @@ export function OstiumConnect({
                   )}
                 </div>
               </>
-            ) : (
+            ) : deploymentId ? (
               <div className="text-center space-y-6 py-4">
                 <div className="w-16 h-16 mx-auto border border-[var(--accent)] bg-[var(--accent)] flex items-center justify-center">
                   <CheckCircle className="w-10 h-10 text-[var(--bg-deep)]" />
                 </div>
                 <div>
-                  <h3 className="font-display text-xl mb-2">DEPLOYED</h3>
+                  <h3 className="font-display text-xl mb-2">AGENT DEPLOYED</h3>
                   <p className="text-sm text-[var(--text-secondary)]">
-                    Agent is ready to trade on Ostium
+                    Agent is now live and ready to trade on Ostium
                   </p>
                 </div>
 
@@ -992,6 +972,10 @@ export function OstiumConnect({
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
+                    <span>Agent deployed and active</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
                     <span>Ready to execute signals</span>
                   </div>
                 </div>
@@ -1010,6 +994,63 @@ export function OstiumConnect({
                     type="button"
                   >
                     Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center space-y-6 py-4">
+                <div className="w-16 h-16 mx-auto border border-[var(--accent)] flex items-center justify-center">
+                  <Zap className="w-10 h-10 text-[var(--accent)]" />
+                </div>
+                <div>
+                  <h3 className="font-display text-xl mb-2">AGENT LIVE</h3>
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    All approvals complete. Ready to deploy the agent.
+                  </p>
+                </div>
+
+                <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-4 space-y-2 text-sm text-left">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
+                    <span>Agent whitelisted</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
+                    <span>USDC approved</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border border-[var(--accent)] rounded-full flex items-center justify-center">
+                      <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-pulse" />
+                    </div>
+                    <span>Ready to deploy agent</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={goBack}
+                    className="px-4 py-3 border border-[var(--accent)]/60 text-[var(--text-primary)] font-semibold hover:border-[var(--accent)] transition-colors"
+                    type="button"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={joinAgent}
+                    disabled={joiningAgent}
+                    className="px-6 py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center gap-2"
+                    type="button"
+                  >
+                    {joiningAgent ? (
+                      <>
+                        <Activity className="w-5 h-5 animate-spin" />
+                        JOINING AGENT...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-5 h-5" />
+                        JOIN AGENT
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
