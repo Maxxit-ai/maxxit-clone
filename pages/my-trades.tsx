@@ -351,7 +351,7 @@ export default function MyTrades() {
   const showingEnd = total === 0 ? 0 : Math.min(page * pageSize, total);
 
   return (
-    <div className="min-h-screen bg-[var(--bg-deep)]">
+    <div className="min-h-screen bg-[var(--bg-deep)] border border-[var(--border)]">
       <Header />
 
       <div className="max-w-7xl mx-auto px-6 py-12">
@@ -532,7 +532,7 @@ export default function MyTrades() {
             </div>
 
             {loading ? (
-              <div className="space-y-4">
+              <div className="space-y-4 border border-[var(--border)] bg-[var(--bg-surface)] p-4">
                 {[1, 2, 3].map((idx) => (
                   <div
                     key={idx}
@@ -577,7 +577,7 @@ export default function MyTrades() {
                     Try adjusting filters.
                   </p>
                   <a
-                    href="/"
+                    href="/#agents"
                     className="px-8 py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors"
                   >
                     BROWSE AGENTS
