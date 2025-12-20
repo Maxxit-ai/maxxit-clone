@@ -123,9 +123,13 @@ export default function LazyTrading() {
         // Set the current step based on progress
         setStep(data.step as Step);
 
-        // If on ostium step, check delegation/allowance status
+        // If on ostium step, set address and check delegation/allowance status
         if (data.step === "ostium" && data.ostiumAgentAddress) {
-          checkOstiumStatus();
+          setOstiumAgentAddress(data.ostiumAgentAddress);
+          // Check status after address is set (useEffect will handle this)
+        } else if (data.ostiumAgentAddress) {
+          // Even if not on ostium step, set the address for future use
+          setOstiumAgentAddress(data.ostiumAgentAddress);
         }
       } else {
         // No existing setup, start fresh
@@ -154,17 +158,36 @@ export default function LazyTrading() {
     };
   }, [step, linkCode, telegramUser]);
 
+  // Check Ostium status when on ostium step and agent address is available
+  useEffect(() => {
+    if (step === "ostium" && user?.wallet?.address && ostiumAgentAddress) {
+      console.log(
+        "[Ostium] Agent address available, checking delegation status..."
+      );
+      checkOstiumStatus();
+    }
+  }, [step, user?.wallet?.address, ostiumAgentAddress]);
+
   const checkTelegramStatus = async () => {
-    if (!user?.wallet?.address) return;
+    if (!user?.wallet?.address) {
+      console.log("[Telegram] Cannot check status: no wallet address");
+      return;
+    }
 
     setCheckingTelegram(true);
     try {
+      console.log(
+        "[Telegram] Checking connection status for wallet:",
+        user.wallet.address
+      );
+
       // Include linkCode in the query if we have one (for polling)
       const queryParams = new URLSearchParams({
         userWallet: user.wallet.address,
       });
       if (linkCode) {
         queryParams.append("linkCode", linkCode);
+        console.log("[Telegram] Using link code:", linkCode);
       }
 
       const response = await fetch(
@@ -172,8 +195,18 @@ export default function LazyTrading() {
       );
       const data = await response.json();
 
+      console.log("[Telegram] Status check response:", {
+        success: data.success,
+        connected: data.connected,
+        hasTelegramUser: !!data.telegramUser,
+        telegramUser: data.telegramUser,
+      });
+
       if (data.success && data.connected && data.telegramUser) {
-        console.log("[LazyTrading] ✅ Telegram connected:", data.telegramUser);
+        console.log(
+          "[Telegram] ✅ Telegram connected:",
+          data.telegramUser.telegram_username || data.telegramUser.first_name
+        );
         setTelegramUser(data.telegramUser);
         // Clear linkCode to stop polling and show connected state
         setLinkCode("");
@@ -184,7 +217,7 @@ export default function LazyTrading() {
         setStep("telegram");
       } else {
         // Still waiting for connection
-        console.log("[LazyTrading] ⏳ Still waiting for connection...", {
+        console.log("[Telegram] ⏳ Still waiting for connection...", {
           success: data.success,
           connected: data.connected,
           hasTelegramUser: !!data.telegramUser,
@@ -192,7 +225,7 @@ export default function LazyTrading() {
         setStep("telegram");
       }
     } catch (err) {
-      console.error("Error checking telegram status:", err);
+      console.error("[Telegram] ❌ Error checking telegram status:", err);
       setStep("telegram");
     } finally {
       setCheckingTelegram(false);
@@ -270,13 +303,16 @@ export default function LazyTrading() {
 
         if (data.ostiumAgentAddress) {
           setOstiumAgentAddress(data.ostiumAgentAddress);
+          // Wait a bit for state to update, then check status
+          setTimeout(() => {
+            checkOstiumStatus();
+          }, 100);
         } else {
           // Generate agent address if not returned
           await generateOstiumAddress();
+          // checkOstiumStatus will be called via useEffect when address is set
         }
 
-        // Check if user already has delegation and allowance
-        await checkOstiumStatus();
         setStep("ostium");
       } else {
         setError(data.error || "Failed to create agent");
@@ -308,9 +344,24 @@ export default function LazyTrading() {
   };
 
   const checkOstiumStatus = async () => {
-    if (!user?.wallet?.address) return;
+    if (!user?.wallet?.address) {
+      console.log("[Ostium] Cannot check status: no wallet address");
+      return;
+    }
+
+    if (!ostiumAgentAddress) {
+      console.log("[Ostium] Cannot check status: no agent address yet");
+      return;
+    }
 
     try {
+      console.log(
+        "[Ostium] Checking delegation status for:",
+        user.wallet.address,
+        "->",
+        ostiumAgentAddress
+      );
+
       // Check delegation status
       const delegationResponse = await fetch(
         `/api/ostium/check-delegation-status?userWallet=${user.wallet.address}&agentAddress=${ostiumAgentAddress}`
@@ -318,9 +369,25 @@ export default function LazyTrading() {
 
       if (delegationResponse.ok) {
         const delegationData = await delegationResponse.json();
+        console.log("[Ostium] Delegation check result:", delegationData);
+
         if (delegationData.isDelegatedToAgent) {
+          console.log("[Ostium] ✅ Delegation is complete");
           setDelegationComplete(true);
+        } else {
+          console.log(
+            "[Ostium] ⚠️ Delegation not found or to different address:",
+            delegationData.delegatedAddress,
+            "expected:",
+            ostiumAgentAddress
+          );
+          setDelegationComplete(false);
         }
+      } else {
+        console.error(
+          "[Ostium] Failed to check delegation:",
+          await delegationResponse.text()
+        );
       }
 
       // Check USDC allowance
@@ -330,12 +397,22 @@ export default function LazyTrading() {
 
       if (allowanceResponse.ok) {
         const allowanceData = await allowanceResponse.json();
+        console.log("[Ostium] Allowance check result:", allowanceData);
+
         if (allowanceData.hasApproval) {
+          console.log("[Ostium] ✅ Allowance is complete");
           setAllowanceComplete(true);
+        } else {
+          setAllowanceComplete(false);
         }
+      } else {
+        console.error(
+          "[Ostium] Failed to check allowance:",
+          await allowanceResponse.text()
+        );
       }
     } catch (err) {
-      console.error("Error checking Ostium status:", err);
+      console.error("[Ostium] Error checking Ostium status:", err);
     }
   };
 
@@ -664,13 +741,35 @@ export default function LazyTrading() {
                         : telegramUser.first_name || "Connected"}
                     </p>
                   </div>
-                  <button
-                    onClick={() => setStep("preferences")}
-                    className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-2"
-                  >
-                    CONTINUE
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
+
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setStep("preferences")}
+                      className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-2"
+                    >
+                      CONTINUE
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+
+                    {/* Manual Refresh Button */}
+                    <button
+                      onClick={checkTelegramStatus}
+                      disabled={checkingTelegram || !user?.wallet?.address}
+                      className="w-full py-2 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {checkingTelegram ? (
+                        <>
+                          <Activity className="w-4 h-4 animate-pulse" />
+                          Checking...
+                        </>
+                      ) : (
+                        <>
+                          <Activity className="w-4 h-4" />
+                          Refresh Connection Status
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               ) : linkCode ? (
                 <div className="space-y-4">
@@ -741,10 +840,29 @@ export default function LazyTrading() {
 
                   <div className="border border-[var(--accent)]/40 bg-[var(--accent)]/5 p-4 flex items-center gap-3">
                     <Activity className="w-5 h-5 text-[var(--accent)] animate-pulse flex-shrink-0" />
-                    <p className="text-sm text-[var(--text-secondary)]">
+                    <p className="text-sm text-[var(--text-secondary)] flex-1">
                       Waiting for Telegram connection...
                     </p>
                   </div>
+
+                  {/* Manual Refresh Button */}
+                  <button
+                    onClick={checkTelegramStatus}
+                    disabled={checkingTelegram || !user?.wallet?.address}
+                    className="w-full py-2 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {checkingTelegram ? (
+                      <>
+                        <Activity className="w-4 h-4 animate-pulse" />
+                        Checking...
+                      </>
+                    ) : (
+                      <>
+                        <Activity className="w-4 h-4" />
+                        Refresh Connection Status
+                      </>
+                    )}
+                  </button>
                 </div>
               ) : (
                 <button
@@ -848,20 +966,31 @@ export default function LazyTrading() {
                 </div>
 
                 {!delegationComplete && (
-                  <button
-                    onClick={approveDelegation}
-                    disabled={loading}
-                    className="w-full py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {loading && !allowanceComplete ? (
-                      <>
-                        <Activity className="w-5 h-5 animate-pulse" />
-                        SIGNING...
-                      </>
-                    ) : (
-                      "APPROVE DELEGATION"
+                  <div className="space-y-2">
+                    <button
+                      onClick={approveDelegation}
+                      disabled={loading || !ostiumAgentAddress}
+                      className="w-full py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {loading && !allowanceComplete ? (
+                        <>
+                          <Activity className="w-5 h-5 animate-pulse" />
+                          SIGNING...
+                        </>
+                      ) : (
+                        "APPROVE DELEGATION"
+                      )}
+                    </button>
+                    {ostiumAgentAddress && (
+                      <button
+                        onClick={checkOstiumStatus}
+                        disabled={loading}
+                        className="w-full py-2 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                      >
+                        Refresh Status
+                      </button>
                     )}
-                  </button>
+                  </div>
                 )}
               </div>
 
