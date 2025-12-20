@@ -376,8 +376,6 @@ export function OstiumConnect({
       await ethersProvider.send('eth_requestAccounts', []);
 
       const network = await ethersProvider.getNetwork();
-      console.log("network.chainId", network.chainId);
-      console.log("ARBITRUM_CHAIN_ID", ARBITRUM_CHAIN_ID);
       if (network.chainId !== ARBITRUM_CHAIN_ID) {
         throw new Error('Please switch to Arbitrum');
       }
@@ -577,8 +575,8 @@ export function OstiumConnect({
               <Zap className="h-5 w-5 text-[var(--accent)]" />
             </div>
             <div>
-              <p className="data-label mb-1">OSTIUM JOURNEY</p>
-              <h2 className="font-display text-xl">Deploy {agentName} on Ostium</h2>
+              <p className="data-label mb-1">JOIN ALPHA CLUB</p>
+              <h2 className="font-display text-xl">Join {agentName}</h2>
             </div>
           </div>
           <button
@@ -596,7 +594,7 @@ export function OstiumConnect({
             <div>
               <p className="text-xs font-semibold text-[var(--text-muted)] mb-2">Your setup journey</p>
               <p className="text-xs text-[var(--text-secondary)]">
-                Follow the steps to connect your wallet, tune how the agent trades, and approve Ostium to execute on your behalf.
+                Follow the steps to connect your wallet, set your trading style, and let the agent trade on your behalf.
               </p>
             </div>
 
@@ -641,8 +639,8 @@ export function OstiumConnect({
                   3
                 </span>
                 <div>
-                  <p className="font-semibold">Delegate access</p>
-                  <p className="text-[10px] text-[var(--text-muted)]">Whitelist the agent wallet.</p>
+                  <p className="font-semibold">Assign trading agent</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Let the agent trade on your behalf.</p>
                 </div>
               </li>
 
@@ -656,8 +654,8 @@ export function OstiumConnect({
                   4
                 </span>
                 <div>
-                  <p className="font-semibold">Approve USDC spend</p>
-                  <p className="text-[10px] text-[var(--text-muted)]">Let Ostium use your USDC for trades.</p>
+                  <p className="font-semibold">Provide funds (non-custodial)</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Funds stay in your wallet, only routed to Ostium.</p>
                 </div>
               </li>
 
@@ -795,7 +793,7 @@ export function OstiumConnect({
               <>
                 <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-4 space-y-2 rounded">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-[var(--accent)] font-semibold">Step 3 · Delegate access</p>
+                    <p className="text-sm text-[var(--accent)] font-semibold">Step 3 · Assign Agent to Trade for You</p>
                     {delegateApproved && (
                       <span className="text-[10px] px-2 py-1 border border-[var(--accent)] text-[var(--accent)] font-bold rounded">
                         Completed
@@ -803,19 +801,19 @@ export function OstiumConnect({
                     )}
                   </div>
                   <p className="text-xs text-[var(--text-secondary)]">
-                    Whitelist the agent wallet so it can trade on your behalf. This step is permanent unless you revoke delegation.
+                    This assigns your Alpha Club's trading wallet to execute trades on your behalf. The agent can open and close positions, but <strong className="text-[var(--accent)]">cannot withdraw your funds</strong>.
                   </p>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-3 text-xs">
                   <div className="border border-[var(--border)] p-3 rounded">
-                    <p className="font-semibold text-[var(--text-primary)]">Agent wallet</p>
+                    <p className="font-semibold text-[var(--text-primary)]">Trading wallet assigned</p>
                     <p className="font-mono break-all text-[var(--text-secondary)] mt-1">{agentAddress}</p>
                   </div>
-                  <div className="border border-[var(--border)] p-3 rounded">
-                    <p className="font-semibold text-[var(--text-primary)]">What this allows</p>
+                  <div className="border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-3 rounded">
+                    <p className="font-semibold text-[var(--accent)]">🔒 Your funds stay safe</p>
                     <p className="text-[var(--text-secondary)] mt-1">
-                      Trading delegation only; funds remain in your wallet. USDC spending still needs approval in the next step.
+                      Agent can only trade. It cannot withdraw, transfer, or access any other tokens. Revoke anytime.
                     </p>
                   </div>
                 </div>
@@ -874,21 +872,9 @@ export function OstiumConnect({
               </>
             ) : step === 'usdc' ? (
               <>
-                {/* <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-4 rounded">
+                <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-4 space-y-3 text-sm rounded">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-[var(--accent)] font-semibold">Step 3 complete · Delegation approved</p>
-                    <span className="text-[10px] px-2 py-1 border border-[var(--accent)] text-[var(--accent)] font-bold rounded">
-                      Done
-                    </span>
-                  </div>
-                  <p className="text-xs text-[var(--text-secondary)] mt-1">
-                    Agent wallet is whitelisted to trade on your behalf.
-                  </p>
-                </div> */}
-
-                <div className="border border-[var(--border)] p-4 space-y-3 text-sm rounded">
-                  <div className="flex items-center justify-between">
-                    <p className="font-bold">STEP 4: APPROVE USDC SPENDING</p>
+                    <p className="font-bold text-[var(--accent)]">STEP 4: PROVIDE FUNDS TO AGENT (NON-CUSTODIAL)</p>
                     {!usdcApproved && (
                       <span className="text-[10px] px-2 py-1 border border-[var(--accent)] text-[var(--accent)] font-bold rounded">
                         Required
@@ -901,19 +887,21 @@ export function OstiumConnect({
                     )}
                   </div>
                   <p className="text-[var(--text-secondary)]">
-                    Approve USDC so the agent can open and manage positions. Funds stay in your wallet; approval sets a spending limit.
+                    You're allowing the agent to use your USDC for trading on Ostium. This is <strong className="text-[var(--accent)]">100% non-custodial</strong>: your funds never leave your wallet — they're only routed to Ostium for position management.
                   </p>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-3 text-xs">
-                  <div className="border border-[var(--border)] p-3 rounded">
-                    <p className="font-semibold text-[var(--text-primary)]">Suggested allowance</p>
-                    <p className="text-[var(--text-secondary)] mt-1">1,000,000 USDC (to avoid repeated approvals)</p>
+                  <div className="border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-3 rounded">
+                    <p className="font-semibold text-[var(--accent)]">🔒 Non-custodial guarantee</p>
+                    <p className="text-[var(--text-secondary)] mt-1">
+                      Funds stay in YOUR wallet. Agent can only route USDC to Ostium for trades — cannot withdraw or transfer elsewhere.
+                    </p>
                   </div>
                   <div className="border border-[var(--border)] p-3 rounded">
-                    <p className="font-semibold text-[var(--text-primary)]">Why needed</p>
+                    <p className="font-semibold text-[var(--text-primary)]">Full control</p>
                     <p className="text-[var(--text-secondary)] mt-1">
-                      Lets the agent place and close trades. You can revoke or reduce allowance any time from your wallet.
+                      Revoke or reduce this allowance anytime from your wallet. Agent cannot access other tokens.
                     </p>
                   </div>
                 </div>
