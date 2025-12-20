@@ -124,13 +124,13 @@ export function Header() {
           <div className="flex items-center gap-2">
             <nav className="hidden lg:flex items-center gap-1">
               {renderNavLinks()}
-              <Link href="/create-agent">
+              <Link href="/#agents">
                 <button
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[var(--accent)] text-[var(--bg-deep)] text-sm font-bold hover:bg-[var(--accent-dim)] transition-colors ml-2"
                   data-testid="nav-create"
                 >
                   <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">Create</span>
+                  <span className="hidden sm:inline">Join</span>
                 </button>
               </Link>
 

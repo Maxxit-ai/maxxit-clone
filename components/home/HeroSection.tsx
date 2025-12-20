@@ -158,18 +158,31 @@ const HeroSection = memo(({ onDeployScroll, onLearnMoreScroll }: HeroSectionProp
           />
         </h1>
 
-        <p className="max-w-4xl mx-auto mb-10 text-base md:text-lg text-[var(--text-secondary)] leading-relaxed">
-          Three AI agents work together: one finds the best alpha from research institutes and crypto Twitter,
-          one becomes your 24/7 trading clone that sets position size and leverage, and one routes trades
-          to the optimal venue for gasless, non-custodial execution.
+        <p className="max-w-4xl mx-auto mb-8  md:text-xl text-[var(--text-secondary)] leading-relaxed">
+          Join an Alpha Club to automate your trading. Three AI agents work together to find signals, execute with your risk style, and route to the best venue — all while your funds stay in your wallet.
         </p>
+
+        {/* <ul className="max-w-3xl mx-auto mb-10 text-base md:text-lg text-[var(--text-secondary)] space-y-3 text-left">
+          <li className="flex items-start gap-3">
+            <span className="text-accent mt-1 flex-shrink-0">•</span>
+            <span><strong className="text-[var(--text-primary)]">Agent WHAT</strong> — Finds the best alpha from research institutes and crypto Twitter</span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="text-accent mt-1 flex-shrink-0">•</span>
+            <span><strong className="text-[var(--text-primary)]">Agent HOW</strong> — Becomes your 24/7 trading clone that sets position size and leverage</span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="text-accent mt-1 flex-shrink-0">•</span>
+            <span><strong className="text-[var(--text-primary)]">Agent WHERE</strong> — Routes trades to the optimal venue for gasless, non-custodial execution</span>
+          </li>
+        </ul> */}
 
         <div className="flex flex-wrap justify-center gap-4 mb-16">
           <button
             onClick={handleDeployClick}
             className="group px-8 py-4 bg-accent text-[var(--bg-deep)] font-bold text-lg hover:bg-[var(--accent-dim)] transition-all"
           >
-            DEPLOY AN AGENT
+            JOIN ALPHA CLUB
             <span className="inline-block ml-2 group-hover:translate-x-1 transition-transform">→</span>
           </button>
           <button

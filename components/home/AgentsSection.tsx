@@ -228,12 +228,12 @@ const AgentsSection = ({ agents, loading, error, onCardClick, onDeployClick, use
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 pb-8 border-b-2 border-[var(--border)]">
             <div>
-              <p className="data-label mb-4">DEPLOY NOW</p>
+              <p className="data-label mb-4">JOIN NOW</p>
               <h2 className="font-display text-4xl md:text-5xl">
-                LIVE <span className="text-accent">AGENTS</span>
+                <span className="text-accent">ALPHA</span> CLUBS
               </h2>
               <p className="text-[var(--text-secondary)] mt-2">
-                Each agent has unique alpha sources and trading strategies
+                Each club has unique alpha sources and trading strategies
               </p>
             </div>
             <div className="flex items-center gap-4">
@@ -244,17 +244,17 @@ const AgentsSection = ({ agents, loading, error, onCardClick, onDeployClick, use
               </div>
               <Link href="/create-agent">
                 <button className="group px-4 py-2 border-2 border-[var(--border)] bg-[var(--bg-surface)] text-sm font-bold hover:border-accent hover:text-accent hover:bg-accent/5 transition-all flex items-center gap-2">
-                  <Zap className="group-hover:rotate-12 transition-transform" size={14} />
-                  CREATE AGENT
+                  <Plus className="group-hover:rotate-12 transition-transform" size={14} />
+                  CREATE CLUB
                 </button>
               </Link>
             </div>
           </div>
 
-          {/* Agent Addresses Display - Single Location */}
+          {/* Trading Wallets Display - Single Location */}
           {userAgentAddresses && (userAgentAddresses.hyperliquid || userAgentAddresses.ostium) && (
             <div className="mb-8 p-4 border border-[var(--accent)]/40 bg-[var(--accent)]/5">
-              <p className="data-label mb-3">YOUR AGENT WALLETS</p>
+              <p className="data-label mb-3">YOUR TRADING WALLETS</p>
               <div className="grid md:grid-cols-2 gap-3">
                 {/* {userAgentAddresses.hyperliquid && (
                   <div className="flex items-center justify-between gap-3 p-3 bg-[var(--bg-deep)] border border-[var(--border)] hover:border-[var(--accent)]/50 transition-colors">
@@ -401,11 +401,11 @@ const AgentsSection = ({ agents, loading, error, onCardClick, onDeployClick, use
             </div>
           ) : agents.length === 0 ? (
             <div className="border-2 border-[var(--border)] p-16 text-center bg-[var(--bg-surface)]">
-              <p className="font-display text-3xl mb-4">NO AGENTS YET</p>
-              <p className="text-[var(--text-secondary)] mb-8">Be the first to deploy</p>
+              <p className="font-display text-3xl mb-4">NO CLUBS YET</p>
+              <p className="text-[var(--text-secondary)] mb-8">Be the first to create one</p>
               <Link href="/create-agent">
                 <button className="px-8 py-4 bg-accent text-[var(--bg-deep)] font-bold border-2 border-accent hover:bg-[var(--bg-deep)] hover:text-accent transition-all">
-                  CREATE AGENT →
+                  CREATE CLUB →
                 </button>
               </Link>
             </div>
@@ -501,7 +501,7 @@ const AgentsSection = ({ agents, loading, error, onCardClick, onDeployClick, use
                       }}
                       className="button-animated w-full py-3 border-2 border-[var(--border)] text-sm font-bold bg-[var(--bg-elevated)] flex items-center justify-center gap-2 group/btn relative"
                     >
-                      <span className="relative z-10 font-bold">DEPLOY</span>
+                      <span className="relative z-10 font-bold">JOIN CLUB</span>
                       <ArrowRight
                         className={`relative z-10 transition-transform ${hoveredButton === agent.id ? 'translate-x-1' : ''}`}
                         size={16}
