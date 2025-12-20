@@ -588,6 +588,9 @@ async function handleLazyTradingLink(
   chatId: number,
   linkCode: string
 ) {
+  let alphaUser;
+  let userWallet: string | null = null;
+
   try {
     console.log(
       "[Telegram] Processing Lazy Trading link:",
@@ -596,45 +599,122 @@ async function handleLazyTradingLink(
       telegramUserId
     );
 
+    // Look up the wallet address from the link code cache
+    try {
+      const cacheResult = await prisma.$queryRaw<
+        Array<{ user_wallet: string }>
+      >`
+        SELECT user_wallet FROM lazy_trading_link_cache 
+        WHERE link_code = ${linkCode} AND expires_at > NOW()
+      `;
+
+      if (cacheResult && cacheResult.length > 0) {
+        userWallet = cacheResult[0].user_wallet.toLowerCase();
+        console.log(
+          "[Telegram] ✅ Found wallet from link code cache:",
+          userWallet,
+          "for linkCode:",
+          linkCode
+        );
+
+        // Delete the cache entry after use (one-time use)
+        try {
+          await prisma.$executeRaw`
+            DELETE FROM lazy_trading_link_cache WHERE link_code = ${linkCode}
+          `;
+          console.log(
+            "[Telegram] Deleted used link code from cache:",
+            linkCode
+          );
+        } catch (deleteError: any) {
+          console.warn(
+            "[Telegram] Failed to delete cache entry (non-critical):",
+            deleteError.message
+          );
+        }
+      } else {
+        console.warn(
+          "[Telegram] ⚠️ Link code not found in cache or expired:",
+          linkCode,
+          "Result:",
+          cacheResult
+        );
+        // Try to see if the code exists but expired
+        const expiredResult = await prisma.$queryRaw<
+          Array<{ user_wallet: string; expires_at: Date }>
+        >`
+          SELECT user_wallet, expires_at FROM lazy_trading_link_cache 
+          WHERE link_code = ${linkCode}
+        `;
+        if (expiredResult && expiredResult.length > 0) {
+          console.warn(
+            "[Telegram] Link code exists but expired at:",
+            expiredResult[0].expires_at
+          );
+        }
+      }
+    } catch (cacheError: any) {
+      console.error(
+        "[Telegram] ❌ Error looking up link code cache:",
+        cacheError.message,
+        "Code:",
+        cacheError.code,
+        "linkCode:",
+        linkCode
+      );
+      // Don't fail the whole operation - user can still be marked as lazy trader
+      // but without wallet association
+    }
+
     // Check if user already exists as telegram_alpha_user
-    let alphaUser = await prisma.telegram_alpha_users.findUnique({
+    alphaUser = await prisma.telegram_alpha_users.findUnique({
       where: { telegram_user_id: telegramUserId },
     });
 
     if (alphaUser) {
-      // User exists - update to be a lazy trader
-      if (!alphaUser.lazy_trader) {
-        alphaUser = await prisma.telegram_alpha_users.update({
-          where: { id: alphaUser.id },
-          data: {
-            lazy_trader: true,
-            telegram_username:
-              message.from.username || alphaUser.telegram_username,
-            first_name: message.from.first_name || alphaUser.first_name,
-            last_name: message.from.last_name || alphaUser.last_name,
-            is_active: true,
-            last_message_at: new Date(),
-          },
-        });
-        console.log(
-          "[Telegram] Updated existing alpha user as lazy trader:",
-          alphaUser.id
-        );
-      } else {
-        console.log(
-          "[Telegram] User already registered as lazy trader:",
-          alphaUser.id
+      // User exists - ALWAYS update to ensure wallet is stored and lazy_trader is set
+      // If we have a wallet from cache, use it (even if user already has one - cache takes precedence)
+      // Otherwise, keep existing wallet if it exists
+      const walletToStore = userWallet || alphaUser.user_wallet;
+
+      alphaUser = await prisma.telegram_alpha_users.update({
+        where: { id: alphaUser.id },
+        data: {
+          lazy_trader: true,
+          user_wallet: walletToStore, // Always set wallet (from cache or existing)
+          telegram_username:
+            message.from?.username || alphaUser.telegram_username,
+          first_name: message.from?.first_name || alphaUser.first_name,
+          last_name: message.from?.last_name || alphaUser.last_name,
+          is_active: true,
+          last_message_at: new Date(),
+        },
+      });
+      console.log(
+        "[Telegram] Updated existing alpha user as lazy trader:",
+        alphaUser.id,
+        "wallet:",
+        walletToStore || "not set",
+        userWallet ? "(from cache)" : "(existing)"
+      );
+    } else {
+      // Create new alpha user as lazy trader with wallet
+      if (!userWallet) {
+        console.warn(
+          "[Telegram] Creating new lazy trader but no wallet from cache!",
+          "linkCode:",
+          linkCode
         );
       }
-    } else {
-      // Create new alpha user as lazy trader
+
       alphaUser = await prisma.telegram_alpha_users.create({
         data: {
           telegram_user_id: telegramUserId,
-          telegram_username: message.from.username || null,
-          first_name: message.from.first_name || null,
-          last_name: message.from.last_name || null,
+          telegram_username: message.from?.username || null,
+          first_name: message.from?.first_name || null,
+          last_name: message.from?.last_name || null,
           lazy_trader: true,
+          user_wallet: userWallet, // Set wallet from cache
           is_active: true,
           impact_factor: 0.5,
           last_message_at: new Date(),
@@ -642,34 +722,70 @@ async function handleLazyTradingLink(
       });
       console.log(
         "[Telegram] Created new lazy trader alpha user:",
-        alphaUser.id
+        alphaUser.id,
+        "wallet:",
+        userWallet || "not set (cache lookup may have failed)"
       );
     }
 
-    // Send success message
-    const displayName = alphaUser.telegram_username
-      ? `@${alphaUser.telegram_username}`
-      : alphaUser.first_name || "there";
+    // Send success message - wrap in try-catch to handle desktop app issues
+    // Note: Don't include @ symbol in markdown messages as it can cause parsing errors
+    const displayName =
+      alphaUser.telegram_username || alphaUser.first_name || "there";
 
-    await bot.sendMessage(
-      chatId,
-      `✅ *Lazy Trading Connected!*\n\n` +
-        `Hey ${displayName}! Your Telegram is now linked for Lazy Trading.\n\n` +
-        `🔄 *Please return to the Maxxit website to complete setup:*\n` +
-        `• Configure your trading preferences\n` +
-        `• Approve Ostium delegation\n` +
-        `• Set USDC allowance\n\n` +
-        `Once setup is complete, you can send trading signals here:\n` +
-        `• "Long ETH 5x" - Open a long position\n` +
-        `• "Short BTC 3x" - Open a short position\n` +
-        `• "Close ETH" - Close a position`,
-      { parse_mode: "Markdown" }
-    );
+    try {
+      await bot.sendMessage(
+        chatId,
+        `✅ *Lazy Trading Connected!*\n\n` +
+          `Hey ${displayName}! Your Telegram is now linked for Lazy Trading.\n\n` +
+          `🔄 *Please return to the Maxxit website to complete setup:*\n` +
+          `• Configure your trading preferences\n` +
+          `• Approve Ostium delegation\n` +
+          `• Set USDC allowance\n\n` +
+          `Once setup is complete, you can send trading signals here:\n` +
+          `• "Long ETH 5x" - Open a long position\n` +
+          `• "Short BTC 3x" - Open a short position\n` +
+          `• "Close ETH" - Close a position`,
+        { parse_mode: "Markdown" }
+      );
+    } catch (sendError: any) {
+      // If sending message fails (e.g., desktop app issue), log but don't fail the whole operation
+      console.error("[Telegram] Failed to send success message:", sendError);
+      // Try sending a simpler message without markdown
+      try {
+        await bot.sendMessage(
+          chatId,
+          `✅ Lazy Trading Connected!\n\nHey ${displayName}! Your Telegram is now linked for Lazy Trading.\n\nPlease return to the Maxxit website to complete setup.`
+        );
+      } catch (simpleSendError) {
+        console.error(
+          "[Telegram] Failed to send simple message:",
+          simpleSendError
+        );
+        // Data is already saved, so we can continue
+      }
+    }
   } catch (error: any) {
     console.error("[Telegram] Error handling lazy trading link:", error);
-    await bot.sendMessage(
+    console.error("[Telegram] Error details:", {
+      message: error.message,
+      stack: error.stack,
+      telegramUserId,
+      linkCode,
       chatId,
-      "❌ Error connecting your Telegram for Lazy Trading. Please try again from the Maxxit website."
-    );
+    });
+
+    // Try to send error message - but don't fail if this also fails
+    try {
+      await bot.sendMessage(
+        chatId,
+        "❌ Error connecting your Telegram for Lazy Trading. Please try again from the Maxxit website."
+      );
+    } catch (sendError) {
+      console.error(
+        "[Telegram] Failed to send error message to user:",
+        sendError
+      );
+    }
   }
 }

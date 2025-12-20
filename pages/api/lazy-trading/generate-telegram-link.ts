@@ -27,7 +27,34 @@ export default async function handler(
 
     const normalizedWallet = userWallet.toLowerCase();
 
-    // Check if user already has a lazy trader telegram linked via agent_telegram_users
+    // First check if user already has a telegram connected directly (via user_wallet)
+    const existingTelegram = await prisma.telegram_alpha_users.findFirst({
+      where: {
+        user_wallet: normalizedWallet,
+        lazy_trader: true,
+        is_active: true,
+      },
+    });
+
+    if (existingTelegram) {
+      console.log(
+        "[LazyTrading] User already has telegram connected:",
+        existingTelegram.id
+      );
+      return res.status(200).json({
+        success: true,
+        alreadyLinked: true,
+        telegramUser: {
+          id: existingTelegram.id,
+          telegram_user_id: existingTelegram.telegram_user_id,
+          telegram_username: existingTelegram.telegram_username,
+          first_name: existingTelegram.first_name,
+        },
+        agentId: null, // May or may not have agent yet
+      });
+    }
+
+    // Also check if user already has a lazy trader telegram linked via agent_telegram_users
     // Find agents created by this wallet that are lazy traders
     const existingLazyAgent = await prisma.agents.findFirst({
       where: {
@@ -64,6 +91,27 @@ export default async function handler(
 
     // Generate a unique link code with LT prefix for lazy trading
     const linkCode = `LT${bot.generateLinkCode()}`;
+
+    // Store a temporary mapping of linkCode -> wallet in a simple cache table
+    // This allows the webhook to know which wallet the telegram belongs to
+    // We'll use a timestamp field to auto-expire old entries
+    try {
+      await prisma.$executeRaw`
+        INSERT INTO lazy_trading_link_cache (link_code, user_wallet, expires_at)
+        VALUES (${linkCode}, ${normalizedWallet}, NOW() + INTERVAL '10 minutes')
+        ON CONFLICT (link_code) DO UPDATE SET user_wallet = ${normalizedWallet}, expires_at = NOW() + INTERVAL '10 minutes'
+      `;
+      console.log(
+        `[LazyTrading] Stored link code mapping: ${linkCode} -> ${normalizedWallet}`
+      );
+    } catch (cacheError: any) {
+      // If table doesn't exist, log warning but continue
+      // The migration needs to be run first
+      console.warn(
+        "[LazyTrading] Could not store link code cache (run migration first):",
+        cacheError.message
+      );
+    }
 
     // Get bot info
     const botInfo = await bot.getMe();

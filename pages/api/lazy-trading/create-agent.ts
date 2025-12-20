@@ -80,6 +80,15 @@ export default async function handler(
         });
       }
 
+      // Ensure user_wallet is set on the telegram user (in case it wasn't set before)
+      await prisma.telegram_alpha_users.update({
+        where: { id: telegramAlphaUserId },
+        data: {
+          lazy_trader: true,
+          user_wallet: normalizedWallet,
+        },
+      });
+
       // Return existing agent info
       return res.status(200).json({
         success: true,
@@ -136,10 +145,14 @@ export default async function handler(
       },
     });
 
-    // Mark the telegram user as lazy trader
+    // Mark the telegram user as lazy trader and set the wallet address
+    // This links the telegram account to the wallet that created the agent
     await prisma.telegram_alpha_users.update({
       where: { id: telegramAlphaUserId },
-      data: { lazy_trader: true },
+      data: {
+        lazy_trader: true,
+        user_wallet: normalizedWallet, // Link telegram to wallet address
+      },
     });
 
     console.log(

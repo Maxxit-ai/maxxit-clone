@@ -173,13 +173,22 @@ export default function LazyTrading() {
       const data = await response.json();
 
       if (data.success && data.connected && data.telegramUser) {
+        console.log("[LazyTrading] ✅ Telegram connected:", data.telegramUser);
         setTelegramUser(data.telegramUser);
+        // Clear linkCode to stop polling and show connected state
+        setLinkCode("");
         if (data.agentId) {
           setAgentId(data.agentId);
         }
         // Stay on telegram step to show connected state
         setStep("telegram");
       } else {
+        // Still waiting for connection
+        console.log("[LazyTrading] ⏳ Still waiting for connection...", {
+          success: data.success,
+          connected: data.connected,
+          hasTelegramUser: !!data.telegramUser,
+        });
         setStep("telegram");
       }
     } catch (err) {

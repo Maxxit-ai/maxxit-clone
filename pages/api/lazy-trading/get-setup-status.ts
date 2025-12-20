@@ -50,20 +50,63 @@ export default async function handler(
       },
     });
 
-    if (!existingAgent) {
-      // No lazy trading setup found
-      return res.status(200).json({
-        success: true,
-        hasSetup: false,
-        step: "wallet", // Start from beginning
-      });
-    }
-
-    // Get telegram user if linked
-    const telegramUser =
-      existingAgent.agent_telegram_users.length > 0
+    // Get telegram user if linked via agent
+    let telegramUser =
+      existingAgent && existingAgent.agent_telegram_users.length > 0
         ? existingAgent.agent_telegram_users[0].telegram_alpha_users
         : null;
+
+    // If no agent exists, check for lazy trader telegram user directly (before agent creation)
+    if (!existingAgent) {
+      const lazyTraderForWallet = await prisma.telegram_alpha_users.findFirst({
+        where: {
+          lazy_trader: true,
+          user_wallet: normalizedWallet,
+          // Not linked to any agent yet
+          agent_telegram_users: {
+            none: {},
+          },
+        },
+        select: {
+          id: true,
+          telegram_user_id: true,
+          telegram_username: true,
+          first_name: true,
+          last_name: true,
+        },
+        orderBy: {
+          created_at: "desc",
+        },
+      });
+
+      if (lazyTraderForWallet) {
+        // User has telegram connected but no agent yet
+        telegramUser = lazyTraderForWallet;
+        return res.status(200).json({
+          success: true,
+          hasSetup: true, // Has telegram connection, so has partial setup
+          step: "preferences", // Can proceed to preferences
+          agent: null,
+          telegramUser: {
+            id: telegramUser.id,
+            telegram_user_id: telegramUser.telegram_user_id,
+            telegram_username: telegramUser.telegram_username,
+            first_name: telegramUser.first_name,
+            last_name: telegramUser.last_name,
+          },
+          deployment: null,
+          tradingPreferences: null,
+          ostiumAgentAddress: null,
+        });
+      } else {
+        // No lazy trading setup found at all
+        return res.status(200).json({
+          success: true,
+          hasSetup: false,
+          step: "wallet", // Start from beginning
+        });
+      }
+    }
 
     // Get deployment and trading preferences separately
     const deployment = await prisma.agent_deployments.findFirst({
