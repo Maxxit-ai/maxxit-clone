@@ -742,10 +742,7 @@ async function handleLazyTradingLink(
           `• Configure your trading preferences\n` +
           `• Approve Ostium delegation\n` +
           `• Set USDC allowance\n\n` +
-          `Once setup is complete, you can send trading signals here:\n` +
-          `• "Long ETH 5x" - Open a long position\n` +
-          `• "Short BTC 3x" - Open a short position\n` +
-          `• "Close ETH" - Close a position`,
+          `Once setup is complete, you can send trading signals here.\n`,
         { parse_mode: "Markdown" }
       );
     } catch (sendError: any) {
