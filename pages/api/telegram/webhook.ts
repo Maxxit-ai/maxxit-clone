@@ -600,15 +600,17 @@ async function handleLazyTradingLink(
 
     // Look up the wallet address from the link code cache
     try {
-      const cacheResult = await prisma.$queryRaw<
-        Array<{ user_wallet: string }>
-      >`
-        SELECT user_wallet FROM lazy_trading_link_cache 
-        WHERE link_code = ${linkCode} AND expires_at > NOW()
-      `;
+      // Find non-expired cache entry
+      const cacheEntry = await prisma.lazy_trading_link_cache.findFirst({
+        where: {
+          link_code: linkCode,
+          expires_at: { gt: new Date() },
+        },
+        select: { user_wallet: true },
+      });
 
-      if (cacheResult && cacheResult.length > 0) {
-        userWallet = cacheResult[0].user_wallet.toLowerCase();
+      if (cacheEntry) {
+        userWallet = cacheEntry.user_wallet.toLowerCase();
         console.log(
           "[Telegram] ✅ Found wallet from link code cache:",
           userWallet,
@@ -618,9 +620,9 @@ async function handleLazyTradingLink(
 
         // Delete the cache entry after use (one-time use)
         try {
-          await prisma.$executeRaw`
-            DELETE FROM lazy_trading_link_cache WHERE link_code = ${linkCode}
-          `;
+          await prisma.lazy_trading_link_cache.delete({
+            where: { link_code: linkCode },
+          });
           console.log(
             "[Telegram] Deleted used link code from cache:",
             linkCode
@@ -634,21 +636,17 @@ async function handleLazyTradingLink(
       } else {
         console.warn(
           "[Telegram] ⚠️ Link code not found in cache or expired:",
-          linkCode,
-          "Result:",
-          cacheResult
+          linkCode
         );
         // Try to see if the code exists but expired
-        const expiredResult = await prisma.$queryRaw<
-          Array<{ user_wallet: string; expires_at: Date }>
-        >`
-          SELECT user_wallet, expires_at FROM lazy_trading_link_cache 
-          WHERE link_code = ${linkCode}
-        `;
-        if (expiredResult && expiredResult.length > 0) {
+        const expiredEntry = await prisma.lazy_trading_link_cache.findUnique({
+          where: { link_code: linkCode },
+          select: { user_wallet: true, expires_at: true },
+        });
+        if (expiredEntry) {
           console.warn(
             "[Telegram] Link code exists but expired at:",
-            expiredResult[0].expires_at
+            expiredEntry.expires_at
           );
         }
       }

@@ -633,6 +633,19 @@ model notification_logs {
   @@index([created_at])
 }
 
+/// Temporary cache table for lazy trading link codes
+/// Maps link codes to wallet addresses so the webhook knows which wallet the telegram belongs to
+/// Entries expire after 10 minutes
+model lazy_trading_link_cache {
+  link_code   String   @id @db.VarChar(50)
+  user_wallet String   @db.VarChar(255)
+  expires_at  DateTime @db.Timestamptz(6)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([expires_at])
+  @@index([user_wallet])
+}
+
 enum agent_status_t {
   DRAFT
   PUBLIC
