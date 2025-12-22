@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ArrowRight, Zap, Wallet, Copy, Check, CheckCircle, AlertCircle, Settings, Plus } from 'lucide-react';
 import { OstiumDelegationModal } from '../OstiumDelegationModal';
 import { OstiumUsdcApprovalModal } from '../OstiumUsdcApprovalModal';
+import { UNIVERSAL_DELEGATION_ADDRESS } from '../../json/addresses';
 
 interface AgentsSectionProps {
   agents: AgentSummary[];
@@ -60,7 +61,7 @@ const AgentsSection = ({ agents, loading, error, onCardClick, onDeployClick, use
 
   return (
     <>
-      <section id="agents" className={`border-[var(--border)] bg-[var(--bg-deep)] ${fromHome ? 'border-t-2 py-24' : 'border-t-0 py-8' }`}>
+      <section id="agents" className={`border-[var(--border)] bg-[var(--bg-deep)] ${fromHome ? 'border-t-2 py-24' : 'border-t-0 py-8'}`}>
         <style jsx>{`
         @keyframes borderScan {
           0% {
@@ -340,9 +341,12 @@ const AgentsSection = ({ agents, loading, error, onCardClick, onDeployClick, use
                         ? 'Delegated to other address'
                         : 'Not delegated'}
                   </p>
-                  {ostiumDelegationStatus?.delegatedAddress && (
-                    <p className="text-xs font-mono text-[var(--text-muted)] mt-1 truncate" title={ostiumDelegationStatus.delegatedAddress}>
-                      {formatAddress(ostiumDelegationStatus.delegatedAddress)}
+                  {ostiumDelegationStatus && (
+                    <p
+                      className="text-xs font-mono text-[var(--text-muted)] mt-1 truncate"
+                      title={UNIVERSAL_DELEGATION_ADDRESS}
+                    >
+                      {formatAddress(UNIVERSAL_DELEGATION_ADDRESS)}
                     </p>
                   )}
                   {!ostiumDelegationStatus?.isDelegatedToAgent && (

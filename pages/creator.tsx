@@ -1,13 +1,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { db } from "../client/src/lib/db";
-import type {
-  Agent,
-  AgentDeployment,
-  Position,
-  BillingEvent,
-} from "@shared/schema";
 import {
   Bot,
   Rocket,
@@ -21,14 +14,47 @@ import {
   Zap,
 } from "lucide-react";
 import { Header } from "@components/Header";
-import { usePrivy } from "@privy-io/react-auth";
 import { useToast } from "@/hooks/use-toast";
 import { MultiVenueSelector } from "@components/MultiVenueSelector";
 import { Settings } from "lucide-react";
+import agentsJson from "../json/agents.json";
+import { UNIVERSAL_OSTIUM_AGENT_ADDRESS } from "../json/addresses";
+
+// Minimal local simulation types (frontend-only)
+type Agent = {
+  id: string;
+  name: string;
+  venue: string;
+  status: "PUBLIC" | "PRIVATE" | "DRAFT" | string;
+  apr30d: number | null;
+};
+
+type AgentDeployment = {
+  id: string;
+  agentId: string;
+  status: "ACTIVE" | "INACTIVE" | string;
+  safeWallet: string;
+  subActive: boolean;
+};
+
+type Position = {
+  id: string;
+  tokenSymbol: string;
+  venue: string;
+  side: string;
+  status: "OPEN" | "CLOSED" | string;
+  entryPrice: string;
+  pnl?: string | null;
+};
+
+type BillingEvent = {
+  id: string;
+  kind: string;
+  amount: string;
+};
 
 export default function Creator() {
   const router = useRouter();
-  const { authenticated, user, login } = usePrivy();
   const { toast } = useToast();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [deployments, setDeployments] = useState<AgentDeployment[]>([]);
@@ -49,124 +75,74 @@ export default function Creator() {
     ostium?: string | null;
   } | null>(null);
 
-  // Extract fetchDashboardData so it can be called after deployment
-  const fetchDashboardData = async () => {
-    if (!authenticated || !user?.wallet?.address) {
-      setLoading(false);
-      return;
-    }
-
+  useEffect(() => {
+    // Frontend-only: initialize dashboard with simulated data from local JSON
     try {
-      // Fetch agents created by this wallet and user agent addresses in parallel
-      const [agentsData, addressesData] = await Promise.all([
-        db.get("agents", {
-          creatorWallet: `eq.${user.wallet.address}`,
-          order: "apr30d.desc.nullslast",
-          select: "*",
-        }),
-        db
-          .get("user_agent_addresses", {
-            userWallet: `eq.${user.wallet.address.toLowerCase()}`,
-          })
-          .catch(() => null),
-      ]);
+      const staticAgents = (agentsJson as any[]).map((a) => ({
+        id: a.id,
+        name: a.name,
+        venue: a.venue,
+        status: "PUBLIC" as const,
+        apr30d: a.apr30d ?? null,
+      })) as Agent[];
 
-      setAgents(agentsData || []);
+      setAgents(staticAgents);
 
-      // Set user agent addresses if available (API converts snake_case to camelCase)
-      if (
-        addressesData &&
-        Array.isArray(addressesData) &&
-        addressesData.length > 0
-      ) {
-        setUserAgentAddresses({
-          hyperliquid: addressesData[0].hyperliquidAgentAddress || null,
-          ostium: addressesData[0].ostiumAgentAddress || null,
-        });
-      } else if (addressesData && !Array.isArray(addressesData)) {
-        // Single object returned
-        setUserAgentAddresses({
-          hyperliquid: addressesData.hyperliquidAgentAddress || null,
-          ostium: addressesData.ostiumAgentAddress || null,
-        });
-      } else {
-        setUserAgentAddresses(null);
-      }
-
-      // Fetch YOUR deployments (agents you subscribed to) - ALWAYS run this
-      const myDeploymentsPromise = db.get("agent_deployments", {
-        userWallet: `eq.${user.wallet.address}`,
-        select: "*",
+      // Simulated user agent addresses: use universal Ostium agent for this demo
+      setUserAgentAddresses({
+        hyperliquid: null,
+        ostium: UNIVERSAL_OSTIUM_AGENT_ADDRESS,
       });
 
-      // If we have agents, also fetch deployments BY OTHERS for agents you created
-      let allDeployments = await myDeploymentsPromise;
+      // Simple simulated deployments, positions, and billing events
+      const simulatedDeployments: AgentDeployment[] = staticAgents.slice(0, 2).map((agent, idx) => ({
+        id: `deployment-${idx + 1}`,
+        agentId: agent.id,
+        status: "ACTIVE",
+        safeWallet: `0xSAFEWALLET${idx + 1}000000000000000000000000000000`,
+        subActive: true,
+      }));
 
-      if (agentsData && agentsData.length > 0) {
-        const agentIds = agentsData.map((a: Agent) => a.id);
+      setDeployments(simulatedDeployments);
 
-        // Fetch deployments by others for these agents (to track subscribers)
-        const othersDeploymentsPromise = db.get("agent_deployments", {
-          agentId: `in.(${agentIds.join(",")})`,
-          userWallet: `neq.${user.wallet.address}`, // Exclude your own
-          select: "*",
-        });
+      const simulatedPositions: Position[] = simulatedDeployments.map((d, idx) => ({
+        id: `position-${idx + 1}`,
+        tokenSymbol: idx % 2 === 0 ? "ETH" : "BTC",
+        venue: "OSTIUM",
+        side: idx % 2 === 0 ? "LONG" : "SHORT",
+        status: "OPEN",
+        entryPrice: idx % 2 === 0 ? "3200" : "65000",
+        pnl: idx % 2 === 0 ? "125.50" : "-42.10",
+      }));
 
-        const othersDeployments = await othersDeploymentsPromise;
+      setPositions(simulatedPositions);
 
-        // Combine: YOUR deployments + deployments by OTHERS for your agents
-        allDeployments = [
-          ...(allDeployments || []),
-          ...(othersDeployments || []),
-        ];
-      }
+      const simulatedBilling: BillingEvent[] = [
+        {
+          id: "billing-1",
+          kind: "PROFIT_SHARE",
+          amount: "152.34",
+        },
+        {
+          id: "billing-2",
+          kind: "INFRA_FEE",
+          amount: "23.45",
+        },
+      ];
 
-      setDeployments(allDeployments || []);
-
-      // Fetch positions and billing events for all deployments
-      if (allDeployments && allDeployments.length > 0) {
-        const deploymentIds = allDeployments.map((d: AgentDeployment) => d.id);
-
-        // Fetch positions and billing events IN PARALLEL (not sequential)
-        const [positionsData, billingData] = await Promise.all([
-          db.get("positions", {
-            deploymentId: `in.(${deploymentIds.join(",")})`,
-            order: "openedAt.desc",
-            limit: "10",
-            select: "*",
-          }),
-          db.get("billing_events", {
-            deploymentId: `in.(${deploymentIds.join(",")})`,
-            order: "occurredAt.desc",
-            limit: "20",
-            select: "*",
-          }),
-        ]);
-
-        setPositions(positionsData || []);
-        setBillingEvents(billingData || []);
-      }
-
+      setBillingEvents(simulatedBilling);
       setError(null);
     } catch (err: any) {
-      setError(err.message || "Failed to load dashboard data");
+      setError(err.message || "Failed to initialize dashboard");
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, [authenticated, user?.wallet?.address]);
+  }, []);
 
   async function activateAgent(agentId: string) {
     setActivatingAgentId(agentId);
     try {
-      await db.patch(`agents?id=eq.${agentId}`, {
-        status: "PUBLIC", // Changed from ACTIVE to PUBLIC
-      });
-
-      // Update local state
+      // Frontend-only: just update local state and show toast
       setAgents(
         agents.map((a) =>
           a.id === agentId ? { ...a, status: "PUBLIC" as const } : a
@@ -174,8 +150,8 @@ export default function Creator() {
       );
 
       toast({
-        title: "Agent Activated",
-        description: "Your agent is now live on the marketplace!",
+        title: "Agent Activated (simulation)",
+        description: "Your agent is now live on the marketplace (demo data).",
       });
     } catch (err: any) {
       toast({
@@ -191,11 +167,7 @@ export default function Creator() {
   async function deactivateAgent(agentId: string) {
     setDeactivatingAgentId(agentId);
     try {
-      await db.patch(`agents?id=eq.${agentId}`, {
-        status: "PRIVATE", // Changed from PAUSED to PRIVATE
-      });
-
-      // Update local state
+      // Frontend-only: just update local state and show toast
       setAgents(
         agents.map((a) =>
           a.id === agentId ? { ...a, status: "PRIVATE" as const } : a
@@ -203,9 +175,9 @@ export default function Creator() {
       );
 
       toast({
-        title: "Agent Deactivated",
+        title: "Agent Deactivated (simulation)",
         description:
-          "Your agent has been paused and is no longer active on the marketplace.",
+          "Your agent has been paused in this demo and is no longer active on the marketplace.",
       });
     } catch (err: any) {
       toast({
@@ -231,40 +203,11 @@ export default function Creator() {
     setShowDeploymentModal(false);
     setDeployingAgent(null);
 
-    // Show success toast
+    // Show success toast (simulation)
     toast({
-      title: "Deployment Successful",
-      description: "Your agent has been deployed successfully!",
+      title: "Deployment Successful (simulation)",
+      description: "Your agent has been deployed in this demo environment.",
     });
-
-    // Smoothly refresh dashboard data to show new deployment without page reload
-    if (authenticated && user?.wallet?.address) {
-      await fetchDashboardData();
-
-      // Also refresh user agent addresses separately to ensure they're updated
-      const userWallet = user.wallet.address.toLowerCase();
-      const addressesData = await db
-        .get("user_agent_addresses", {
-          userWallet: `eq.${userWallet}`,
-        })
-        .catch(() => null);
-
-      if (
-        addressesData &&
-        Array.isArray(addressesData) &&
-        addressesData.length > 0
-      ) {
-        setUserAgentAddresses({
-          hyperliquid: addressesData[0].hyperliquidAgentAddress || null,
-          ostium: addressesData[0].ostiumAgentAddress || null,
-        });
-      } else if (addressesData && !Array.isArray(addressesData)) {
-        setUserAgentAddresses({
-          hyperliquid: addressesData.hyperliquidAgentAddress || null,
-          ostium: addressesData.ostiumAgentAddress || null,
-        });
-      }
-    }
   }
 
   // Calculate totals
@@ -298,35 +241,6 @@ export default function Creator() {
       </div>
     </div>
   );
-
-  if (!authenticated) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-2xl mx-auto text-center mt-16">
-            <div className="inline-flex p-4 bg-primary/10 rounded-full mb-6">
-              <Bot className="h-16 w-16 text-primary" />
-            </div>
-            <h1 className="text-4xl font-bold text-foreground mb-4">
-              Connect Your Wallet
-            </h1>
-            <p className="text-lg text-muted-foreground mb-8">
-              Connect your wallet to view your trading agents and deployments
-            </p>
-            <button
-              onClick={login}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-md font-semibold hover-elevate active-elevate-2 transition-all"
-              data-testid="button-connect-wallet"
-            >
-              <Rocket className="h-5 w-5" />
-              Connect Wallet
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (loading) {
     return (
@@ -519,13 +433,12 @@ export default function Creator() {
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span
-                          className={`px-2 py-1 text-xs rounded-md ${
-                            agent.status === "PUBLIC"
-                              ? "bg-primary/20 text-primary"
-                              : agent.status === "PRIVATE"
+                          className={`px-2 py-1 text-xs rounded-md ${agent.status === "PUBLIC"
+                            ? "bg-primary/20 text-primary"
+                            : agent.status === "PRIVATE"
                               ? "bg-yellow-500/20 text-yellow-500"
                               : "bg-muted text-muted-foreground"
-                          }`}
+                            }`}
                         >
                           {agent.status}
                         </span>
@@ -621,11 +534,10 @@ export default function Creator() {
                             </p>
                           </div>
                           <span
-                            className={`px-2 py-1 text-xs rounded-md ${
-                              deployment.status === "ACTIVE"
-                                ? "bg-primary/20 text-primary"
-                                : "bg-muted text-muted-foreground"
-                            }`}
+                            className={`px-2 py-1 text-xs rounded-md ${deployment.status === "ACTIVE"
+                              ? "bg-primary/20 text-primary"
+                              : "bg-muted text-muted-foreground"
+                              }`}
                           >
                             {deployment.status}
                           </span>
@@ -675,11 +587,10 @@ export default function Creator() {
                           </p>
                         </div>
                         <span
-                          className={`px-2 py-1 text-xs rounded-md ${
-                            position.status === "OPEN"
-                              ? "bg-primary/20 text-primary"
-                              : "bg-muted text-muted-foreground"
-                          }`}
+                          className={`px-2 py-1 text-xs rounded-md ${position.status === "OPEN"
+                            ? "bg-primary/20 text-primary"
+                            : "bg-muted text-muted-foreground"
+                            }`}
                         >
                           {position.status}
                         </span>
@@ -695,11 +606,10 @@ export default function Creator() {
                           <div>
                             <span className="text-muted-foreground">PnL:</span>
                             <span
-                              className={`ml-2 font-semibold ${
-                                parseFloat(position.pnl) >= 0
-                                  ? "text-primary"
-                                  : "text-destructive"
-                              }`}
+                              className={`ml-2 font-semibold ${parseFloat(position.pnl) >= 0
+                                ? "text-primary"
+                                : "text-destructive"
+                                }`}
                             >
                               ${parseFloat(position.pnl).toFixed(2)}
                             </span>

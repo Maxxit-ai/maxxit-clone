@@ -77,22 +77,23 @@ export default function App({ Component, pageProps }: AppProps) {
   // Always render the same structure to avoid hydration mismatches
   // PrivyProvider handles SSR gracefully and will work even with empty appId during SSR
   return (
-    <PrivyProvider
-      appId={privyAppId || ''}
-      config={{
-        loginMethods: ['wallet', 'email'],
-        appearance: {
-          theme: 'dark',
-          accentColor: '#22c55e',
-          logo: undefined,
-        },
-        embeddedWallets: {
-          ethereum: {
-            createOnLogin: 'users-without-wallets',
-          }
-        },
-      }}
-    >
+    // <PrivyProvider
+    //   appId={privyAppId || ''}
+    //   config={{
+    //     loginMethods: ['wallet', 'email'],
+    //     appearance: {
+    //       theme: 'dark',
+    //       accentColor: '#22c55e',
+    //       logo: undefined,
+    //     },
+    //     embeddedWallets: {
+    //       ethereum: {
+    //         createOnLogin: 'users-without-wallets',
+    //       }
+    //     },
+    //   }}
+    // >
+    <>
       <Head>
         <title>Maxxit - Agentic DeFi Trading Platform</title>
         <meta name="description" content="Deploy AI-powered trading agents that execute trades based on crypto Twitter signals" />
@@ -100,6 +101,6 @@ export default function App({ Component, pageProps }: AppProps) {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <Component {...pageProps} />
-    </PrivyProvider>
+    </>
   );
 }

@@ -7,8 +7,6 @@ import { db } from '../client/src/lib/db';
 import { useRouter } from 'next/router';
 import { Check, User, Building2, Sliders, Wallet, Eye, Rocket, Twitter, Search, Plus as PlusIcon, X, Shield, Send, Activity } from 'lucide-react';
 import { Header } from '@components/Header';
-import { usePrivy } from '@privy-io/react-auth';
-import { createProofOfIntentWithMetaMask } from '@lib/proof-of-intent';
 import { HyperliquidConnect } from '@components/HyperliquidConnect';
 import { OstiumConnect } from '@components/OstiumConnect';
 import { OstiumApproval } from '@components/OstiumApproval';
@@ -19,6 +17,7 @@ import { FaXTwitter } from 'react-icons/fa6';
 import dynamic from 'next/dynamic';
 import { STATUS } from 'react-joyride';
 import type { CallBackProps, Step as JoyrideStep } from 'react-joyride';
+import { UNIVERSAL_WALLET_ADDRESS } from '../json/addresses';
 
 const wizardSchema = insertAgentSchema.extend({
   description: z.string().max(500).optional(),
@@ -28,7 +27,6 @@ type WizardFormData = z.infer<typeof wizardSchema>;
 
 export default function CreateAgent() {
   const router = useRouter();
-  const { authenticated, user, login } = usePrivy();
   const [step, setStep] = useState(1);
   const [runJoyride, setRunJoyride] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -86,19 +84,12 @@ export default function CreateAgent() {
       venue: 'MULTI',
       weights: [50, 50, 50, 50, 50, 50, 50, 50],
       status: 'DRAFT',
-      creatorWallet: '',
-      profitReceiverAddress: '',
+      creatorWallet: UNIVERSAL_WALLET_ADDRESS,
+      profitReceiverAddress: UNIVERSAL_WALLET_ADDRESS,
     },
   });
 
   const formData = watch();
-
-  useEffect(() => {
-    if (authenticated && user?.wallet?.address) {
-      setValue('creatorWallet', user.wallet.address, { shouldValidate: true, shouldDirty: true });
-      setValue('profitReceiverAddress', user.wallet.address, { shouldValidate: true, shouldDirty: true });
-    }
-  }, [authenticated, user?.wallet?.address, setValue]);
 
   // Joyride: ensure client-side only & load per-step completion flags
   useEffect(() => {
@@ -143,10 +134,6 @@ export default function CreateAgent() {
   };
 
   const createProofOfIntent = async () => {
-    if (!authenticated || !user?.wallet?.address) {
-      setError('Please connect your wallet first');
-      return;
-    }
     if (!formData.name) {
       setError('Please enter an agent name first');
       return;
@@ -154,9 +141,15 @@ export default function CreateAgent() {
     setIsSigningProof(true);
     setError(null);
     try {
+      // Frontend-only simulation of proof of intent (no wallet required)
       const tempAgentId = `temp-${Date.now()}`;
-      const proof = await createProofOfIntentWithMetaMask(tempAgentId, user.wallet.address, formData.name);
-      setProofOfIntent({ message: proof.message, signature: proof.signature, timestamp: proof.timestamp });
+      const simulatedMessage = `I intend to create agent "${formData.name}" with id ${tempAgentId}`;
+      const simulatedSignature = `0xSIMULATED_PROOF_SIGNATURE_${Date.now().toString(16)}`;
+      setProofOfIntent({
+        message: simulatedMessage,
+        signature: simulatedSignature,
+        timestamp: new Date(),
+      });
     } catch (error: any) {
       if (error.message.includes('User rejected')) {
         setError('Signature rejected. Please try again.');
@@ -192,18 +185,15 @@ export default function CreateAgent() {
       setStep(7);
       return;
     }
-    if (!authenticated) {
-      setError('Please connect your wallet first');
-      login();
-      return;
-    }
 
     setIsSubmitting(true);
     setError(null);
     try {
       const { description, ...agentData } = data;
-      agentData.creatorWallet = user?.wallet?.address || data.creatorWallet;
-      if (!agentData.profitReceiverAddress) agentData.profitReceiverAddress = agentData.creatorWallet;
+      agentData.creatorWallet = data.creatorWallet || UNIVERSAL_WALLET_ADDRESS;
+      if (!agentData.profitReceiverAddress) {
+        agentData.profitReceiverAddress = agentData.creatorWallet || UNIVERSAL_WALLET_ADDRESS;
+      }
       if (proofOfIntent) {
         agentData.proofOfIntentMessage = proofOfIntent.message;
         agentData.proofOfIntentSignature = proofOfIntent.signature;
@@ -263,18 +253,12 @@ export default function CreateAgent() {
     try {
       setIsSubmitting(true);
       setError(null);
-      if (!authenticated || !user?.wallet?.address) {
-        await login();
-        return;
-      }
-      const userWallet = user.wallet.address;
-      const response = await fetch('/api/ostium/deploy-complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId, userWallet }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to deploy');
+      // Frontend-only simulation of Ostium deployment (no wallet / backend)
+      const data = {
+        deploymentId: `SIM_DEPLOY_${Date.now().toString(16)}`,
+        agentAddress: '0xSIMULATED_OSTIUM_AGENT',
+        userWallet: UNIVERSAL_WALLET_ADDRESS,
+      };
       setOstiumApprovalModal({
         deploymentId: data.deploymentId,
         agentAddress: data.agentAddress,
@@ -318,12 +302,14 @@ export default function CreateAgent() {
         return;
       }
       isValid = true;
-    } else if (step === 5) isValid = true;
-    else if (step === 6) {
-      const validWallet = await trigger('creatorWallet');
-      const validProfit = await trigger('profitReceiverAddress');
-      isValid = validWallet && validProfit;
-    } else if (step === 7) isValid = !!proofOfIntent;
+    } else if (step === 5) {
+      isValid = true;
+    } else if (step === 6) {
+      // Frontend-only simulation: skip wallet address validation for smoother flow
+      isValid = true;
+    } else if (step === 7) {
+      isValid = !!proofOfIntent;
+    }
 
     if (isValid && step < 8) {
       setStep(step + 1);
@@ -747,12 +733,6 @@ export default function CreateAgent() {
           {step === 6 && (
             <div className="space-y-6" data-tour="step-6">
               <h2 className="font-display text-2xl mb-6">WALLET SETUP</h2>
-              {!authenticated && (
-                <div className="p-4 border border-[var(--accent)] bg-[var(--accent)]/10 mb-4 shadow-[0_0_20px_rgba(0,255,136,0.1)]">
-                  <p className="text-sm mb-3 text-[var(--text-secondary)]">Connect your wallet for the best experience.</p>
-                  <button type="button" onClick={login} className="px-6 py-2 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors">CONNECT WALLET</button>
-                </div>
-              )}
               <div>
                 <label className="data-label block mb-2">CLUB OWNER WALLET *</label>
                 <input
@@ -760,7 +740,6 @@ export default function CreateAgent() {
                   {...register('creatorWallet')}
                   className="w-full px-4 py-3 bg-[var(--bg-deep)] border border-[var(--border)] font-mono text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]/20 transition-colors"
                   placeholder="0x..."
-                  readOnly={authenticated && !!user?.wallet?.address}
                 />
                 {errors.creatorWallet && <p className="text-[var(--danger)] text-sm mt-1">{errors.creatorWallet.message}</p>}
               </div>
@@ -805,7 +784,7 @@ export default function CreateAgent() {
                   <button
                     type="button"
                     onClick={createProofOfIntent}
-                    disabled={isSigningProof || !authenticated}
+                    disabled={isSigningProof}
                     className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {isSigningProof ? <><Activity className="h-5 w-5 animate-pulse" />SIGNING...</> : <><Shield className="h-5 w-5" />SIGN PROOF</>}

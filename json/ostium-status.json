@@ -1,0 +1,16 @@
+{
+  "delegationStatus": {
+    "hasDelegation": true,
+    "delegatedAddress": "0xDELEGATED00000000000000000000000000000001",
+    "isDelegatedToAgent": true
+  },
+  "usdcAllowance": {
+    "usdcAllowance": 100000,
+    "hasApproval": true
+  },
+  "agentDeployments": {
+    "agent-1": null,
+    "agent-2": null,
+    "agent-3": ["OSTIUM"]
+  }
+}

@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
 import { X, Zap, ArrowRight, CheckCircle, Activity, Wallet, Copy, Check, ExternalLink, Send } from 'lucide-react';
 import { HyperliquidConnect } from './HyperliquidConnect';
 import { OstiumConnect } from './OstiumConnect';
-import { ethers } from 'ethers';
 
 interface MultiVenueSelectorProps {
   agentId: string;
@@ -14,6 +12,7 @@ interface MultiVenueSelectorProps {
     hyperliquid?: string | null;
     ostium?: string | null;
   } | null;
+  agentDeployments?: Record<string, string[]> | null; // from static JSON: agentId -> enabled_venues[]
 }
 
 export function MultiVenueSelector({
@@ -22,12 +21,11 @@ export function MultiVenueSelector({
   onClose,
   onComplete,
   userAgentAddresses,
+  agentDeployments,
 }: MultiVenueSelectorProps) {
-  const { authenticated, user, login } = usePrivy();
   const [hyperliquidModalOpen, setHyperliquidModalOpen] = useState(false);
   const [ostiumModalOpen, setOstiumModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [creatingDeployments, setCreatingDeployments] = useState(false);
   const [setupStatus, setSetupStatus] = useState<{
     hasHyperliquid: boolean;
     hasOstium: boolean;
@@ -65,53 +63,35 @@ export function MultiVenueSelector({
     }
 
     try {
+      // Frontend-only simulation of sending ETH - no real blockchain interaction
       setSendingEth(true);
       setEthError(null);
       setEthTxHash(null);
 
-      const provider = (window as any).ethereum;
-      if (!provider) {
-        throw new Error('No wallet provider found. Please install MetaMask.');
-      }
+      const simulatedTxHash = `0xSIMULATED_ETH_TX_${Date.now().toString(16)}`;
+      setEthTxHash(simulatedTxHash);
+      setNotification(`ETH transaction sent! Hash: ${simulatedTxHash.slice(0, 10)}...`);
 
-      const ethersProvider = new ethers.providers.Web3Provider(provider);
-      const signer = ethersProvider.getSigner();
-
-      // Convert ETH to Wei
-      const amountWei = ethers.utils.parseEther(ethAmount);
-
-      // Send ETH transaction
-      const tx = await signer.sendTransaction({
-        to: userAgentAddresses.ostium,
-        value: amountWei,
-      });
-
-      setEthTxHash(tx.hash);
-      setNotification(`ETH transaction sent! Hash: ${tx.hash.slice(0, 10)}...`);
-      
-      // Wait for confirmation
-      await tx.wait();
-      setNotification('ETH successfully sent to agent address!');
-      setTimeout(() => setNotification(''), 5000);
-      setEthAmount(''); // Clear amount after success
-      setEthTxHash(null); // Clear tx hash after success
-
+      // Simulate confirmation delay
+      setTimeout(() => {
+        setNotification('ETH successfully "sent" to agent address (simulation).');
+        setTimeout(() => setNotification(''), 5000);
+        setEthAmount('');
+        setEthTxHash(null);
+        setSendingEth(false);
+      }, 1500);
     } catch (err: any) {
-      console.error('Error sending ETH:', err);
-      setEthError(err.message || 'Failed to send ETH. Please try again.');
+      console.error('Error in simulated ETH send:', err);
+      setEthError('Failed to simulate ETH send. Please try again.');
       setTimeout(() => setEthError(null), 5000);
-    } finally {
       setSendingEth(false);
     }
   };
 
   useEffect(() => {
-    if (authenticated && user?.wallet?.address) {
-      checkSetupStatus();
-    } else if (authenticated === false) {
-      setLoading(false);
-    }
-  }, [authenticated, user?.wallet?.address]);
+    // Frontend-only: simulate initial setup status load
+    checkSetupStatus();
+  }, []);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -122,28 +102,17 @@ export function MultiVenueSelector({
   }, []);
 
   const checkSetupStatus = async () => {
-    if (!user?.wallet?.address) return;
+    // Frontend-only: no backend status check.
+    // Use static JSON-derived deployments to decide which venues are "active" for this agent.
+    const deploymentsForAgent = (typeof agentDeployments === 'object' && agentDeployments)
+      ? agentDeployments[agentId] || []
+      : [];
 
-    try {
-      const response = await fetch(`/api/user/check-setup-status?userWallet=${user.wallet.address}&agentId=${agentId}`);
+    const hasOstium = deploymentsForAgent.includes('OSTIUM');
+    const hasHyperliquid = deploymentsForAgent.includes('HYPERLIQUID');
 
-      if (response.ok) {
-        const data = await response.json();
-
-        const hasHyperliquid = data.hasHyperliquidDeployment || false;
-        const hasOstium = data.hasOstiumDeployment || false;
-
-        setSetupStatus({ hasHyperliquid, hasOstium });
-        
-        // Don't auto-close - let user see status and choose to set up other venues
-        setLoading(false);
-      } else {
-        setLoading(false);
-      }
-    } catch (err) {
-      console.error('Error checking setup status:', err);
-      setLoading(false);
-    }
+    setSetupStatus({ hasHyperliquid, hasOstium });
+    setLoading(false);
   };
 
   const venues = [
@@ -167,11 +136,6 @@ export function MultiVenueSelector({
   ];
 
   const handleVenueClick = (venueId: string) => {
-    if (!authenticated) {
-      login();
-      return;
-    }
-
     // Check if venue is already set up
     const isAlreadySetup =
       (venueId === 'HYPERLIQUID' && setupStatus?.hasHyperliquid) ||
@@ -191,61 +155,14 @@ export function MultiVenueSelector({
     }
   };
 
-  // Login prompt
-  if (!authenticated && !loading) {
-    return (
-      <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-        <div className="bg-[var(--bg-deep)] border border-[var(--border)] max-w-md w-full">
-          <div className="p-8 text-center space-y-6">
-            <div className="w-16 h-16 mx-auto border border-[var(--accent)] flex items-center justify-center">
-              <Zap className="h-8 w-8 text-[var(--accent)]" />
-            </div>
-            <div>
-              <h3 className="font-display text-xl mb-2">CONNECT WALLET</h3>
-              <p className="text-[var(--text-secondary)] text-sm">
-                Connect your wallet to join {agentName}
-              </p>
-            </div>
-            <div className="space-y-3">
-              <button
-                onClick={() => login()}
-                className="w-full py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors"
-              >
-                CONNECT WALLET
-              </button>
-              <button
-                onClick={onClose}
-                className="w-full py-3 border border-[var(--border)] text-[var(--text-secondary)] font-bold hover:border-[var(--text-primary)] transition-colors"
-              >
-                CANCEL
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Loading state
-  if (loading || creatingDeployments) {
+  // Loading state (frontend-only simulation)
+  if (loading) {
     return (
       <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
         <div className="bg-[var(--bg-deep)] border border-[var(--border)] max-w-md w-full p-8">
           <div className="text-center space-y-4">
-            {creatingDeployments ? (
-              <>
-                <CheckCircle className="h-16 w-16 mx-auto text-[var(--accent)]" />
-                <h3 className="font-display text-xl">JOINED!</h3>
-                <p className="text-[var(--text-secondary)] text-sm">
-                  {agentName} is now active on both venues
-                </p>
-              </>
-            ) : (
-              <>
-                <Activity className="h-12 w-12 mx-auto text-[var(--accent)] animate-pulse" />
-                <p className="text-[var(--text-muted)]">Checking setup...</p>
-              </>
-            )}
+            <Activity className="h-12 w-12 mx-auto text-[var(--accent)] animate-pulse" />
+            <p className="text-[var(--text-muted)]">Checking setup...</p>
           </div>
         </div>
       </div>
@@ -271,14 +188,14 @@ export function MultiVenueSelector({
           </div>
 
           {/* Content - Scrollable */}
-          <div 
-            className="p-4 overflow-y-auto flex-1 modal-scrollable" 
+          <div
+            className="p-4 overflow-y-auto flex-1 modal-scrollable"
             style={{ overscrollBehavior: 'contain' }}
             onWheel={(e) => {
               const target = e.currentTarget;
               const isAtTop = target.scrollTop === 0;
               const isAtBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 1;
-              
+
               // Prevent scroll propagation if not at boundaries
               if ((e.deltaY < 0 && !isAtTop) || (e.deltaY > 0 && !isAtBottom)) {
                 e.stopPropagation();
@@ -504,7 +421,7 @@ export function MultiVenueSelector({
             {userAgentAddresses?.ostium && (
               <div className="border border-[var(--accent)]/40 bg-[var(--accent)]/5 p-4 mt-6">
                 <p className="data-label mb-3">OSTIUM SETUP COMPLETE - NEXT STEPS</p>
-                
+
                 {/* ETH Funding Section */}
                 <div className="mb-4 p-3 bg-[var(--bg-deep)] border border-[var(--border)]">
                   <p className="text-xs font-bold text-[var(--text-primary)] mb-2 flex items-center gap-2">
@@ -614,9 +531,7 @@ export function MultiVenueSelector({
           onClose={() => setHyperliquidModalOpen(false)}
           onSuccess={() => {
             setHyperliquidModalOpen(false);
-            if (user?.wallet?.address) {
-              checkSetupStatus();
-            }
+            checkSetupStatus();
           }}
         />
       )}
@@ -628,17 +543,13 @@ export function MultiVenueSelector({
           onClose={() => {
             setOstiumModalOpen(false);
             // Refresh setup status when modal is closed
-            if (user?.wallet?.address) {
-              checkSetupStatus();
-            }
+            checkSetupStatus();
           }}
           onSuccess={() => {
             // Don't close modal here - let user close manually
             // Just refresh setup status
-            if (user?.wallet?.address) {
-              checkSetupStatus();
-              // Refresh addresses will be handled by parent component via onComplete
-            }
+            checkSetupStatus();
+            // Refresh addresses will be handled by parent component via onComplete
           }}
         />
       )}

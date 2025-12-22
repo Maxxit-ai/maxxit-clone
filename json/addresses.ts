@@ -1,0 +1,7 @@
+// Shared addresses for Ostium and delegation that can be imported across the app
+
+export const UNIVERSAL_OSTIUM_AGENT_ADDRESS =
+  "0xOSTIUMAGENT000000000000000000000000000001";
+
+export const UNIVERSAL_DELEGATION_ADDRESS =
+  "0xDELEGATION000000000000000000000000000001";

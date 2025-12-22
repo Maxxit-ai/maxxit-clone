@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { db } from '../client/src/lib/db';
 import { AgentDrawer } from '@components/AgentDrawer';
 import { HyperliquidConnect } from '@components/HyperliquidConnect';
 import { MultiVenueSelector } from '@components/MultiVenueSelector';
@@ -13,10 +12,14 @@ import AgentsSection from '@components/home/AgentsSection';
 import CTASection from '@components/home/CTASection';
 import FooterSection from '@components/home/FooterSection';
 import { AgentSummary } from '@components/home/types';
-import { usePrivy } from '@privy-io/react-auth';
+import agentsJson from '../json/agents.json';
+import ostiumStatusJson from '../json/ostium-status.json';
+import {
+  UNIVERSAL_OSTIUM_AGENT_ADDRESS,
+  UNIVERSAL_DELEGATION_ADDRESS,
+} from '../json/addresses';
 
 export default function Home() {
-  const { authenticated, user } = usePrivy();
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,120 +47,48 @@ export default function Home() {
   } | null>(null);
 
   useEffect(() => {
-    async function fetchAgents() {
-      try {
-        const userWallet = authenticated && user?.wallet?.address ? user.wallet.address.toLowerCase() : null;
+    // Use local JSON data instead of backend/db and API calls
+    try {
+      const staticAgents = agentsJson as AgentSummary[];
+      setAgents(staticAgents || []);
 
-        // Fetch agents, user agent addresses, and deployments in parallel
-        const [agentsData, addressesData, deploymentsData] = await Promise.all([
-          db.get('agents', {
-            status: 'eq.PUBLIC',
-            order: 'apr30d.desc',
-            limit: '20',
-            select: 'id,name,venue,apr30d,apr90d,aprSi,sharpe30d',
-          }),
-          // Only fetch addresses if user is authenticated
-          userWallet
-            ? db.get('user_agent_addresses', {
-              userWallet: `eq.${userWallet}`,
-            }).catch(() => null) // Gracefully handle if no addresses exist
-            : Promise.resolve(null),
-          // Fetch deployments for the user to check enabled_venues per agent
-          userWallet
-            ? db.get('agent_deployments', {
-              userWallet: `eq.${userWallet}`,
-              status: 'eq.ACTIVE',
-            }).catch(() => [])
-            : Promise.resolve([]),
-        ]);
+      // Use universal addresses for the demo user
+      setUserAgentAddresses({
+        hyperliquid: null,
+        ostium: UNIVERSAL_OSTIUM_AGENT_ADDRESS,
+      });
 
-        setAgents(agentsData || []);
+      // Map deployments, delegation status, and USDC allowance from JSON
+      const {
+        agentDeployments: deploymentsFromJson,
+        delegationStatus,
+        usdcAllowance,
+      } = ostiumStatusJson as any;
 
-        // Set user agent addresses if available (API converts snake_case to camelCase)
-        if (addressesData && Array.isArray(addressesData) && addressesData.length > 0) {
-          setUserAgentAddresses({
-            hyperliquid: addressesData[0].hyperliquidAgentAddress || null,
-            ostium: addressesData[0].ostiumAgentAddress || null,
-          });
-        } else if (addressesData && !Array.isArray(addressesData)) {
-          // Single object returned
-          setUserAgentAddresses({
-            hyperliquid: addressesData.hyperliquidAgentAddress || null,
-            ostium: addressesData.ostiumAgentAddress || null,
-          });
-        } else {
-          setUserAgentAddresses(null);
-        }
+      setAgentDeployments(deploymentsFromJson || {});
 
-        // Process deployments: map agentId -> enabled_venues[]
-        if (deploymentsData && Array.isArray(deploymentsData)) {
-          const deploymentsMap: Record<string, string[]> = {};
-          deploymentsData.forEach((deployment: any) => {
-            const agentId = deployment.agentId || deployment.agent_id;
-            const enabledVenues = deployment.enabledVenues || deployment.enabled_venues || [];
-            if (agentId) {
-              // Merge venues if multiple deployments exist for same agent
-              if (!deploymentsMap[agentId]) {
-                deploymentsMap[agentId] = [];
-              }
-              enabledVenues.forEach((venue: string) => {
-                if (!deploymentsMap[agentId].includes(venue)) {
-                  deploymentsMap[agentId].push(venue);
-                }
-              });
-            }
-          });
-          setAgentDeployments(deploymentsMap);
-        } else {
-          setAgentDeployments({});
-        }
-
-        setError(null);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load agents');
-      } finally {
-        setLoading(false);
+      if (delegationStatus) {
+        setOstiumDelegationStatus({
+          hasDelegation: Boolean(delegationStatus.hasDelegation),
+          delegatedAddress: UNIVERSAL_DELEGATION_ADDRESS,
+          isDelegatedToAgent: Boolean(delegationStatus.isDelegatedToAgent),
+        });
       }
+
+      if (usdcAllowance) {
+        setOstiumUsdcAllowance({
+          usdcAllowance: Number(usdcAllowance.usdcAllowance ?? 0),
+          hasApproval: Boolean(usdcAllowance.hasApproval),
+        });
+      }
+
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load agents');
+    } finally {
+      setLoading(false);
     }
-    fetchAgents();
-  }, [authenticated, user?.wallet?.address]);
-
-  // Fetch Ostium delegation status and USDC allowance when user has an Ostium address
-  useEffect(() => {
-    async function fetchOstiumStatus() {
-      if (!authenticated || !user?.wallet?.address || !userAgentAddresses?.ostium) {
-        return;
-      }
-
-      try {
-        const [delegationResponse, allowanceResponse] = await Promise.all([
-          fetch(`/api/ostium/check-delegation-status?userWallet=${user.wallet.address}&agentAddress=${userAgentAddresses.ostium}`),
-          fetch(`/api/ostium/check-approval-status?userWallet=${user.wallet.address}`)
-        ]);
-
-        if (delegationResponse.ok) {
-          const delegationData = await delegationResponse.json();
-          setOstiumDelegationStatus({
-            hasDelegation: delegationData.hasDelegation,
-            delegatedAddress: delegationData.delegatedAddress,
-            isDelegatedToAgent: delegationData.isDelegatedToAgent,
-          });
-        }
-
-        if (allowanceResponse.ok) {
-          const allowanceData = await allowanceResponse.json();
-          setOstiumUsdcAllowance({
-            usdcAllowance: allowanceData.usdcAllowance,
-            hasApproval: allowanceData.hasApproval,
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching Ostium status:', error);
-      }
-    }
-
-    fetchOstiumStatus();
-  }, [authenticated, user?.wallet?.address, userAgentAddresses?.ostium]);
+  }, []);
 
   const scrollToSection = useCallback((targetId: string) => {
     const element = document.getElementById(targetId);
@@ -222,87 +153,43 @@ export default function Home() {
       <CTASection />
       <FooterSection />
 
-        {selectedAgent && (
-          <AgentDrawer
-            agentId={selectedAgent.id}
-            agentName={selectedAgent.name}
-            agentVenue={selectedAgent.venue}
-            onClose={() => setSelectedAgent(null)}
-          />
-        )}
+      {selectedAgent && (
+        <AgentDrawer
+          agentId={selectedAgent.id}
+          agentName={selectedAgent.name}
+          agentVenue={selectedAgent.venue}
+          onClose={() => setSelectedAgent(null)}
+        />
+      )}
 
-        {hyperliquidModalOpen && (
-          <HyperliquidConnect
-            agentId={hyperliquidAgentId}
-            agentName={hyperliquidAgentName}
-            agentVenue={hyperliquidAgentVenue || 'HYPERLIQUID'}
-            onClose={() => setHyperliquidModalOpen(false)}
-            onSuccess={() => console.log('Setup complete')}
-          />
-        )}
+      {hyperliquidModalOpen && (
+        <HyperliquidConnect
+          agentId={hyperliquidAgentId}
+          agentName={hyperliquidAgentName}
+          agentVenue={hyperliquidAgentVenue || 'HYPERLIQUID'}
+          onClose={() => setHyperliquidModalOpen(false)}
+          onSuccess={() => console.log('Setup complete')}
+        />
+      )}
 
-        {multiVenueSelectorOpen && multiVenueAgent && (
-          <MultiVenueSelector
-            agentId={multiVenueAgent.id}
-            agentName={multiVenueAgent.name}
-            onClose={() => {
-              setMultiVenueSelectorOpen(false);
-              setMultiVenueAgent(null);
-            }}
-            onComplete={() => {
-              setMultiVenueSelectorOpen(false);
-              setMultiVenueAgent(null);
-              // Refresh addresses and deployments after deployment
-              if (authenticated && user?.wallet?.address) {
-                const userWallet = user.wallet.address.toLowerCase();
-                Promise.all([
-                  db.get('user_agent_addresses', {
-                    userWallet: `eq.${userWallet}`,
-                  }).catch(() => null),
-                  db.get('agent_deployments', {
-                    userWallet: `eq.${userWallet}`,
-                    status: 'eq.ACTIVE',
-                  }).catch(() => []),
-                ]).then(([addressesData, deploymentsData]) => {
-                  // Update addresses
-                  if (addressesData && Array.isArray(addressesData) && addressesData.length > 0) {
-                    setUserAgentAddresses({
-                      hyperliquid: addressesData[0].hyperliquidAgentAddress || null,
-                      ostium: addressesData[0].ostiumAgentAddress || null,
-                    });
-                  } else if (addressesData && !Array.isArray(addressesData)) {
-                    setUserAgentAddresses({
-                      hyperliquid: addressesData.hyperliquidAgentAddress || null,
-                      ostium: addressesData.ostiumAgentAddress || null,
-                    });
-                  }
-
-                  // Update deployments
-                  if (deploymentsData && Array.isArray(deploymentsData)) {
-                    const deploymentsMap: Record<string, string[]> = {};
-                    deploymentsData.forEach((deployment: any) => {
-                      const agentId = deployment.agentId || deployment.agent_id;
-                      const enabledVenues = deployment.enabledVenues || deployment.enabled_venues || [];
-                      if (agentId) {
-                        if (!deploymentsMap[agentId]) {
-                          deploymentsMap[agentId] = [];
-                        }
-                        enabledVenues.forEach((venue: string) => {
-                          if (!deploymentsMap[agentId].includes(venue)) {
-                            deploymentsMap[agentId].push(venue);
-                          }
-                        });
-                      }
-                    });
-                    setAgentDeployments(deploymentsMap);
-                  }
-                });
-              }
-            }}
-            userAgentAddresses={userAgentAddresses}
-          />
-        )}
-      </div>
+      {multiVenueSelectorOpen && multiVenueAgent && (
+        <MultiVenueSelector
+          agentId={multiVenueAgent.id}
+          agentName={multiVenueAgent.name}
+          onClose={() => {
+            setMultiVenueSelectorOpen(false);
+            setMultiVenueAgent(null);
+          }}
+          onComplete={() => {
+            // In this demo setup we just close the selector; deployments come from static JSON.
+            setMultiVenueSelectorOpen(false);
+            setMultiVenueAgent(null);
+          }}
+          userAgentAddresses={userAgentAddresses}
+          agentDeployments={agentDeployments}
+        />
+      )}
+    </div>
   );
 }
 

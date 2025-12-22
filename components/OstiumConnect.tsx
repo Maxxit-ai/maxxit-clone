@@ -1,14 +1,10 @@
 /**
- * Ostium Connection Flow - Brutalist Design
+ * Ostium Connection Flow - Brutalist Design (Frontend Simulation Only)
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
 import { X, Wallet, CheckCircle, AlertCircle, Zap, Activity, ExternalLink } from 'lucide-react';
-import { ethers } from 'ethers';
 import { TradingPreferencesForm, TradingPreferences } from './TradingPreferencesModal';
-import { getOstiumConfig } from '../lib/ostium-config';
-// import { TradingPreferencesModal, TradingPreferences } from './TradingPreferencesModal';
 
 interface OstiumConnectProps {
   agentId: string;
@@ -17,13 +13,9 @@ interface OstiumConnectProps {
   onSuccess?: () => void;
 }
 
-// Get Ostium configuration based on environment
-const { tradingContract: OSTIUM_TRADING_CONTRACT, usdcContract: USDC_TOKEN, storageContract: OSTIUM_STORAGE, chainId: ARBITRUM_CHAIN_ID } = getOstiumConfig();
-const OSTIUM_TRADING_ABI = ['function setDelegate(address delegate) external'];
-const USDC_ABI = [
-  'function approve(address spender, uint256 amount) public returns (bool)',
-  'function allowance(address owner, address spender) view returns (uint256)',
-];
+// Simulated wallet/agent data for frontend-only demo
+const SIMULATED_WALLET_ADDRESS = '0x1234...ABCD';
+const SIMULATED_AGENT_ADDRESS = '0xA93F...O57E';
 
 export function OstiumConnect({
   agentId,
@@ -31,16 +23,17 @@ export function OstiumConnect({
   onClose,
   onSuccess,
 }: OstiumConnectProps) {
-  const { user, authenticated, login } = usePrivy();
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [agentAddress, setAgentAddress] = useState<string>('');
-  const [txHash, setTxHash] = useState<string | null>(null);
-  const [delegateApproved, setDelegateApproved] = useState(false);
-  const [usdcApproved, setUsdcApproved] = useState(false);
   const [deploymentId, setDeploymentId] = useState<string>('');
   const [step, setStep] = useState<'connect' | 'preferences' | 'agent' | 'delegate' | 'usdc' | 'complete'>('connect');
   const [joiningAgent, setJoiningAgent] = useState(false);
+  const [isWalletConnected, setIsWalletConnected] = useState(false);
+  const [delegateApproved, setDelegateApproved] = useState(false);
+  const [usdcApproved, setUsdcApproved] = useState(false);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [agentAddress] = useState(SIMULATED_AGENT_ADDRESS);
 
   // Trading preferences stored locally until all approvals complete
   const [tradingPreferences, setTradingPreferences] = useState<TradingPreferences | null>(null);
@@ -48,435 +41,232 @@ export function OstiumConnect({
   const [firstDeploymentPreferences, setFirstDeploymentPreferences] = useState<TradingPreferences | null>(null);
   const [loadingFirstDeploymentPreferences, setLoadingFirstDeploymentPreferences] = useState(false);
 
-  // Guard refs to prevent duplicate API calls
-  const isCheckingRef = useRef(false);
-  const isAssigningRef = useRef(false);
-  const [hasInitialized, setHasInitialized] = useState(false); // Persists in state, not ref
-
-  useEffect(() => {
-    // If already authenticated when component mounts, go to preferences step first
-    if (authenticated && user?.wallet?.address && step === 'connect' && !hasInitialized) {
-      setHasInitialized(true);
-      // Load first deployment preferences if they exist
-      setLoadingFirstDeploymentPreferences(true);
-      loadFirstDeploymentPreferences().then((prefs) => {
-        if (prefs) {
-          setFirstDeploymentPreferences(prefs);
-          console.log('[OstiumConnect] Set first deployment preferences:', prefs);
-        }
-        setLoadingFirstDeploymentPreferences(false);
-      });
-      // Always show preferences as first step for new deployments
-      setStep('preferences');
-    }
-  }, [authenticated, user?.wallet?.address, step, hasInitialized]);
 
   const checkSetupStatus = async () => {
-    if (!user?.wallet?.address) return;
-
-    // Prevent duplicate calls
-    if (isCheckingRef.current) {
-      console.log('[OstiumConnect] checkSetupStatus already in progress, skipping');
-      return;
-    }
-    isCheckingRef.current = true;
-
-    try {
-      console.log('[OstiumConnect] Checking setup status for wallet:', user.wallet.address);
-      const setupResponse = await fetch(`/api/user/check-setup-status?userWallet=${user.wallet.address}&agentId=${agentId}`);
-
-      if (setupResponse.ok) {
-        const setupData = await setupResponse.json();
-        console.log('[OstiumConnect] Setup data:', setupData);
-
-        /*
-         * FLOW LOGIC:
-         * - Agent address (O1) is per-WALLET, not per-agent
-         * - If wallet W1 already has Ostium address O1, it means:
-         *   - User has previously deployed at least one agent with this wallet
-         *   - setDelegate(O1) was already called
-         *   - USDC was already approved
-         * - So for any NEW agent deployment with SAME wallet, skip approval steps!
-         */
-
-        if (setupData.hasOstiumAddress) {
-          // Wallet already has an Ostium agent address assigned
-          // This means user has previously completed the approval flow with this wallet
-
-          console.log('[OstiumConnect] Wallet has existing Ostium address:', setupData.addresses.ostium);
-
-          // Verify approvals are still valid on-chain
-          const approvalResponse = await fetch(`/api/ostium/check-approval-status?userWallet=${user.wallet.address}`);
-
-          if (approvalResponse.ok) {
-            const approvalData = await approvalResponse.json();
-            console.log('[OstiumConnect] On-chain approval status:', approvalData);
-
-            if (approvalData.hasApproval) {
-              // User has valid USDC approval - they've done the flow before
-              // Skip ALL approval steps and go to complete step
-              console.log('[OstiumConnect] ✅ Wallet already has approvals - skipping to complete step');
-              setAgentAddress(setupData.addresses.ostium);
-              setDelegateApproved(true);
-              setUsdcApproved(true);
-              setStep('complete');
-              setLoading(false);
-              return;
-            } else {
-              // User has address but USDC approval was revoked - need to re-approve
-              console.log('[OstiumConnect] ⚠️ USDC approval revoked - need to re-approve');
-              setAgentAddress(setupData.addresses.ostium);
-              // Skip delegate (already done) but need USDC approval
-              setDelegateApproved(true); // setDelegate is permanent
-              setStep('usdc');
-              setLoading(false);
-            }
-          } else {
-            // Couldn't check approval status - go through full flow to be safe
-            console.log('[OstiumConnect] Could not check approval status - showing delegate step');
-            setAgentAddress(setupData.addresses.ostium);
-            setStep('delegate');
-            setLoading(false);
-          }
-        } else {
-          // No Ostium address for this wallet - FIRST TIME user with this wallet
-          // Need to generate new address and go through full approval flow
-          console.log('[OstiumConnect] 🆕 First time for this wallet - generating new address');
-          setStep('agent');
-          setLoading(false);
-          await assignAgent();
-        }
-      } else {
-        console.log('[OstiumConnect] Setup check failed - starting from agent step');
-        setStep('agent');
-        setLoading(false);
-        await assignAgent();
-      }
-    } catch (err) {
-      console.error('[OstiumConnect] Error checking setup status:', err);
-      setStep('agent');
+    // Frontend-only: simulate a quick setup check, then move to delegate step
+    console.log('[OstiumConnect] Skipping backend setup check (frontend simulation)');
+    setTimeout(() => {
       setLoading(false);
-      await assignAgent();
-    } finally {
-      isCheckingRef.current = false;
-    }
+      setStep('delegate');
+    }, 600);
   };
 
-  const createDeploymentDirectly = async (wallet: string) => {
-    // Skip deployment creation - just set up the UI state
-    // Deployment will be created when user clicks "Join Agent" in the complete step
-    console.log('[OstiumConnect] ✅ Wallet already has approvals - skipping to complete step without deployment');
-    setDelegateApproved(true);
-    setUsdcApproved(true);
-    setStep('complete');
-    setLoading(false);
+  const createDeploymentDirectly = async (_wallet: string) => {
+    // Frontend-only: not used in simulation, kept for compatibility
+    console.log('[OstiumConnect] createDeploymentDirectly called in simulation (no-op)');
   };
 
   const assignAgent = async () => {
-    // Prevent duplicate calls
-    if (isAssigningRef.current) {
-      console.log('[OstiumConnect] assignAgent already in progress, skipping');
-      return;
-    }
-    isAssigningRef.current = true;
-
-    setLoading(true);
-    setError('');
-
-    try {
-      console.log('[OstiumConnect] Assigning agent for:', { agentId, userWallet: user?.wallet?.address });
-
-      const addressResponse = await fetch(`/api/agents/${agentId}/generate-deployment-address`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userWallet: user?.wallet?.address,
-          venue: 'OSTIUM',
-        }),
-      });
-
-      if (!addressResponse.ok) {
-        const errorData = await addressResponse.json();
-        throw new Error(errorData.error || 'Failed to generate agent address');
-      }
-
-      const addressData = await addressResponse.json();
-      const agentAddr = addressData.address || addressData.addresses?.ostium?.address;
-
-      if (!agentAddr) {
-        throw new Error('No Ostium agent address returned');
-      }
-
-      console.log('[OstiumConnect] Agent address assigned:', agentAddr);
-      setAgentAddress(agentAddr);
-
-      // Don't create deployment here - just assign the agent address
-      // Deployment will be created when user clicks "Join Agent" in the complete step
-      console.log('[OstiumConnect] Agent address assigned, skipping deployment creation');
-      setStep('delegate');
-    } catch (err: any) {
-      console.error('[OstiumConnect] Failed to assign agent:', err);
-      setError(err.message || 'Failed to assign agent wallet');
-    } finally {
-      setLoading(false);
-      isAssigningRef.current = false;
-    }
+    // Frontend-only: agent assignment is simulated when preferences are saved
+    console.log('[OstiumConnect] assignAgent called in simulation (handled via handlePreferencesSet)');
   };
 
   const joinAgent = async () => {
     setJoiningAgent(true);
     setError('');
 
-    try {
-      const requestBody: Record<string, unknown> = {
-        agentId,
-        userWallet: user?.wallet?.address,
-      };
+    // Frontend-only simulation of deployment creation
+    setTimeout(() => {
+      const simulatedId = `SIM-${Date.now()}`;
+      setDeploymentId(simulatedId);
+      console.log('[OstiumConnect] ✅ Simulated deployment created:', simulatedId);
 
-      // Include trading preferences if available (always use ref to avoid stale state)
-      if (tradingPreferencesRef.current) {
-        requestBody.tradingPreferences = tradingPreferencesRef.current;
-        console.log('[OstiumConnect] Creating deployment with preferences:', tradingPreferencesRef.current);
-      } else {
-        console.warn('[OstiumConnect] Creating deployment without preferences - will use defaults');
-      }
-
-      console.log('[OstiumConnect] Creating deployment:', requestBody);
-
-      const response = await fetch('/api/ostium/create-deployment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create deployment');
-      }
-
-      const data = await response.json();
-      setDeploymentId(data.deployment.id);
-      console.log('[OstiumConnect] ✅ Deployment created successfully:', data.deployment.id);
-
-      // Call onSuccess to refresh setup status
       if (onSuccess) {
         onSuccess();
       }
-    } catch (err: any) {
-      console.error('Error creating deployment:', err);
-      setError(err.message || 'Failed to join agent');
-    } finally {
+
       setJoiningAgent(false);
-    }
+    }, 2000);
   };
 
+  // const approveAgent = async () => {
+  //   setLoading(true);
+  //   setError('');
+
+  //   // Frontend-only simulation of delegate approval
+  //   setTimeout(() => {
+  //     console.log('[OstiumConnect] ✅ Simulated delegate approval, moving to USDC step');
+  //     setDelegateApproved(true);
+  //     setStep('usdc');
+  //     setTxHash('0xSIMULATED_DELEGATE_TX');
+  //     setLoading(false);
+  //   }, 2000);
+  // };
+
+  // const approveUsdc = async () => {
+  //   console.log('[OstiumConnect] approveUsdc called - starting USDC approval flow');
+  //   setLoading(true);
+  //   setError('');
+
+  //   try {
+  //     if (!authenticated || !user?.wallet?.address) {
+  //       throw new Error('Please connect your wallet');
+  //     }
+
+  //     const provider = (window as any).ethereum;
+  //     if (!provider) {
+  //       throw new Error('No wallet provider found.');
+  //     }
+
+  //     const ethersProvider = new ethers.providers.Web3Provider(provider);
+  //     await ethersProvider.send('eth_requestAccounts', []);
+
+  //     const network = await ethersProvider.getNetwork();
+  //     if (network.chainId !== ARBITRUM_CHAIN_ID) {
+  //       throw new Error('Please switch to Arbitrum');
+  //     }
+
+  //     const signer = ethersProvider.getSigner();
+  //     const usdcContract = new ethers.Contract(USDC_TOKEN, USDC_ABI, signer);
+
+  //     const currentAllowanceStorage = await usdcContract.allowance(user.wallet.address, OSTIUM_STORAGE);
+  //     // const currentAllowanceTrading = await usdcContract.allowance(user.wallet.address, OSTIUM_TRADING_CONTRACT);
+  //     const allowanceAmount = ethers.utils.parseUnits('1000000', 6);
+
+  //     const storageAllowance = parseFloat(ethers.utils.formatUnits(currentAllowanceStorage, 6));
+  //     // const tradingAllowance = parseFloat(ethers.utils.formatUnits(currentAllowanceTrading, 6));
+  //     const requiredAmount = parseFloat(ethers.utils.formatUnits(allowanceAmount, 6));
+
+  //     console.log('[OstiumConnect] USDC Approval Check:');
+  //     console.log('  Storage allowance:', storageAllowance, 'USDC');
+  //     // console.log('  Trading allowance:', tradingAllowance, 'USDC');
+  //     console.log('  Required amount:', requiredAmount, 'USDC');
+
+  //     // Use a lower threshold - only skip if user has genuinely high approval
+  //     // This ensures first-time users always go through the approval flow
+  //     const MIN_REQUIRED_APPROVAL = 100; // $100 minimum to skip (not $10)
+  //     const needsStorageApproval = storageAllowance < MIN_REQUIRED_APPROVAL;
+  //     // const needsTradingApproval = tradingAllowance < MIN_REQUIRED_APPROVAL;
+
+  //     console.log('  Needs Storage approval:', needsStorageApproval, `(current: ${storageAllowance}, required: ${MIN_REQUIRED_APPROVAL})`);
+  //     // console.log('  Needs Trading approval:', needsTradingApproval, `(current: ${tradingAllowance}, required: ${MIN_REQUIRED_APPROVAL})`);
+
+  //     if (!needsStorageApproval) {
+  //       console.log('[OstiumConnect] USDC already sufficiently approved, skipping to complete');
+  //       setUsdcApproved(true);
+  //       setStep('complete');
+
+  //       // Call onSuccess but don't auto-close - let user close manually
+  //       if (onSuccess) {
+  //         onSuccess();
+  //       }
+  //       return;
+  //     }
+
+  //     // At least one approval is needed
+  //     console.log('[OstiumConnect] USDC approval needed, proceeding with transaction(s)');
+
+  //     if (needsStorageApproval) {
+  //       const approveData = usdcContract.interface.encodeFunctionData('approve', [OSTIUM_STORAGE, allowanceAmount]);
+  //       const gasEstimate = await ethersProvider.estimateGas({
+  //         to: USDC_TOKEN,
+  //         from: user.wallet.address,
+  //         data: approveData,
+  //       });
+
+  //       // 50% gas buffer for reliability
+  //       const gasWithBuffer = gasEstimate.mul(150).div(100);
+  //       console.log(`[OstiumConnect] USDC Storage approval - Gas estimate: ${gasEstimate.toString()}, with 50% buffer: ${gasWithBuffer.toString()}`);
+
+  //       const txHash = await provider.request({
+  //         method: 'eth_sendTransaction',
+  //         params: [{
+  //           from: user.wallet.address,
+  //           to: USDC_TOKEN,
+  //           data: approveData,
+  //           gas: gasWithBuffer.toHexString(),
+  //         }],
+  //       });
+
+  //       setTxHash(txHash);
+  //       await ethersProvider.waitForTransaction(txHash);
+  //     }
+
+  //     // if (needsTradingApproval) {
+  //     //   const approveDataTrading = usdcContract.interface.encodeFunctionData('approve', [OSTIUM_TRADING_CONTRACT, allowanceAmount]);
+  //     //   const gasEstimateTrading = await ethersProvider.estimateGas({
+  //     //     to: USDC_TOKEN,
+  //     //     from: user.wallet.address,
+  //     //     data: approveDataTrading,
+  //     //   });
+
+  //     //   // 50% gas buffer for reliability
+  //     //   const gasWithBufferTrading = gasEstimateTrading.mul(150).div(100);
+  //     //   console.log(`[OstiumConnect] USDC Trading approval - Gas estimate: ${gasEstimateTrading.toString()}, with 50% buffer: ${gasWithBufferTrading.toString()}`);
+
+  //     //   const txHashTrading = await provider.request({
+  //     //     method: 'eth_sendTransaction',
+  //     //     params: [{
+  //     //       from: user.wallet.address,
+  //     //       to: USDC_TOKEN,
+  //     //       data: approveDataTrading,
+  //     //       gas: gasWithBufferTrading.toHexString(),
+  //     //     }],
+  //     //   });
+
+  //     //   setTxHash(txHashTrading);
+  //     //   await ethersProvider.waitForTransaction(txHashTrading);
+  //     // }
+
+  //     setUsdcApproved(true);
+  //     setStep('complete');
+
+  //     // Don't call onSuccess here - wait until deployment is actually created
+  //     // onSuccess will be called in joinAgent function
+
+  //   } catch (err: any) {
+  //     console.error('USDC approval error:', err);
+
+  //     if (err.code === 4001 || err.message?.includes('rejected')) {
+  //       setError('Transaction rejected');
+  //     } else {
+  //       setError(err.message || 'Failed to approve USDC');
+  //     }
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  // const handleConnect = () => {
+  //   if (!authenticated) {
+  //     login();
+  //   }
+  // };
+
   const approveAgent = async () => {
+    // Frontend-only simulation of delegate approval
+    console.log('[OstiumConnect] Simulating delegate approval');
     setLoading(true);
     setError('');
-
-    try {
-      if (!authenticated || !user?.wallet?.address) {
-        throw new Error('Please connect your wallet');
-      }
-
-      if (!agentAddress) {
-        throw new Error('Agent not assigned yet');
-      }
-
-      const provider = (window as any).ethereum;
-      if (!provider) {
-        throw new Error('No wallet provider found. Please install MetaMask.');
-      }
-
-      const ethersProvider = new ethers.providers.Web3Provider(provider);
-      const network = await ethersProvider.getNetwork();
-
-      if (network.chainId !== ARBITRUM_CHAIN_ID) {
-        try {
-          await provider.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: `0x${ARBITRUM_CHAIN_ID.toString(16)}` }],
-          });
-        } catch (switchError: any) {
-          if (switchError.code === 4902) {
-            throw new Error('Please add Arbitrum to your wallet');
-          }
-          throw new Error('Please switch to Arbitrum network');
-        }
-      }
-
-      const signer = ethersProvider.getSigner();
-      const contract = new ethers.Contract(OSTIUM_TRADING_CONTRACT, OSTIUM_TRADING_ABI, signer);
-
-      // Estimate gas with 50% buffer for reliability
-      const gasEstimate = await contract.estimateGas.setDelegate(agentAddress);
-      const gasLimit = gasEstimate.mul(150).div(100); // 50% buffer
-
-      console.log(`[OstiumConnect] Gas estimate: ${gasEstimate.toString()}, with 50% buffer: ${gasLimit.toString()}`);
-
-      const tx = await contract.setDelegate(agentAddress, { gasLimit });
-      setTxHash(tx.hash);
-
-      await tx.wait();
-
-      console.log('[OstiumConnect] ✅ Delegate approved, moving to USDC step');
+    setTimeout(() => {
       setDelegateApproved(true);
       setStep('usdc');
-      setTxHash(null); // Clear tx hash for next transaction
-
-    } catch (err: any) {
-      console.error('[OstiumConnect] Approval error:', err);
-
-      if (err.code === 4001) {
-        setError('Transaction rejected');
-      } else if (err.code === 'CALL_EXCEPTION') {
-        setError('Contract call failed. Please check network and try again.');
-      } else {
-        setError(err.message || 'Failed to approve agent');
-      }
-    } finally {
+      setTxHash('0xSIMULATED_DELEGATE_TX');
       setLoading(false);
-    }
+    }, 1200);
   };
 
   const approveUsdc = async () => {
-    console.log('[OstiumConnect] approveUsdc called - starting USDC approval flow');
+    // Frontend-only simulation of USDC approval
+    console.log('[OstiumConnect] Simulating USDC approval');
     setLoading(true);
     setError('');
-
-    try {
-      if (!authenticated || !user?.wallet?.address) {
-        throw new Error('Please connect your wallet');
-      }
-
-      const provider = (window as any).ethereum;
-      if (!provider) {
-        throw new Error('No wallet provider found.');
-      }
-
-      const ethersProvider = new ethers.providers.Web3Provider(provider);
-      await ethersProvider.send('eth_requestAccounts', []);
-
-      const network = await ethersProvider.getNetwork();
-      if (network.chainId !== ARBITRUM_CHAIN_ID) {
-        throw new Error('Please switch to Arbitrum');
-      }
-
-      const signer = ethersProvider.getSigner();
-      const usdcContract = new ethers.Contract(USDC_TOKEN, USDC_ABI, signer);
-
-      const currentAllowanceStorage = await usdcContract.allowance(user.wallet.address, OSTIUM_STORAGE);
-      // const currentAllowanceTrading = await usdcContract.allowance(user.wallet.address, OSTIUM_TRADING_CONTRACT);
-      const allowanceAmount = ethers.utils.parseUnits('1000000', 6);
-
-      const storageAllowance = parseFloat(ethers.utils.formatUnits(currentAllowanceStorage, 6));
-      // const tradingAllowance = parseFloat(ethers.utils.formatUnits(currentAllowanceTrading, 6));
-      const requiredAmount = parseFloat(ethers.utils.formatUnits(allowanceAmount, 6));
-
-      console.log('[OstiumConnect] USDC Approval Check:');
-      console.log('  Storage allowance:', storageAllowance, 'USDC');
-      // console.log('  Trading allowance:', tradingAllowance, 'USDC');
-      console.log('  Required amount:', requiredAmount, 'USDC');
-
-      // Use a lower threshold - only skip if user has genuinely high approval
-      // This ensures first-time users always go through the approval flow
-      const MIN_REQUIRED_APPROVAL = 100; // $100 minimum to skip (not $10)
-      const needsStorageApproval = storageAllowance < MIN_REQUIRED_APPROVAL;
-      // const needsTradingApproval = tradingAllowance < MIN_REQUIRED_APPROVAL;
-
-      console.log('  Needs Storage approval:', needsStorageApproval, `(current: ${storageAllowance}, required: ${MIN_REQUIRED_APPROVAL})`);
-      // console.log('  Needs Trading approval:', needsTradingApproval, `(current: ${tradingAllowance}, required: ${MIN_REQUIRED_APPROVAL})`);
-
-      if (!needsStorageApproval) {
-        console.log('[OstiumConnect] USDC already sufficiently approved, skipping to complete');
-        setUsdcApproved(true);
-        setStep('complete');
-
-        // Call onSuccess but don't auto-close - let user close manually
-        if (onSuccess) {
-          onSuccess();
-        }
-        return;
-      }
-
-      // At least one approval is needed
-      console.log('[OstiumConnect] USDC approval needed, proceeding with transaction(s)');
-
-      if (needsStorageApproval) {
-        const approveData = usdcContract.interface.encodeFunctionData('approve', [OSTIUM_STORAGE, allowanceAmount]);
-        const gasEstimate = await ethersProvider.estimateGas({
-          to: USDC_TOKEN,
-          from: user.wallet.address,
-          data: approveData,
-        });
-
-        // 50% gas buffer for reliability
-        const gasWithBuffer = gasEstimate.mul(150).div(100);
-        console.log(`[OstiumConnect] USDC Storage approval - Gas estimate: ${gasEstimate.toString()}, with 50% buffer: ${gasWithBuffer.toString()}`);
-
-        const txHash = await provider.request({
-          method: 'eth_sendTransaction',
-          params: [{
-            from: user.wallet.address,
-            to: USDC_TOKEN,
-            data: approveData,
-            gas: gasWithBuffer.toHexString(),
-          }],
-        });
-
-        setTxHash(txHash);
-        await ethersProvider.waitForTransaction(txHash);
-      }
-
-      // if (needsTradingApproval) {
-      //   const approveDataTrading = usdcContract.interface.encodeFunctionData('approve', [OSTIUM_TRADING_CONTRACT, allowanceAmount]);
-      //   const gasEstimateTrading = await ethersProvider.estimateGas({
-      //     to: USDC_TOKEN,
-      //     from: user.wallet.address,
-      //     data: approveDataTrading,
-      //   });
-
-      //   // 50% gas buffer for reliability
-      //   const gasWithBufferTrading = gasEstimateTrading.mul(150).div(100);
-      //   console.log(`[OstiumConnect] USDC Trading approval - Gas estimate: ${gasEstimateTrading.toString()}, with 50% buffer: ${gasWithBufferTrading.toString()}`);
-
-      //   const txHashTrading = await provider.request({
-      //     method: 'eth_sendTransaction',
-      //     params: [{
-      //       from: user.wallet.address,
-      //       to: USDC_TOKEN,
-      //       data: approveDataTrading,
-      //       gas: gasWithBufferTrading.toHexString(),
-      //     }],
-      //   });
-
-      //   setTxHash(txHashTrading);
-      //   await ethersProvider.waitForTransaction(txHashTrading);
-      // }
-
+    setTimeout(() => {
       setUsdcApproved(true);
       setStep('complete');
-
-      // Don't call onSuccess here - wait until deployment is actually created
-      // onSuccess will be called in joinAgent function
-
-    } catch (err: any) {
-      console.error('USDC approval error:', err);
-
-      if (err.code === 4001 || err.message?.includes('rejected')) {
-        setError('Transaction rejected');
-      } else {
-        setError(err.message || 'Failed to approve USDC');
-      }
-    } finally {
+      setTxHash('0xSIMULATED_USDC_TX');
       setLoading(false);
-    }
+    }, 1200);
   };
 
   const handleConnect = () => {
-    if (!authenticated) {
-      login();
-    }
+    // Frontend-only wallet connect simulation
+    console.log('[OstiumConnect] Simulating wallet connection');
+    setLoading(true);
+    setTimeout(() => {
+      setIsWalletConnected(true);
+      setLoading(false);
+    }, 800);
   };
 
   const handlePreferencesSet = (preferences: TradingPreferences) => {
@@ -490,31 +280,9 @@ export function OstiumConnect({
   };
 
   const loadFirstDeploymentPreferences = async () => {
-    if (!user?.wallet?.address) return null;
-
-    try {
-      const response = await fetch(
-        `/api/user/first-deployment-preferences?userWallet=${user.wallet.address}&agentId=${agentId}`
-      );
-
-      if (!response.ok) {
-        console.warn('[OstiumConnect] Failed to load first deployment preferences');
-        return null;
-      }
-
-      const data = await response.json();
-
-      if (data.isFirstDeployment) {
-        console.log('[OstiumConnect] This is the first deployment - using default preferences');
-        return null;
-      }
-
-      console.log('[OstiumConnect] Loaded first deployment preferences:', data.preferences);
-      return data.preferences;
-    } catch (err) {
-      console.error('[OstiumConnect] Error loading first deployment preferences:', err);
-      return null;
-    }
+    // Frontend-only: no previous deployments to load in this simulation
+    console.log('[OstiumConnect] loadFirstDeploymentPreferences (simulation, returning null)');
+    return null;
   };
 
   const goBack = () => {
@@ -677,7 +445,7 @@ export function OstiumConnect({
             )}
 
             {step === 'connect' ? (
-              authenticated && user?.wallet?.address ? (
+              isWalletConnected ? (
                 <div className="space-y-4">
                   <div className="flex items-center gap-3 p-4 border border-[var(--accent)]/60 bg-[var(--accent)]/5 rounded">
                     <div className="w-12 h-12 border border-[var(--accent)] flex items-center justify-center bg-[var(--bg-deep)]">
@@ -686,7 +454,7 @@ export function OstiumConnect({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-[var(--text-primary)]">Wallet connected</p>
                       <p className="text-xs text-[var(--text-secondary)] truncate font-mono">
-                        {user.wallet.address}
+                        {SIMULATED_WALLET_ADDRESS}
                       </p>
                     </div>
                     <div className="text-[10px] px-2 py-1 border border-[var(--accent)] text-[var(--accent)] font-bold">
@@ -748,7 +516,7 @@ export function OstiumConnect({
                     </div>
                   ) : (
                     <TradingPreferencesForm
-                      userWallet={user?.wallet?.address || ''}
+                      userWallet={isWalletConnected ? SIMULATED_WALLET_ADDRESS : ''}
                       onClose={onClose}
                       onBack={goBack}
                       localOnly={true}

@@ -1,0 +1,29 @@
+[
+  {
+    "id": "agent-1",
+    "name": "Momentum Alpha Club",
+    "venue": "MULTI",
+    "apr30d": 24.3,
+    "apr90d": 52.1,
+    "aprSi": 87.5,
+    "sharpe30d": 1.42
+  },
+  {
+    "id": "agent-2",
+    "name": "Market Maker Syndicate",
+    "venue": "MULTI",
+    "apr30d": 12.8,
+    "apr90d": 34.9,
+    "aprSi": 60.3,
+    "sharpe30d": 1.12
+  },
+  {
+    "id": "agent-3",
+    "name": "Cross-Venue Arb Collective",
+    "venue": "MULTI",
+    "apr30d": 31.6,
+    "apr90d": 70.4,
+    "aprSi": 102.7,
+    "sharpe30d": 1.67
+  }
+]

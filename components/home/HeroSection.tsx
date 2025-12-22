@@ -184,7 +184,7 @@ const HeroSection = memo(
 
           <div className="flex flex-wrap justify-center gap-4 mb-16">
             <button
-              onClick={handleDeployClick}
+              onClick={() => router.push("/#agents")}
               className="group px-8 py-4 bg-accent text-[var(--bg-deep)] font-bold text-lg hover:bg-[var(--accent-dim)] transition-all"
             >
               JOIN ALPHA CLUB
