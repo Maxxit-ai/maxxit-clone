@@ -58,47 +58,66 @@ export default async function handler(
       });
     }
 
-    // Check for recently created lazy trader alpha users that are NOT yet linked to an agent
+    // Check for lazy trader alpha users that belong to THIS specific wallet
     // This catches users who just clicked the telegram link but haven't completed agent creation
-    const recentLazyTrader = await prisma.telegram_alpha_users.findFirst({
+    console.log(
+      "[CheckTelegramStatus] Looking for lazy trader with wallet:",
+      normalizedWallet
+    );
+
+    const lazyTraderForWallet = await prisma.telegram_alpha_users.findFirst({
       where: {
         lazy_trader: true,
+        user_wallet: normalizedWallet, // Filter by wallet address - this ensures we get the correct user
         // Not linked to any agent yet
         agent_telegram_users: {
           none: {},
         },
-        // Created or updated in the last 10 minutes
-        OR: [
-          {
-            created_at: {
-              gte: new Date(Date.now() - 10 * 60 * 1000),
-            },
-          },
-          {
-            last_message_at: {
-              gte: new Date(Date.now() - 10 * 60 * 1000),
-            },
-          },
-        ],
       },
       orderBy: {
         created_at: "desc",
       },
     });
 
-    if (recentLazyTrader) {
+    if (lazyTraderForWallet) {
+      console.log(
+        "[CheckTelegramStatus] ✅ Found lazy trader:",
+        lazyTraderForWallet.id,
+        "telegram_user_id:",
+        lazyTraderForWallet.telegram_user_id,
+        "wallet:",
+        lazyTraderForWallet.user_wallet
+      );
       return res.status(200).json({
         success: true,
         connected: true,
         telegramUser: {
-          id: recentLazyTrader.id,
-          telegram_user_id: recentLazyTrader.telegram_user_id,
-          telegram_username: recentLazyTrader.telegram_username,
-          first_name: recentLazyTrader.first_name,
-          last_name: recentLazyTrader.last_name,
+          id: lazyTraderForWallet.id,
+          telegram_user_id: lazyTraderForWallet.telegram_user_id,
+          telegram_username: lazyTraderForWallet.telegram_username,
+          first_name: lazyTraderForWallet.first_name,
+          last_name: lazyTraderForWallet.last_name,
         },
         agentId: null, // Agent not created yet
       });
+    } else {
+      console.log(
+        "[CheckTelegramStatus] ❌ No lazy trader found for wallet:",
+        normalizedWallet
+      );
+      // Debug: Check if there are any lazy traders at all
+      const allLazyTraders = await prisma.telegram_alpha_users.findMany({
+        where: { lazy_trader: true },
+        select: { user_wallet: true, telegram_user_id: true },
+        take: 5,
+      });
+      console.log(
+        "[CheckTelegramStatus] Debug - Sample lazy traders:",
+        allLazyTraders.map((t) => ({
+          wallet: t.user_wallet,
+          telegram_id: t.telegram_user_id,
+        }))
+      );
     }
 
     return res.status(200).json({

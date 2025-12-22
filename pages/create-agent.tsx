@@ -471,7 +471,7 @@ export default function CreateAgent() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-deep)]">
+    <div className="min-h-screen bg-[var(--bg-deep)] border border-[var(--border)]">
       <Header />
       {isMounted && !completedTourSteps.includes(step) && (
         <Joyride
@@ -543,9 +543,9 @@ export default function CreateAgent() {
       <div className="max-w-4xl mx-auto px-6 py-12">
         {/* Title */}
         <div className="text-center mb-12">
-          <p className="data-label mb-2">AGENT WIZARD</p>
-          <h1 className="font-display text-4xl md:text-5xl mb-4">CREATE AGENT</h1>
-          <p className="text-[var(--text-secondary)]">Configure your autonomous trading strategy</p>
+          <p className="data-label mb-2">ALPHA CLUB WIZARD</p>
+          <h1 className="font-display text-4xl md:text-5xl mb-4">CREATE YOUR CLUB</h1>
+          <p className="text-[var(--text-secondary)]">Configure your Alpha Club's trading strategy</p>
         </div>
 
         {/* Progress */}
@@ -604,12 +604,12 @@ export default function CreateAgent() {
             <div className="space-y-6" data-tour="step-1">
               <h2 className="font-display text-2xl mb-6">BASIC INFORMATION</h2>
               <div>
-                <label className="data-label block mb-2">AGENT NAME *</label>
+                <label className="data-label block mb-2">CLUB NAME *</label>
                 <input
                   type="text"
                   {...register('name')}
                   className="w-full px-4 py-3 bg-[var(--bg-deep)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]/20 transition-colors"
-                  placeholder="Alpha Momentum Trader"
+                  placeholder="Alpha Momentum Club"
                 />
                 {errors.name && <p className="text-[var(--danger)] text-sm mt-1">{errors.name.message}</p>}
               </div>
@@ -618,7 +618,7 @@ export default function CreateAgent() {
                 <textarea
                   {...register('description')}
                   className="w-full px-4 py-3 bg-[var(--bg-deep)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]/20 transition-colors resize-none"
-                  placeholder="Describe your agent's strategy..."
+                  placeholder="Describe your club's trading strategy..."
                   rows={4}
                 />
               </div>
@@ -754,7 +754,7 @@ export default function CreateAgent() {
                 </div>
               )}
               <div>
-                <label className="data-label block mb-2">WALLET ADDRESS *</label>
+                <label className="data-label block mb-2">CLUB OWNER WALLET *</label>
                 <input
                   type="text"
                   {...register('creatorWallet')}
@@ -785,7 +785,7 @@ export default function CreateAgent() {
           {step === 7 && (
             <div className="space-y-6" data-tour="step-7">
               <h2 className="font-display text-2xl mb-6">PROOF OF INTENT</h2>
-              <p className="text-[var(--text-secondary)] text-sm mb-6">Sign a message to prove your intent to create this agent.</p>
+              <p className="text-[var(--text-secondary)] text-sm mb-6">Sign a message to prove your intent to create this Alpha Club.</p>
 
               {!proofOfIntent ? (
                 <div className="space-y-4">
@@ -797,7 +797,7 @@ export default function CreateAgent() {
                         <ul className="text-sm text-[var(--text-secondary)] space-y-1">
                           <li>• Proves you are the legitimate creator</li>
                           <li>• Ensures all signals are authorized</li>
-                          <li>• Required for agent activation</li>
+                          <li>• Required for club activation</li>
                         </ul>
                       </div>
                     </div>
@@ -842,7 +842,7 @@ export default function CreateAgent() {
               <h2 className="font-display text-2xl mb-2">REVIEW</h2>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
                 <p className="text-sm text-[var(--text-secondary)]">
-                  Review your agent configuration. To change anything, jump back to a step below or use the Edit
+                  Review your Alpha Club configuration. To change anything, jump back to a step below or use the Edit
                   controls on each card.
                 </p>
                 <div className="flex items-center gap-2">
@@ -882,7 +882,7 @@ export default function CreateAgent() {
                       Edit
                     </button>
                   </div>
-                  <p className="font-bold text-[var(--text-primary)] mb-1">{formData.name || 'Untitled agent'}</p>
+                  <p className="font-bold text-[var(--text-primary)] mb-1">{formData.name || 'Untitled club'}</p>
                   {formData.description && (
                     <p className="text-sm text-[var(--text-secondary)]">{formData.description}</p>
                   )}
@@ -1057,7 +1057,7 @@ export default function CreateAgent() {
                   </div>
                   <div className="space-y-2 mt-2">
                     <div>
-                      <p className="text-xs text-[var(--text-muted)] mb-1">Creator Wallet</p>
+                      <p className="text-xs text-[var(--text-muted)] mb-1">Club Owner Wallet</p>
                       <p className="font-mono text-xs text-[var(--text-primary)] break-all bg-[var(--bg-deep)] p-2 rounded border border-[var(--border)]">
                         {formData.creatorWallet || 'Not set'}
                       </p>
@@ -1065,7 +1065,7 @@ export default function CreateAgent() {
                     <div>
                       <p className="text-xs text-[var(--text-muted)] mb-1">Profit Receiver (20% of profits)</p>
                       <p className="font-mono text-xs text-[var(--text-primary)] break-all bg-[var(--bg-deep)] p-2 rounded border border-[var(--border)]">
-                        {formData.profitReceiverAddress || 'Defaults to creator wallet'}
+                        {formData.profitReceiverAddress || 'Defaults to club owner wallet'}
                       </p>
                     </div>
                   </div>
@@ -1114,7 +1114,7 @@ export default function CreateAgent() {
                   disabled={isSubmitting}
                   className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  {isSubmitting ? <><Activity className="h-5 w-5 animate-pulse" />CREATING...</> : 'CREATE AGENT'}
+                  {isSubmitting ? <><Activity className="h-5 w-5 animate-pulse" />CREATING...</> : 'CREATE CLUB'}
                 </button>
               </div>
             </div>
@@ -1122,7 +1122,7 @@ export default function CreateAgent() {
         </form>
       </div >
 
-      {/* Deploy Modal */}
+      {/* Success Modal */}
       {
         showDeployModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -1131,15 +1131,12 @@ export default function CreateAgent() {
                 <div className="w-16 h-16 border-2 border-[var(--accent)] bg-[var(--accent)]/20 flex items-center justify-center mx-auto mb-4 shadow-[0_0_20px_rgba(0,255,136,0.3)]">
                   <Check className="h-8 w-8 text-[var(--accent)]" />
                 </div>
-                <h2 className="font-display text-2xl mb-2 text-[var(--text-primary)]">AGENT CREATED</h2>
-                <p className="text-[var(--text-secondary)]">Deploy to start trading</p>
+                <h2 className="font-display text-2xl mb-2 text-[var(--text-primary)]">CLUB CREATED!</h2>
+                <p className="text-[var(--text-secondary)]">Your Alpha Club is ready</p>
               </div>
               <div className="space-y-4">
-                {/* <button onClick={handleDeploy} className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-2">
-                <Rocket className="h-5 w-5" />DEPLOY AGENT
-              </button> */}
                 <button onClick={() => router.push('/creator')} className="w-full py-4 border border-[var(--border)] font-bold hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-colors text-[var(--text-primary)]">
-                  DEPLOY LATER
+                  VIEW MY CLUBS
                 </button>
               </div>
             </div>

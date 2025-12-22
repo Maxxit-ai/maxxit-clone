@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
-import { Home, Wallet, User, Plus, TrendingUp, Menu } from 'lucide-react';
+import { useRouter } from 'next/router';
+import { Home, Wallet, User, Plus, TrendingUp, Menu, BookOpen } from 'lucide-react';
 import { Bot, BarChart3, FileText, Copy, Check, LogOut, X, AlertCircle } from 'lucide-react';
 import { usePrivy } from '@privy-io/react-auth';
 import Image from 'next/image';
@@ -14,6 +15,7 @@ const USDC_ABI = [
 ];
 
 export function Header() {
+  const router = useRouter();
   const { ready, authenticated, user, login, logout } = usePrivy();
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -81,11 +83,11 @@ export function Header() {
       // Get provider from connected wallet
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const contract = new ethers.Contract(USDC_CONTRACT_ADDRESS, USDC_ABI, provider);
-      
+
       // Direct contract call to get balance
       const balance = await contract.balanceOf(walletAddress);
       const formattedBalance = ethers.utils.formatUnits(balance, 6); // USDC has 6 decimals
-      
+
       setUsdcBalance(parseFloat(formattedBalance).toFixed(2));
     } catch (error) {
       console.error('Failed to fetch USDC balance:', error);
@@ -114,10 +116,12 @@ export function Header() {
   }, [authenticated, isOnArbitrum, user?.wallet?.address]);
 
   const navLinks = [
-    { href: '/', label: 'Home', icon: Home, testId: 'nav-home' },
-    { href: '/my-deployments', label: 'Deployments', icon: Wallet, testId: 'nav-deployments' },
+    // { href: '/', label: 'Home', icon: Home, testId: 'nav-home' },
+    { href: '/my-deployments', label: 'My Clubs', icon: Wallet, testId: 'nav-deployments' },
     { href: '/my-trades', label: 'My Trades', icon: TrendingUp, testId: 'nav-my-trades' },
-    { href: '/creator', label: 'My Agents', icon: User, testId: 'nav-my-agents' },
+    { href: '/lazy-trading', label: 'Lazy Trading', icon: Bot, testId: 'nav-lazy-trading' },
+    { href: '/creator', label: 'Create Club', icon: User, testId: 'nav-my-agents' },
+    { href: '/blog', label: 'Blog', icon: BookOpen, testId: 'nav-blog' },
     { href: '/docs', label: 'Docs', icon: FileText, testId: 'nav-docs' },
   ];
 
@@ -217,24 +221,36 @@ export function Header() {
   };
 
   const renderNavLinks = (onClick?: () => void) =>
-    navLinks.map(({ href, label, icon: Icon, testId }) => (
-      <Link key={href} href={href}>
-        <button
-          onClick={onClick}
-          className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors w-full text-left md:w-auto md:text-center"
-          data-testid={testId}
-        >
-          <Icon className="h-4 w-4" />
-          <span className="hidden sm:inline">{label}</span>
-          <span className="sm:hidden">{label}</span>
-        </button>
-      </Link>
-    ));
+    navLinks.map(({ href, label, icon: Icon, testId }) => {
+      const isActive = router.pathname === href;
+      return (
+        <Link key={href} href={href}>
+          <button
+            onClick={onClick}
+            className={`relative inline-flex items-center justify-center gap-2 px-3 py-2 text-sm transition-colors w-full text-left md:w-auto md:text-center group ${isActive
+              ? 'text-[var(--text-primary)]'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            data-testid={testId}
+          >
+            <Icon className={`h-4 w-4 transition-colors ${isActive ? 'text-[var(--accent)]' : ''}`} />
+            <span className="hidden sm:inline relative">{label}</span>
+            <span className="sm:hidden relative">{label}</span>
+            {isActive && (
+              <>
+                {/* Decorative underline with accent dot */}
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-[2px] bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent opacity-80"></span>
+              </>
+            )}
+          </button>
+        </Link>
+      );
+    });
 
   return (
     <header className="sticky py-4 top-0 z-50 w-full border-b border-[var(--border)] bg-[var(--bg-deep)]/95 backdrop-blur-lg">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex h-14 items-center justify-between">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="flex h-14 items-center justify-between">
           {/* Logo/Brand */}
           <Link href="/" className="flex items-center gap-2">
             {/* <div className="w-8 h-8 border border-[var(--accent)] flex items-center justify-center">
@@ -248,15 +264,15 @@ export function Header() {
 
           {/* Navigation */}
           <div className="flex items-center gap-2">
-            <nav className="hidden md:flex items-center gap-1">
+            <nav className="hidden lg:flex items-center gap-1">
               {renderNavLinks()}
-              <Link href="/create-agent">
+              <Link href="/#agents">
                 <button
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[var(--accent)] text-[var(--bg-deep)] text-sm font-bold hover:bg-[var(--accent-dim)] transition-colors ml-2"
                   data-testid="nav-create"
                 >
                   <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">Create</span>
+                  <span className="hidden sm:inline">Join</span>
                 </button>
               </Link>
 
@@ -395,7 +411,7 @@ export function Header() {
             <button
               ref={mobileButtonRef}
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
+              className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
               aria-label="Toggle menu"
             >
               <Menu className="h-5 w-5" />

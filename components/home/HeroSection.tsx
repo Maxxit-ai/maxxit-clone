@@ -178,19 +178,16 @@ const HeroSection = memo(
             />
           </h1>
 
-          <p className="max-w-4xl mx-auto mb-10 text-base md:text-lg text-[var(--text-secondary)] leading-relaxed">
-            Three AI agents work together: one finds the best alpha from
-            research institutes and crypto Twitter, one becomes your 24/7
-            trading clone that sets position size and leverage, and one routes
-            trades to the optimal venue for gasless, non-custodial execution.
-          </p>
+          <p className="max-w-4xl mx-auto mb-8  md:text-xl text-[var(--text-secondary)] leading-relaxed">
+          Join an Alpha Club to automate your trading. Three AI agents work together to find signals, execute with your risk style, and route to the best venue — all while your funds stay in your wallet.
+        </p>
 
           <div className="flex flex-wrap justify-center gap-4 mb-16">
             <button
               onClick={handleDeployClick}
               className="group px-8 py-4 bg-accent text-[var(--bg-deep)] font-bold text-lg hover:bg-[var(--accent-dim)] transition-all"
             >
-              DEPLOY AN AGENT
+              JOIN ALPHA CLUB
               <span className="inline-block ml-2 group-hover:translate-x-1 transition-transform">
                 →
               </span>
