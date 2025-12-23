@@ -72,11 +72,11 @@ async function handleTextMessage(update: TelegramUpdate) {
     await bot.sendMessage(
       chatId,
       "👋 *Welcome to Maxxit Alpha Bot!*\n\n" +
-        "💡 *Share Alpha:* Send me your trading insights and signals. Agent creators can subscribe to your alpha!\n\n" +
-        "📊 *Want to trade yourself?*\n" +
-        "1. Create an agent at Maxxit\n" +
-        "2. Deploy it\n" +
-        "3. Use /link CODE to connect",
+      "💡 *Share Alpha:* Send me your trading insights and signals. Agent creators can subscribe to your alpha!\n\n" +
+      "📊 *Want to trade yourself?*\n" +
+      "1. Create an agent at Maxxit\n" +
+      "2. Deploy it\n" +
+      "3. Use /link CODE to connect",
       { parse_mode: "Markdown" }
     );
     return;
@@ -87,11 +87,11 @@ async function handleTextMessage(update: TelegramUpdate) {
     await bot.sendMessage(
       chatId,
       "👋 *Welcome to Maxxit Alpha Bot!*\n\n" +
-        "💡 *Share Alpha:* Send me your trading insights and signals. Agent creators can subscribe to your alpha!\n\n" +
-        "📊 *Want to trade yourself?*\n" +
-        "1. Create an agent at Maxxit\n" +
-        "2. Deploy it\n" +
-        "3. Use /link CODE to connect",
+      "💡 *Share Alpha:* Send me your trading insights and signals. Agent creators can subscribe to your alpha!\n\n" +
+      "📊 *Want to trade yourself?*\n" +
+      "1. Create an agent at Maxxit\n" +
+      "2. Deploy it\n" +
+      "3. Use /link CODE to connect",
       { parse_mode: "Markdown" }
     );
     return;
@@ -125,11 +125,11 @@ async function handleTextMessage(update: TelegramUpdate) {
       await bot.sendMessage(
         chatId,
         `✅ Successfully linked to *${deployment?.agents.name}* (${deployment?.agents.venue})\n\n` +
-          `You can now trade via Telegram:\n` +
-          `• "Buy 5 USDC of ETH"\n` +
-          `• "Status" - View positions\n` +
-          `• "Close ETH" - Close position\n\n` +
-          `💡 To switch agents, just use /link with a new code.`,
+        `You can now trade via Telegram:\n` +
+        `• "Buy 5 USDC of ETH"\n` +
+        `• "Status" - View positions\n` +
+        `• "Close ETH" - Close position\n\n` +
+        `💡 To switch agents, just use /link with a new code.`,
         { parse_mode: "Markdown" }
       );
     } else {
@@ -156,11 +156,11 @@ async function handleTextMessage(update: TelegramUpdate) {
       await bot.sendMessage(
         chatId,
         "👋 *Welcome to Maxxit Alpha Bot!*\n\n" +
-          "💡 *Share Alpha:* Send me your trading insights and signals. Agent creators can subscribe to your alpha!\n\n" +
-          "📊 *Want to trade yourself?*\n" +
-          "1. Create an agent at Maxxit\n" +
-          "2. Deploy it\n" +
-          "3. Use /link CODE to connect",
+        "💡 *Share Alpha:* Send me your trading insights and signals. Agent creators can subscribe to your alpha!\n\n" +
+        "📊 *Want to trade yourself?*\n" +
+        "1. Create an agent at Maxxit\n" +
+        "2. Deploy it\n" +
+        "3. Use /link CODE to connect",
         { parse_mode: "Markdown" }
       );
       return;
@@ -286,8 +286,8 @@ async function handleAlphaMessage(
       await bot.sendMessage(
         chatId,
         "🎉 *Welcome to Maxxit Alpha!*\n\n" +
-          "Your trading insights are now live! Agent creators can subscribe to your signals.\n\n" +
-          "📊 Keep sharing quality alpha to build your reputation and following!",
+        "Your trading insights are now live! Agent creators can subscribe to your signals.\n\n" +
+        "📊 Keep sharing quality alpha to build your reputation and following!",
         { parse_mode: "Markdown" }
       );
     } else {
@@ -326,7 +326,7 @@ async function handleAlphaMessage(
     await bot.sendMessage(
       chatId,
       "✅ *Message received!*\n\n" +
-        "Your alpha is being processed and will be available to agents following you shortly.",
+      "Your alpha is being processed and will be available to agents following you shortly.",
       { parse_mode: "Markdown" }
     );
   } catch (error: any) {
@@ -560,9 +560,8 @@ async function handleCloseCommand(
       }
     }
 
-    let msg = `${successCount > 0 ? "✅" : "❌"} Closed ${successCount}/${
-      positions.length
-    } positions successfully!`;
+    let msg = `${successCount > 0 ? "✅" : "❌"} Closed ${successCount}/${positions.length
+      } positions successfully!`;
 
     if (errors.length > 0) {
       msg += "\n\n❌ Errors:\n" + errors.map((e) => `• ${e}`).join("\n");
@@ -601,15 +600,17 @@ async function handleLazyTradingLink(
 
     // Look up the wallet address from the link code cache
     try {
-      const cacheResult = await prisma.$queryRaw<
-        Array<{ user_wallet: string }>
-      >`
-        SELECT user_wallet FROM lazy_trading_link_cache 
-        WHERE link_code = ${linkCode} AND expires_at > NOW()
-      `;
+      // Find non-expired cache entry
+      const cacheEntry = await prisma.lazy_trading_link_cache.findFirst({
+        where: {
+          link_code: linkCode,
+          expires_at: { gt: new Date() },
+        },
+        select: { user_wallet: true },
+      });
 
-      if (cacheResult && cacheResult.length > 0) {
-        userWallet = cacheResult[0].user_wallet.toLowerCase();
+      if (cacheEntry) {
+        userWallet = cacheEntry.user_wallet.toLowerCase();
         console.log(
           "[Telegram] ✅ Found wallet from link code cache:",
           userWallet,
@@ -619,9 +620,9 @@ async function handleLazyTradingLink(
 
         // Delete the cache entry after use (one-time use)
         try {
-          await prisma.$executeRaw`
-            DELETE FROM lazy_trading_link_cache WHERE link_code = ${linkCode}
-          `;
+          await prisma.lazy_trading_link_cache.delete({
+            where: { link_code: linkCode },
+          });
           console.log(
             "[Telegram] Deleted used link code from cache:",
             linkCode
@@ -635,21 +636,17 @@ async function handleLazyTradingLink(
       } else {
         console.warn(
           "[Telegram] ⚠️ Link code not found in cache or expired:",
-          linkCode,
-          "Result:",
-          cacheResult
+          linkCode
         );
         // Try to see if the code exists but expired
-        const expiredResult = await prisma.$queryRaw<
-          Array<{ user_wallet: string; expires_at: Date }>
-        >`
-          SELECT user_wallet, expires_at FROM lazy_trading_link_cache 
-          WHERE link_code = ${linkCode}
-        `;
-        if (expiredResult && expiredResult.length > 0) {
+        const expiredEntry = await prisma.lazy_trading_link_cache.findUnique({
+          where: { link_code: linkCode },
+          select: { user_wallet: true, expires_at: true },
+        });
+        if (expiredEntry) {
           console.warn(
             "[Telegram] Link code exists but expired at:",
-            expiredResult[0].expires_at
+            expiredEntry.expires_at
           );
         }
       }
@@ -672,8 +669,35 @@ async function handleLazyTradingLink(
     });
 
     if (alphaUser) {
-      // User exists - ALWAYS update to ensure wallet is stored and lazy_trader is set
-      // If we have a wallet from cache, use it (even if user already has one - cache takes precedence)
+      // User exists - check if they're already linked to a DIFFERENT wallet
+      // This prevents the same Telegram from being connected to multiple wallets
+      if (alphaUser.user_wallet && userWallet && alphaUser.user_wallet.toLowerCase() !== userWallet.toLowerCase()) {
+        // Telegram is already connected to a different wallet - don't allow override
+        console.warn(
+          "[Telegram] ❌ Telegram already connected to different wallet!",
+          "Telegram ID:", telegramUserId,
+          "Existing wallet:", alphaUser.user_wallet,
+          "Attempted wallet:", userWallet
+        );
+
+        // Format wallet addresses for display
+        const existingWalletShort = `${alphaUser.user_wallet.slice(0, 6)}...${alphaUser.user_wallet.slice(-4)}`;
+
+        await bot.sendMessage(
+          chatId,
+          `❌ *Connection Failed*\n\n` +
+          `This Telegram account is already connected to a different wallet address (${existingWalletShort}).\n\n` +
+          `Each Telegram account can only be linked to one wallet address for Lazy Trading.\n\n` +
+          `*Options:*\n` +
+          `• Use the original wallet to continue setup\n` +
+          `• Use a different Telegram account for this wallet`,
+          { parse_mode: "Markdown" }
+        );
+        return; // Exit without updating
+      }
+
+      // Safe to update - either wallet is same, or one of them is null
+      // If we have a wallet from cache, use it (takes precedence)
       // Otherwise, keep existing wallet if it exists
       const walletToStore = userWallet || alphaUser.user_wallet;
 
@@ -699,6 +723,30 @@ async function handleLazyTradingLink(
       );
     } else {
       // Create new alpha user as lazy trader with wallet
+      // First, check if another telegram account is already linked to this wallet
+      // (This prevents wallet from being linked to multiple telegram accounts)
+      if (userWallet) {
+        const existingWalletLink = await prisma.telegram_alpha_users.findFirst({
+          where: {
+            user_wallet: userWallet,
+            lazy_trader: true,
+          },
+        });
+
+        if (existingWalletLink) {
+          console.warn(
+            "[Telegram] ⚠️ Wallet already has a different telegram linked!",
+            "Wallet:", userWallet,
+            "Existing Telegram ID:", existingWalletLink.telegram_user_id,
+            "New Telegram ID:", telegramUserId
+          );
+
+          // This is actually OK - a wallet can switch to a new telegram
+          // But we should inform the user that the old connection will be replaced
+          // For now, we'll allow this and just log it
+        }
+      }
+
       if (!userWallet) {
         console.warn(
           "[Telegram] Creating new lazy trader but no wallet from cache!",
@@ -737,12 +785,12 @@ async function handleLazyTradingLink(
       await bot.sendMessage(
         chatId,
         `✅ *Lazy Trading Connected!*\n\n` +
-          `Hey ${displayName}! Your Telegram is now linked for Lazy Trading.\n\n` +
-          `🔄 *Please return to the Maxxit website to complete setup:*\n` +
-          `• Configure your trading preferences\n` +
-          `• Approve Ostium delegation\n` +
-          `• Set USDC allowance\n\n` +
-          `Once setup is complete, you can send trading signals here.\n`,
+        `Hey ${displayName}! Your Telegram is now linked for Lazy Trading.\n\n` +
+        `🔄 *Please return to the Maxxit website to complete setup:*\n` +
+        `• Configure your trading preferences\n` +
+        `• Approve Ostium delegation\n` +
+        `• Set USDC allowance\n\n` +
+        `Once setup is complete, you can send trading signals here.\n`,
         { parse_mode: "Markdown" }
       );
     } catch (sendError: any) {

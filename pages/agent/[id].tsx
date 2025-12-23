@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { TrendingUp, Activity, DollarSign, Target, AlertCircle, Loader2, ArrowLeft } from "lucide-react";
 import { Header } from "@components/Header";
-import { usePrivy } from '@privy-io/react-auth';
+import simulationDataJson from "../../json/simulation-data.json";
+import { UNIVERSAL_WALLET_ADDRESS } from "../../json/addresses";
 
 // Custom styles for checkboxes and range sliders
 const customStyles = `
@@ -223,7 +224,9 @@ const PaginationControls = ({
 export default function AgentDashboard() {
   const router = useRouter();
   const { id: agentId } = router.query;
-  const { authenticated, user } = usePrivy();
+  // Frontend-only: simulate authentication state
+  const authenticated = true;
+  const simulatedUserWallet = UNIVERSAL_WALLET_ADDRESS;
 
   const [agent, setAgent] = useState<Agent | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
@@ -259,7 +262,7 @@ export default function AgentDashboard() {
   const [signalsLoading, setSignalsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  
+
   // Deployment state
   const [deployment, setDeployment] = useState<Deployment | null>(null);
   const [deploymentLoading, setDeploymentLoading] = useState(false);
@@ -296,13 +299,18 @@ export default function AgentDashboard() {
   }, [agentIdParam, signalFilters]);
 
   const fetchAgentData = async () => {
+    // Frontend-only: use simulation data from JSON
     setLoading(true);
     setError("");
 
     try {
-      const agentRes = await fetch(`/api/agents/${agentIdParam}`);
-      if (!agentRes.ok) throw new Error("Failed to fetch agent");
-      const agentData = await agentRes.json();
+      const { agentDetails } = simulationDataJson as any;
+      const agentData = agentDetails?.[agentIdParam || ''];
+
+      if (!agentData) {
+        throw new Error("Agent not found");
+      }
+
       setAgent(agentData);
       setLoading(false);
     } catch (err: any) {
@@ -312,29 +320,55 @@ export default function AgentDashboard() {
   };
 
   const fetchPositions = async (page = positionsMeta.page) => {
+    // Frontend-only: use simulation data from JSON with filtering and pagination
     if (!agentIdParam) return;
     setPositionsLoading(true);
 
     try {
-      const params = new URLSearchParams();
-      params.set("page", String(page));
-      params.set("pageSize", String(positionsMeta.pageSize));
-      if (positionFilters.status !== "ALL") params.set("status", positionFilters.status);
-      if (positionFilters.side !== "ALL") params.set("side", positionFilters.side);
-      if (positionFilters.venue !== "ALL") params.set("venue", positionFilters.venue);
-      if (positionFilters.symbol) params.set("symbol", positionFilters.symbol);
+      const { positions: positionsData } = simulationDataJson as any;
+      let allPositions: Position[] = positionsData?.[agentIdParam] || [];
 
-      const positionsRes = await fetch(`/api/agents/${agentIdParam}/positions?${params.toString()}`);
-      if (!positionsRes.ok) throw new Error("Failed to fetch positions");
+      // Apply filters
+      if (positionFilters.status !== "ALL") {
+        allPositions = allPositions.filter(p => p.status === positionFilters.status);
+      }
+      if (positionFilters.side !== "ALL") {
+        allPositions = allPositions.filter(p => p.side === positionFilters.side);
+      }
+      if (positionFilters.venue !== "ALL") {
+        allPositions = allPositions.filter(p => p.venue === positionFilters.venue);
+      }
+      if (positionFilters.symbol) {
+        allPositions = allPositions.filter(p =>
+          p.tokenSymbol.toLowerCase().includes(positionFilters.symbol.toLowerCase())
+        );
+      }
 
-      const data: PositionResponse = await positionsRes.json();
-      setPositions(data.data);
+      // Calculate summary
+      const openCount = allPositions.filter(p => p.status === "OPEN").length;
+      const closedCount = allPositions.filter(p => p.status === "CLOSED").length;
+      const totalPnl = allPositions.reduce((sum, p) => sum + p.pnl, 0);
+      const totalNotional = allPositions.reduce((sum, p) => sum + p.size, 0);
+
+      // Pagination
+      const pageSize = positionsMeta.pageSize;
+      const total = allPositions.length;
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedPositions = allPositions.slice(startIndex, endIndex);
+
+      setPositions(paginatedPositions);
       setPositionsMeta({
-        page: data.page,
-        pageSize: data.pageSize,
-        total: data.total,
+        page,
+        pageSize,
+        total,
       });
-      setPositionSummary(data.summary);
+      setPositionSummary({
+        openCount,
+        closedCount,
+        totalPnl,
+        totalNotional,
+      });
     } catch (err: any) {
       setError(err.message || "Failed to load positions");
     } finally {
@@ -343,27 +377,39 @@ export default function AgentDashboard() {
   };
 
   const fetchSignals = async (page = signalsMeta.page) => {
+    // Frontend-only: use simulation data from JSON with filtering and pagination
     if (!agentIdParam) return;
     setSignalsLoading(true);
 
     try {
-      const params = new URLSearchParams();
-      params.set("agentId", String(agentIdParam));
-      params.set("page", String(page));
-      params.set("pageSize", String(signalsMeta.pageSize));
-      if (signalFilters.side !== "ALL") params.set("side", signalFilters.side);
-      if (signalFilters.venue !== "ALL") params.set("venue", signalFilters.venue);
-      if (signalFilters.tokenSymbol) params.set("tokenSymbol", signalFilters.tokenSymbol);
+      const { signals: signalsData } = simulationDataJson as any;
+      let allSignals: Signal[] = signalsData?.[agentIdParam] || [];
 
-      const signalsRes = await fetch(`/api/signals?${params.toString()}`);
-      if (!signalsRes.ok) throw new Error("Failed to fetch signals");
+      // Apply filters
+      if (signalFilters.side !== "ALL") {
+        allSignals = allSignals.filter(s => s.side === signalFilters.side);
+      }
+      if (signalFilters.venue !== "ALL") {
+        allSignals = allSignals.filter(s => s.venue === signalFilters.venue);
+      }
+      if (signalFilters.tokenSymbol) {
+        allSignals = allSignals.filter(s =>
+          s.token_symbol.toLowerCase().includes(signalFilters.tokenSymbol.toLowerCase())
+        );
+      }
 
-      const data: PaginatedSignalsResponse = await signalsRes.json();
-      setSignals(data.data);
+      // Pagination
+      const pageSize = signalsMeta.pageSize;
+      const total = allSignals.length;
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedSignals = allSignals.slice(startIndex, endIndex);
+
+      setSignals(paginatedSignals);
       setSignalsMeta({
-        page: data.page,
-        pageSize: data.pageSize,
-        total: data.total,
+        page,
+        pageSize,
+        total,
       });
     } catch (err: any) {
       setError(err.message || "Failed to load signals");
@@ -373,22 +419,36 @@ export default function AgentDashboard() {
   };
 
   const fetchDeployment = async () => {
+    // Frontend-only: use simulation data from JSON
     if (!agentIdParam) return;
-    if (!authenticated || !user?.wallet?.address) {
+    if (!authenticated) {
       setError("User not authenticated");
       return;
     }
-    
+
     setDeploymentLoading(true);
 
     try {
-      const userWallet = user.wallet.address;
-      const deploymentRes = await fetch(`/api/agents/${agentIdParam}/deployments?userWallet=${encodeURIComponent(userWallet)}`);
-      if (!deploymentRes.ok) throw new Error("Failed to fetch deployment");
+      const { agentDeployments } = simulationDataJson as any;
+      const deploymentData: Deployment | undefined = agentDeployments?.[agentIdParam];
 
-      const deploymentData: Deployment = await deploymentRes.json();
-      setDeployment(deploymentData);
-      setDeploymentForm(deploymentData);
+      if (deploymentData) {
+        setDeployment(deploymentData);
+        setDeploymentForm(deploymentData);
+      } else {
+        // Default deployment if none exists
+        const defaultDeployment: Deployment = {
+          subActive: false,
+          enabledVenues: ["OSTIUM"],
+          riskTolerance: 50,
+          tradeFrequency: 50,
+          socialSentimentWeight: 50,
+          priceMomentumFocus: 50,
+          marketRankPriority: 50,
+        };
+        setDeployment(defaultDeployment);
+        setDeploymentForm(defaultDeployment);
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load deployment");
     } finally {
@@ -397,32 +457,16 @@ export default function AgentDashboard() {
   };
 
   const saveDeployment = async () => {
-    if (!deploymentForm || !agentIdParam || !authenticated || !user?.wallet?.address) return;
+    // Frontend-only: simulate saving deployment configuration
+    if (!deploymentForm || !agentIdParam || !authenticated) return;
     setDeploymentSaving(true);
 
     try {
-      const userWallet = user.wallet.address;
-      const deploymentRes = await fetch(`/api/agents/${agentIdParam}/deployments?userWallet=${encodeURIComponent(userWallet)}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subActive: deploymentForm.subActive,
-          enabledVenues: deploymentForm.enabledVenues,
-          riskTolerance: deploymentForm.riskTolerance,
-          tradeFrequency: deploymentForm.tradeFrequency,
-          socialSentimentWeight: deploymentForm.socialSentimentWeight,
-          priceMomentumFocus: deploymentForm.priceMomentumFocus,
-          marketRankPriority: deploymentForm.marketRankPriority,
-        }),
-      });
-      
-      if (!deploymentRes.ok) throw new Error("Failed to update deployment");
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
-      const updatedDeployment: Deployment = await deploymentRes.json();
-      setDeployment(updatedDeployment);
-      setDeploymentForm(updatedDeployment);
+      // Update local state (simulating successful save)
+      setDeployment(deploymentForm);
       setDeploymentEditOpen(false);
     } catch (err: any) {
       setError(err.message || "Failed to update deployment");
@@ -565,11 +609,10 @@ export default function AgentDashboard() {
             <button
               onClick={() => deploymentEditOpen ? setDeploymentEditOpen(false) : setDeploymentEditOpen(true)}
               disabled={deploymentLoading}
-              className={`px-4 py-2 border font-bold transition-colors ${
-                deploymentEditOpen
-                  ? 'border-[var(--text-muted)] text-[var(--text-muted)]'
-                  : 'border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/10'
-              }`}
+              className={`px-4 py-2 border font-bold transition-colors ${deploymentEditOpen
+                ? 'border-[var(--text-muted)] text-[var(--text-muted)]'
+                : 'border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/10'
+                }`}
             >
               {deploymentEditOpen ? 'CANCEL' : 'EDIT SETTINGS'}
             </button>
@@ -590,11 +633,10 @@ export default function AgentDashboard() {
                     <div className="border border-[var(--border)] p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-bold text-[var(--text-primary)]">SUBSCRIPTION STATUS</p>
-                        <span className={`text-[10px] px-2 py-1 border font-bold rounded ${
-                          deploymentForm?.subActive 
-                            ? 'border-[var(--accent)] text-[var(--accent)]'
-                            : 'border-[var(--text-muted)] text-[var(--text-muted)]'
-                        }`}>
+                        <span className={`text-[10px] px-2 py-1 border font-bold rounded ${deploymentForm?.subActive
+                          ? 'border-[var(--accent)] text-[var(--accent)]'
+                          : 'border-[var(--text-muted)] text-[var(--text-muted)]'
+                          }`}>
                           {deploymentForm?.subActive ? 'ACTIVE' : 'INACTIVE'}
                         </span>
                       </div>
@@ -614,14 +656,13 @@ export default function AgentDashboard() {
                         </label>
                       </div>
                     </div>
-                    
+
                     <div className="border border-[var(--border)] p-4 space-y-3">
                       <p className="text-sm font-bold text-[var(--text-primary)]">ENABLED VENUES</p>
                       <div className="space-y-3">
                         {['HYPERLIQUID', 'GMX', 'OSTIUM', 'SPOT', 'MULTI'].map((venue) => (
-                          <div key={venue} className={`flex items-center space-x-3 ${
-                            venue === 'OSTIUM' ? '' : 'opacity-50'
-                          }`}>
+                          <div key={venue} className={`flex items-center space-x-3 ${venue === 'OSTIUM' ? '' : 'opacity-50'
+                            }`}>
                             <input
                               type="checkbox"
                               id={`venue-${venue}`}
@@ -643,13 +684,12 @@ export default function AgentDashboard() {
                               }}
                               className="deployment-checkbox"
                             />
-                            <label 
-                              htmlFor={`venue-${venue}`} 
-                              className={`text-sm ${
-                                venue === 'OSTIUM' 
-                                  ? 'text-[var(--text-primary)]' 
-                                  : 'text-[var(--text-muted)]'
-                              }`}
+                            <label
+                              htmlFor={`venue-${venue}`}
+                              className={`text-sm ${venue === 'OSTIUM'
+                                ? 'text-[var(--text-primary)]'
+                                : 'text-[var(--text-muted)]'
+                                }`}
                             >
                               {venue}
                               {venue === 'OSTIUM' && (
@@ -844,15 +884,14 @@ export default function AgentDashboard() {
                     <div className="border border-[var(--border)] p-4 space-y-4">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-bold text-[var(--text-primary)]">SUBSCRIPTION STATUS</p>
-                        <span className={`text-[10px] px-2 py-1 border font-bold rounded ${
-                          deployment.subActive 
-                            ? 'border-[var(--accent)] text-[var(--accent)]'
-                            : 'border-[var(--text-muted)] text-[var(--text-muted)]'
-                        }`}>
+                        <span className={`text-[10px] px-2 py-1 border font-bold rounded ${deployment.subActive
+                          ? 'border-[var(--accent)] text-[var(--accent)]'
+                          : 'border-[var(--text-muted)] text-[var(--text-muted)]'
+                          }`}>
                           {deployment.subActive ? 'ACTIVE' : 'INACTIVE'}
                         </span>
                       </div>
-                      
+
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-bold text-[var(--text-primary)]">ENABLED VENUES</p>
                         <span className="text-[10px] px-2 py-1 border border-[var(--accent)] text-[var(--accent)] font-bold rounded">

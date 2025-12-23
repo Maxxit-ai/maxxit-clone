@@ -17,7 +17,7 @@ import { Header } from "@components/Header";
 import { useToast } from "@/hooks/use-toast";
 import { MultiVenueSelector } from "@components/MultiVenueSelector";
 import { Settings } from "lucide-react";
-import agentsJson from "../json/agents.json";
+import simulationDataJson from "../json/simulation-data.json";
 import { UNIVERSAL_OSTIUM_AGENT_ADDRESS } from "../json/addresses";
 
 // Minimal local simulation types (frontend-only)
@@ -78,7 +78,8 @@ export default function Creator() {
   useEffect(() => {
     // Frontend-only: initialize dashboard with simulated data from local JSON
     try {
-      const staticAgents = (agentsJson as any[]).map((a) => ({
+      const { agents } = simulationDataJson as any;
+      const staticAgents = (agents || []).map((a: any) => ({
         id: a.id,
         name: a.name,
         venue: a.venue,

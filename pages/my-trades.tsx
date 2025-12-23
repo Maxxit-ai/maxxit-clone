@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Header } from "@components/Header";
-import { usePrivy } from "@privy-io/react-auth";
+import simulationDataJson from "../json/simulation-data.json";
+import { UNIVERSAL_WALLET_ADDRESS } from "../json/addresses";
 import {
   Wallet,
   Activity,
@@ -101,7 +102,9 @@ interface TradesResponse {
 }
 
 export default function MyTrades() {
-  const { authenticated, user, login } = usePrivy();
+  // Frontend-only: simulate authentication state
+  const authenticated = true;
+  const simulatedUserWallet = UNIVERSAL_WALLET_ADDRESS;
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedTrade, setExpandedTrade] = useState<string | null>(null);
@@ -156,59 +159,47 @@ export default function MyTrades() {
   const cacheRef = useRef<Record<string, TradesResponse>>({});
 
   useEffect(() => {
-    if (authenticated && user?.wallet?.address) {
+    if (authenticated) {
       fetchTrades(page, statusFilter);
       checkTelegramStatus();
     } else {
       setLoading(false);
     }
-  }, [authenticated, user?.wallet?.address, page, statusFilter]);
+  }, [authenticated, page, statusFilter]);
 
   const checkTelegramStatus = async () => {
-    if (!user?.wallet?.address) return;
-
+    // Frontend-only: use simulation data from JSON
     try {
-      const response = await fetch(
-        `/api/telegram-notifications/status?userWallet=${user.wallet.address}`
-      );
-      const data = await response.json();
-
-      if (data.connected) {
+      const { telegramStatus } = simulationDataJson as any;
+      if (telegramStatus?.connected) {
         setTelegramConnected(true);
-        setTelegramUsername(data.telegram_username);
+        setTelegramUsername(telegramStatus.username);
+      } else {
+        setTelegramConnected(false);
+        setTelegramUsername(null);
       }
     } catch (error) {
-      console.error("Failed to check Telegram status:", error);
+      console.error("Failed to load Telegram status:", error);
     }
   };
 
   const handleConnectTelegram = async () => {
-    if (!user?.wallet?.address) return;
-
+    // Frontend-only: simulate Telegram connection
     setTelegramLoading(true);
     try {
-      const response = await fetch(
-        "/api/telegram-notifications/generate-link",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userWallet: user.wallet.address }),
-        }
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Generate simulated deep link
+      const simulatedDeepLink = `https://t.me/maxxit_trading_bot?start=link_${Date.now().toString(36)}`;
+
+      // Open the deep link in a new tab
+      window.open(simulatedDeepLink, "_blank");
+
+      // Show success message
+      alert(
+        `Link generated! Click the link that just opened, or manually open:\n\n${simulatedDeepLink}\n\nAfter clicking "Start" in Telegram, refresh this page to see the connection status.`
       );
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        // Open the deep link in a new tab
-        window.open(data.deepLink, "_blank");
-
-        // Show success message
-        alert(
-          `Link generated! Click the link that just opened, or manually open:\n\n${data.deepLink}\n\nAfter clicking "Start" in Telegram, refresh this page to see the connection status.`
-        );
-      } else {
-        alert(`Error: ${data.error || "Failed to generate link"}`);
-      }
     } catch (error) {
       console.error("Failed to connect Telegram:", error);
       alert("Failed to connect Telegram. Please try again.");
@@ -222,8 +213,7 @@ export default function MyTrades() {
     status: "ALL" | "OPEN" | "CLOSED" = "ALL",
     forceRefresh = false
   ) => {
-    if (!user?.wallet?.address) return;
-
+    // Frontend-only: use simulation data from JSON with filtering and pagination
     const cacheKey = `${status}-${currentPage}`;
     const cached = cacheRef.current[cacheKey];
 
@@ -244,22 +234,36 @@ export default function MyTrades() {
 
     setLoading(true);
     try {
-      const query = new URLSearchParams({
-        userWallet: user.wallet.address,
-        page: String(currentPage),
-        pageSize: String(pageSize),
-      });
+      const { trades: allTrades, untradedSignals: allUntradedSignals } = simulationDataJson as any;
 
+      // Apply status filter
+      let filteredTrades = allTrades || [];
       if (status !== "ALL") {
-        query.append("status", status);
+        filteredTrades = filteredTrades.filter((trade: Trade) => trade.status === status);
       }
 
-      const response = await fetch(`/api/trades/my-trades?${query.toString()}`);
+      // Calculate summary
+      const totalTrades = allTrades?.length || 0;
+      const openTrades = allTrades?.filter((t: Trade) => t.status === "OPEN").length || 0;
+      const closedTrades = allTrades?.filter((t: Trade) => t.status === "CLOSED").length || 0;
 
-      if (!response.ok) throw new Error("Failed to fetch trades");
+      // Pagination
+      const total = filteredTrades.length;
+      const startIndex = (currentPage - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedTrades = filteredTrades.slice(startIndex, endIndex);
 
-      const data = await response.json();
-      console.log("data", data);
+      const data: TradesResponse = {
+        trades: paginatedTrades,
+        total,
+        summary: {
+          total: totalTrades,
+          open: openTrades,
+          closed: closedTrades,
+        },
+        untradedSignals: allUntradedSignals || [],
+      };
+
       setTrades(data.trades || []);
       setTotal(data.total || 0);
       if (data.summary) {
@@ -272,7 +276,7 @@ export default function MyTrades() {
       setUntradedSignals(data.untradedSignals || []);
       cacheRef.current[cacheKey] = data;
     } catch (error) {
-      console.error("Failed to fetch trades:", error);
+      console.error("Failed to load trades:", error);
       setTrades([]);
       setTotal(0);
       setSummary({ total: 0, open: 0, closed: 0 });
@@ -283,6 +287,7 @@ export default function MyTrades() {
   };
 
   const handleVerifySignature = async (trade: Trade | UntradedSignal) => {
+    // Frontend-only: simulate signature verification
     if (!trade.signatureData) return;
 
     setSelectedTrade(trade);
@@ -291,34 +296,42 @@ export default function MyTrades() {
     setVerifying(true);
 
     try {
-      const response = await fetch("/api/eigenai/verify-signature", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tweetText: trade.signatureData.messageText,
-          llm_signature: trade.signatureData.llmSignature,
-          llm_raw_output: trade.signatureData.llmRawOutput,
-          llm_model_used: trade.signatureData.llmModelUsed,
-          llm_chain_id: trade.signatureData.llmChainId,
-          llm_market_context:
-            trade.signatureData.llmMarketContext || "NO MARKET DATA AVAILABLE",
-        }),
-      });
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      const data = await response.json();
-      setVerificationResult(data);
+      // Simulate verification result (always valid for demo)
+      const expectedAddress = "0xEIGENLABS00000000000000000000000000000001";
+      const recoveredAddress = expectedAddress; // Simulate successful recovery
+      const isValid = true;
+
+      const verificationData: VerificationResult = {
+        success: true,
+        isValid,
+        recoveredAddress,
+        expectedAddress,
+        message: isValid
+          ? "Signature verified successfully. Trade is authentic and signed by EigenLabs operator."
+          : "Signature verification failed. Addresses do not match.",
+        details: {
+          chainId: trade.signatureData.llmChainId,
+          model: trade.signatureData.llmModelUsed,
+          messageLength: trade.signatureData.messageText.length,
+        },
+      };
+
+      setVerificationResult(verificationData);
     } catch (error) {
       console.error("Verification error:", error);
       setVerificationResult({
         success: false,
         isValid: false,
         recoveredAddress: "",
-        expectedAddress: "",
+        expectedAddress: "0xEIGENLABS00000000000000000000000000000001",
         message: error instanceof Error ? error.message : "Unknown error",
         details: {
-          chainId: 0,
-          model: "",
-          messageLength: 0,
+          chainId: trade.signatureData?.llmChainId || 42161,
+          model: trade.signatureData?.llmModelUsed || "eigenai-v1",
+          messageLength: trade.signatureData?.messageText.length || 0,
         },
       });
     } finally {
@@ -484,7 +497,10 @@ export default function MyTrades() {
                 Connect your wallet to view your trades
               </p>
               <button
-                onClick={login}
+                onClick={() => {
+                  // Frontend-only: simulate wallet connection
+                  // Already authenticated in simulation
+                }}
                 className="px-8 py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors"
               >
                 CONNECT WALLET
@@ -614,20 +630,18 @@ export default function MyTrades() {
                               <h3 className="font-display text-xl mt-1 flex items-center gap-2">
                                 {trade.tokenSymbol}
                                 <span
-                                  className={`text-xs px-2 py-0.5 font-bold ${
-                                    trade.side === "LONG"
-                                      ? "bg-green-500/20 text-green-400"
-                                      : "bg-red-500/20 text-red-400"
-                                  }`}
+                                  className={`text-xs px-2 py-0.5 font-bold ${trade.side === "LONG"
+                                    ? "bg-green-500/20 text-green-400"
+                                    : "bg-red-500/20 text-red-400"
+                                    }`}
                                 >
                                   {trade.side}
                                 </span>
                                 <span
-                                  className={`text-xs px-2 py-0.5 font-bold border border-[var(--border)] ${
-                                    trade.status === "OPEN"
-                                      ? "text-green-300 bg-green-500/10"
-                                      : "text-[var(--text-muted)] bg-[var(--bg-surface)]"
-                                  }`}
+                                  className={`text-xs px-2 py-0.5 font-bold border border-[var(--border)] ${trade.status === "OPEN"
+                                    ? "text-green-300 bg-green-500/10"
+                                    : "text-[var(--text-muted)] bg-[var(--bg-surface)]"
+                                    }`}
                                 >
                                   {trade.status}
                                 </span>
@@ -707,11 +721,10 @@ export default function MyTrades() {
                                 <div className="border border-[var(--border)] p-3">
                                   <p className="data-label mb-1">STATUS</p>
                                   <p
-                                    className={`text-sm font-bold ${
-                                      trade.status === "OPEN"
-                                        ? "text-green-400"
-                                        : "text-[var(--text-muted)]"
-                                    }`}
+                                    className={`text-sm font-bold ${trade.status === "OPEN"
+                                      ? "text-green-400"
+                                      : "text-[var(--text-muted)]"
+                                      }`}
                                   >
                                     {trade.status}
                                   </p>
@@ -720,39 +733,38 @@ export default function MyTrades() {
                                 {/* PNL and Exit Price - Only show if present */}
                                 {(trade.pnl !== null ||
                                   trade.exitPrice !== null) && (
-                                  <>
-                                    {trade.exitPrice && (
-                                      <div className="border border-[var(--border)] p-3">
-                                        <p className="data-label mb-1">
-                                          EXIT PRICE
-                                        </p>
-                                        <p className="font-mono">
-                                          ${trade.exitPrice}
-                                        </p>
-                                      </div>
-                                    )}
+                                    <>
+                                      {trade.exitPrice && (
+                                        <div className="border border-[var(--border)] p-3">
+                                          <p className="data-label mb-1">
+                                            EXIT PRICE
+                                          </p>
+                                          <p className="font-mono">
+                                            ${trade.exitPrice}
+                                          </p>
+                                        </div>
+                                      )}
 
-                                    {trade.pnl && (
-                                      <div className="border border-[var(--border)] p-3">
-                                        <p className="data-label mb-1">
-                                          REALIZED PNL
-                                        </p>
-                                        <p
-                                          className={`font-mono text-sm font-bold ${
-                                            parseFloat(trade.pnl) >= 0
+                                      {trade.pnl && (
+                                        <div className="border border-[var(--border)] p-3">
+                                          <p className="data-label mb-1">
+                                            REALIZED PNL
+                                          </p>
+                                          <p
+                                            className={`font-mono text-sm font-bold ${parseFloat(trade.pnl) >= 0
                                               ? "text-green-400"
                                               : "text-red-400"
-                                          }`}
-                                        >
-                                          {parseFloat(trade.pnl) >= 0
-                                            ? "+"
-                                            : ""}
-                                          ${trade.pnl}
-                                        </p>
-                                      </div>
-                                    )}
-                                  </>
-                                )}
+                                              }`}
+                                          >
+                                            {parseFloat(trade.pnl) >= 0
+                                              ? "+"
+                                              : ""}
+                                            ${trade.pnl}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
 
                                 <div className="border border-[var(--border)] p-3">
                                   <p className="data-label mb-1">STOP LOSS</p>
@@ -791,67 +803,66 @@ export default function MyTrades() {
                               trade.llmFundAllocation !== null ||
                               trade.llmLeverage !== null ||
                               trade.llmShouldTrade !== null) && (
-                              <div className="space-y-4 lg:col-span-1">
-                                <h4 className="font-display text-sm mb-3">
-                                  AGENT DECISION
-                                </h4>
-                                <div className="border border-[var(--border)] p-4 space-y-3 bg-[var(--bg-surface)]">
-                                  {trade.llmDecision && (
-                                    <div>
-                                      <p className="data-label mb-1">
-                                        DECISION SUMMARY
-                                      </p>
-                                      <p className="text-xs text-[var(--text-secondary)]">
-                                        {trade.llmDecision}
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  <div className="grid grid-cols-2 gap-3">
-                                    {trade.llmFundAllocation !== null && (
-                                      <div className="border border-[var(--border)] p-2">
+                                <div className="space-y-4 lg:col-span-1">
+                                  <h4 className="font-display text-sm mb-3">
+                                    AGENT DECISION
+                                  </h4>
+                                  <div className="border border-[var(--border)] p-4 space-y-3 bg-[var(--bg-surface)]">
+                                    {trade.llmDecision && (
+                                      <div>
                                         <p className="data-label mb-1">
-                                          FUND ALLOCATION
+                                          DECISION SUMMARY
                                         </p>
-                                        <p className="text-xs font-mono text-[var(--accent)]">
-                                          {trade.llmFundAllocation.toFixed(0)}%
+                                        <p className="text-xs text-[var(--text-secondary)]">
+                                          {trade.llmDecision}
                                         </p>
                                       </div>
                                     )}
 
-                                    {trade.llmLeverage !== null && (
-                                      <div className="border border-[var(--border)] p-2">
-                                        <p className="data-label mb-1">
-                                          LEVERAGE
-                                        </p>
-                                        <p className="text-xs font-mono">
-                                          {trade.llmLeverage.toFixed(1)}x
-                                        </p>
-                                      </div>
-                                    )}
+                                    <div className="grid grid-cols-2 gap-3">
+                                      {trade.llmFundAllocation !== null && (
+                                        <div className="border border-[var(--border)] p-2">
+                                          <p className="data-label mb-1">
+                                            FUND ALLOCATION
+                                          </p>
+                                          <p className="text-xs font-mono text-[var(--accent)]">
+                                            {trade.llmFundAllocation.toFixed(0)}%
+                                          </p>
+                                        </div>
+                                      )}
 
-                                    {trade.llmShouldTrade !== null && (
-                                      <div className="border border-[var(--border)] p-2 col-span-2">
-                                        <p className="data-label mb-1">
-                                          SHOULD TRADE
-                                        </p>
-                                        <p
-                                          className={`text-xs font-bold ${
-                                            trade.llmShouldTrade
+                                      {trade.llmLeverage !== null && (
+                                        <div className="border border-[var(--border)] p-2">
+                                          <p className="data-label mb-1">
+                                            LEVERAGE
+                                          </p>
+                                          <p className="text-xs font-mono">
+                                            {trade.llmLeverage.toFixed(1)}x
+                                          </p>
+                                        </div>
+                                      )}
+
+                                      {trade.llmShouldTrade !== null && (
+                                        <div className="border border-[var(--border)] p-2 col-span-2">
+                                          <p className="data-label mb-1">
+                                            SHOULD TRADE
+                                          </p>
+                                          <p
+                                            className={`text-xs font-bold ${trade.llmShouldTrade
                                               ? "text-green-400"
                                               : "text-red-400"
-                                          }`}
-                                        >
-                                          {trade.llmShouldTrade
-                                            ? "YES - EXECUTE TRADE"
-                                            : "NO - DO NOT TRADE"}
-                                        </p>
-                                      </div>
-                                    )}
+                                              }`}
+                                          >
+                                            {trade.llmShouldTrade
+                                              ? "YES - EXECUTE TRADE"
+                                              : "NO - DO NOT TRADE"}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            )}
+                              )}
 
                             {/* Right Column - Signature Data */}
                             <div className="space-y-4 lg:col-span-1">
@@ -873,7 +884,7 @@ export default function MyTrades() {
                                         150
                                       )}
                                       {trade.signatureData.messageText.length >
-                                      150
+                                        150
                                         ? "..."
                                         : ""}
                                       "
@@ -975,11 +986,10 @@ export default function MyTrades() {
                       e.stopPropagation();
                       setPage((p) => Math.max(1, p - 1));
                     }}
-                    className={`px-4 py-2 border border-[var(--border)] text-sm ${
-                      page === 1
-                        ? "text-[var(--text-muted)] cursor-not-allowed"
-                        : "hover:border-[var(--accent)]"
-                    }`}
+                    className={`px-4 py-2 border border-[var(--border)] text-sm ${page === 1
+                      ? "text-[var(--text-muted)] cursor-not-allowed"
+                      : "hover:border-[var(--accent)]"
+                      }`}
                   >
                     Previous
                   </button>
@@ -992,11 +1002,10 @@ export default function MyTrades() {
                       e.stopPropagation();
                       setPage((p) => p + 1);
                     }}
-                    className={`px-4 py-2 border border-[var(--border)] text-sm ${
-                      page * pageSize >= total
-                        ? "text-[var(--text-muted)] cursor-not-allowed"
-                        : "hover:border-[var(--accent)]"
-                    }`}
+                    className={`px-4 py-2 border border-[var(--border)] text-sm ${page * pageSize >= total
+                      ? "text-[var(--text-muted)] cursor-not-allowed"
+                      : "hover:border-[var(--accent)]"
+                      }`}
                   >
                     Next
                   </button>
@@ -1042,11 +1051,10 @@ export default function MyTrades() {
                               <h3 className="font-display text-xl mt-1 flex items-center gap-2">
                                 {signal.tokenSymbol}
                                 <span
-                                  className={`text-xs px-2 py-0.5 font-bold ${
-                                    signal.side === "LONG"
-                                      ? "bg-green-500/20 text-green-400"
-                                      : "bg-red-500/20 text-red-400"
-                                  }`}
+                                  className={`text-xs px-2 py-0.5 font-bold ${signal.side === "LONG"
+                                    ? "bg-green-500/20 text-green-400"
+                                    : "bg-red-500/20 text-red-400"
+                                    }`}
                                 >
                                   {signal.side}
                                 </span>
@@ -1112,44 +1120,43 @@ export default function MyTrades() {
                             signal.llmFundAllocation !== null ||
                             signal.llmLeverage !== null ||
                             signal.llmShouldTrade !== null) && (
-                            <div className="space-y-3">
-                              <p className="data-label mb-2">AGENT DECISION</p>
-                              {signal.llmDecision && (
-                                <p className="text-xs text-[var(--text-secondary)]">
-                                  {signal.llmDecision}
-                                </p>
-                              )}
-                              <div className="flex flex-wrap gap-3 text-xs">
-                                {signal.llmFundAllocation !== null && (
-                                  <span className="border border-[var(--border)] px-2 py-1 font-mono text-[var(--accent)]">
-                                    Allocation:{" "}
-                                    {(signal.llmFundAllocation * 100).toFixed(
-                                      0
-                                    )}
-                                    %
-                                  </span>
+                              <div className="space-y-3">
+                                <p className="data-label mb-2">AGENT DECISION</p>
+                                {signal.llmDecision && (
+                                  <p className="text-xs text-[var(--text-secondary)]">
+                                    {signal.llmDecision}
+                                  </p>
                                 )}
-                                {signal.llmLeverage !== null && (
-                                  <span className="border border-[var(--border)] px-2 py-1 font-mono">
-                                    Leverage: {signal.llmLeverage.toFixed(1)}x
-                                  </span>
-                                )}
-                                {signal.llmShouldTrade !== null && (
-                                  <span
-                                    className={`border border-[var(--border)] px-2 py-1 font-mono ${
-                                      signal.llmShouldTrade
+                                <div className="flex flex-wrap gap-3 text-xs">
+                                  {signal.llmFundAllocation !== null && (
+                                    <span className="border border-[var(--border)] px-2 py-1 font-mono text-[var(--accent)]">
+                                      Allocation:{" "}
+                                      {(signal.llmFundAllocation * 100).toFixed(
+                                        0
+                                      )}
+                                      %
+                                    </span>
+                                  )}
+                                  {signal.llmLeverage !== null && (
+                                    <span className="border border-[var(--border)] px-2 py-1 font-mono">
+                                      Leverage: {signal.llmLeverage.toFixed(1)}x
+                                    </span>
+                                  )}
+                                  {signal.llmShouldTrade !== null && (
+                                    <span
+                                      className={`border border-[var(--border)] px-2 py-1 font-mono ${signal.llmShouldTrade
                                         ? "text-green-400"
                                         : "text-red-400"
-                                    }`}
-                                  >
-                                    {signal.llmShouldTrade
-                                      ? "Model: TRADE"
-                                      : "Model: DO NOT TRADE"}
-                                  </span>
-                                )}
+                                        }`}
+                                    >
+                                      {signal.llmShouldTrade
+                                        ? "Model: TRADE"
+                                        : "Model: DO NOT TRADE"}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
 
                           {/* EigenAI Signature for untraded signals */}
                           <div>
@@ -1167,7 +1174,7 @@ export default function MyTrades() {
                                       150
                                     )}
                                     {signal.signatureData.messageText.length >
-                                    150
+                                      150
                                       ? "..."
                                       : ""}
                                     "
@@ -1298,11 +1305,10 @@ export default function MyTrades() {
                 <>
                   {/* Verification Result */}
                   <div
-                    className={`border p-6 ${
-                      verificationResult.isValid
-                        ? "border-green-500/50 bg-green-500/10"
-                        : "border-red-500/50 bg-red-500/10"
-                    }`}
+                    className={`border p-6 ${verificationResult.isValid
+                      ? "border-green-500/50 bg-green-500/10"
+                      : "border-red-500/50 bg-red-500/10"
+                      }`}
                   >
                     <div className="flex items-center gap-3 mb-3">
                       {verificationResult.isValid ? (
@@ -1406,21 +1412,19 @@ export default function MyTrades() {
                               Recovered Signer:
                             </p>
                             <p
-                              className={`font-mono bg-[var(--bg-elevated)] p-2 break-all ${
-                                verificationResult.isValid
-                                  ? "text-green-400"
-                                  : "text-red-400"
-                              }`}
+                              className={`font-mono bg-[var(--bg-elevated)] p-2 break-all ${verificationResult.isValid
+                                ? "text-green-400"
+                                : "text-red-400"
+                                }`}
                             >
                               {verificationResult.recoveredAddress}
                             </p>
                           </div>
                           <div
-                            className={`flex items-center gap-2 ${
-                              verificationResult.isValid
-                                ? "text-green-400"
-                                : "text-red-400"
-                            }`}
+                            className={`flex items-center gap-2 ${verificationResult.isValid
+                              ? "text-green-400"
+                              : "text-red-400"
+                              }`}
                           >
                             {verificationResult.isValid ? (
                               <CheckCircle className="w-4 h-4" />

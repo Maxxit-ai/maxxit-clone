@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { Home, Wallet, User, Plus, TrendingUp, Menu, BookOpen } from 'lucide-react';
+import { Home, Wallet, User, Plus, TrendingUp, Menu, BookOpen, ChevronDown } from 'lucide-react';
 import { Bot, BarChart3, FileText, Copy, Check, LogOut, X, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
-import { UNIVERSAL_OSTIUM_AGENT_ADDRESS } from '../json/addresses';
-import ostiumStatusJson from '../json/ostium-status.json';
+import { UNIVERSAL_WALLET_ADDRESS } from '../json/addresses';
+import simulationDataJson from '../json/simulation-data.json';
 
 export function Header() {
   const router = useRouter();
@@ -15,11 +15,20 @@ export function Header() {
   const [copied, setCopied] = useState(false);
   const [usdcBalance, setUsdcBalance] = useState<string | null>(null);
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
+  const [isPortfolioOpen, setIsPortfolioOpen] = useState(false);
+  const [isTradingOpen, setIsTradingOpen] = useState(false);
+  const [isResourcesOpen, setIsResourcesOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const mobileButtonRef = useRef<HTMLButtonElement>(null);
-  const universalWalletAddress = UNIVERSAL_OSTIUM_AGENT_ADDRESS;
+  const portfolioRef = useRef<HTMLDivElement>(null);
+  const portfolioButtonRef = useRef<HTMLButtonElement>(null);
+  const tradingRef = useRef<HTMLDivElement>(null);
+  const tradingButtonRef = useRef<HTMLButtonElement>(null);
+  const resourcesRef = useRef<HTMLDivElement>(null);
+  const resourcesButtonRef = useRef<HTMLButtonElement>(null);
+  const universalWalletAddress = UNIVERSAL_WALLET_ADDRESS;
 
   // Initialize simulated USDC balance from local JSON when "connected"
   useEffect(() => {
@@ -29,8 +38,8 @@ export function Header() {
     }
     try {
       setIsLoadingBalance(true);
-      const { usdcAllowance } = ostiumStatusJson as any;
-      const amount = usdcAllowance?.usdcAllowance ?? 0;
+      const { ostiumStatus } = simulationDataJson as any;
+      const amount = ostiumStatus?.usdcAllowance?.usdcAllowance ?? 0;
       setUsdcBalance(Number(amount).toFixed(2));
     } catch (e) {
       console.error('Failed to load simulated USDC balance:', e);
@@ -42,12 +51,26 @@ export function Header() {
 
   const navLinks = [
     { href: '/', label: 'Home', icon: Home, testId: 'nav-home' },
+  ];
+
+  const portfolioItems = [
     { href: '/my-deployments', label: 'My Clubs', icon: Wallet, testId: 'nav-deployments' },
     { href: '/my-trades', label: 'My Trades', icon: TrendingUp, testId: 'nav-my-trades' },
+  ];
+
+  const tradingItems = [
+    { href: '/lazy-trading', label: 'Lazy Trading', icon: Bot, testId: 'nav-lazy-trading' },
     { href: '/creator', label: 'Create Club', icon: User, testId: 'nav-my-agents' },
+  ];
+
+  const resourcesItems = [
     { href: '/blog', label: 'Blog', icon: BookOpen, testId: 'nav-blog' },
     { href: '/docs', label: 'Docs', icon: FileText, testId: 'nav-docs' },
   ];
+
+  const isPortfolioActive = router.pathname === '/my-deployments' || router.pathname === '/my-trades';
+  const isTradingActive = router.pathname === '/lazy-trading' || router.pathname === '/creator';
+  const isResourcesActive = router.pathname === '/blog' || router.pathname === '/docs';
 
   // Close popup when clicking outside
   useEffect(() => {
@@ -68,6 +91,66 @@ export function Header() {
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [isWalletModalOpen]);
+
+  // Close portfolio dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        isPortfolioOpen &&
+        portfolioRef.current &&
+        portfolioButtonRef.current &&
+        !portfolioRef.current.contains(event.target as Node) &&
+        !portfolioButtonRef.current.contains(event.target as Node)
+      ) {
+        setIsPortfolioOpen(false);
+      }
+    };
+
+    if (isPortfolioOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isPortfolioOpen]);
+
+  // Close trading dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        isTradingOpen &&
+        tradingRef.current &&
+        tradingButtonRef.current &&
+        !tradingRef.current.contains(event.target as Node) &&
+        !tradingButtonRef.current.contains(event.target as Node)
+      ) {
+        setIsTradingOpen(false);
+      }
+    };
+
+    if (isTradingOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isTradingOpen]);
+
+  // Close resources dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        isResourcesOpen &&
+        resourcesRef.current &&
+        resourcesButtonRef.current &&
+        !resourcesRef.current.contains(event.target as Node) &&
+        !resourcesButtonRef.current.contains(event.target as Node)
+      ) {
+        setIsResourcesOpen(false);
+      }
+    };
+
+    if (isResourcesOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isResourcesOpen]);
 
   // Close mobile menu when clicking outside
   useEffect(() => {
@@ -128,18 +211,28 @@ export function Header() {
       );
     });
 
+  const renderDropdownItem = (href: string, label: string, Icon: any, testId: string, isActive: boolean, onClick?: () => void) => (
+    <Link key={href} href={href}>
+      <button
+        onClick={onClick}
+        className={`w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors ${isActive
+          ? 'text-[var(--text-primary)] bg-[var(--accent)]/10'
+          : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'
+          }`}
+        data-testid={testId}
+      >
+        <Icon className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-[var(--accent)]' : ''}`} />
+        {label}
+      </button>
+    </Link>
+  );
+
   return (
     <header className="sticky py-4 top-0 z-50 w-full border-b border-[var(--border)] bg-[var(--bg-deep)]/95 backdrop-blur-lg">
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex h-14 items-center justify-between">
           {/* Logo/Brand */}
           <Link href="/" className="flex items-center gap-2">
-            {/* <div className="w-8 h-8 border border-[var(--accent)] flex items-center justify-center">
-              <span className="text-accent font-bold">M</span>
-            </div>
-            <span className="font-display text-xl tracking-wide" data-testid="text-header-brand">
-              MAXXIT
-            </span> */}
             <Image src="/logo.png" alt="Maxxit" width={100} height={100} />
           </Link>
 
@@ -147,6 +240,99 @@ export function Header() {
           <div className="flex items-center gap-2">
             <nav className="hidden lg:flex items-center gap-1">
               {renderNavLinks()}
+              {/* Portfolio Dropdown */}
+              <div className="relative">
+                <button
+                  ref={portfolioButtonRef}
+                  onClick={() => setIsPortfolioOpen(!isPortfolioOpen)}
+                  className={`relative inline-flex items-center justify-center gap-2 px-3 py-2 text-sm transition-colors md:w-auto md:text-center group ${isPortfolioActive
+                    ? 'text-[var(--text-primary)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                >
+                  <Wallet className={`h-4 w-4 transition-colors ${isPortfolioActive ? 'text-[var(--accent)]' : ''}`} />
+                  <span className="hidden sm:inline relative">Portfolio</span>
+                  <span className="sm:hidden relative">Portfolio</span>
+                  <ChevronDown className={`h-3 w-3 ml-1 transition-transform ${isPortfolioOpen ? 'rotate-180' : ''}`} />
+                  {isPortfolioActive && (
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-[2px] bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent opacity-80"></span>
+                  )}
+                </button>
+                {isPortfolioOpen && (
+                  <div
+                    ref={portfolioRef}
+                    className="absolute left-0 top-full mt-2 w-48 z-50 border border-[var(--border)] bg-[var(--bg-surface)] shadow-lg rounded-md"
+                  >
+                    <div className="py-1">
+                      {portfolioItems.map(({ href, label, icon: Icon, testId }) => (
+                        renderDropdownItem(href, label, Icon, testId, router.pathname === href)
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* Trading Dropdown */}
+              <div className="relative">
+                <button
+                  ref={tradingButtonRef}
+                  onClick={() => setIsTradingOpen(!isTradingOpen)}
+                  className={`relative inline-flex items-center justify-center gap-2 px-3 py-2 text-sm transition-colors md:w-auto md:text-center group ${isTradingActive
+                    ? 'text-[var(--text-primary)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                >
+                  <TrendingUp className={`h-4 w-4 transition-colors ${isTradingActive ? 'text-[var(--accent)]' : ''}`} />
+                  <span className="hidden sm:inline relative">Trading</span>
+                  <span className="sm:hidden relative">Trading</span>
+                  <ChevronDown className={`h-3 w-3 ml-1 transition-transform ${isTradingOpen ? 'rotate-180' : ''}`} />
+                  {isTradingActive && (
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-[2px] bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent opacity-80"></span>
+                  )}
+                </button>
+                {isTradingOpen && (
+                  <div
+                    ref={tradingRef}
+                    className="absolute left-0 top-full mt-2 w-48 z-50 border border-[var(--border)] bg-[var(--bg-surface)] shadow-lg rounded-md"
+                  >
+                    <div className="py-1">
+                      {tradingItems.map(({ href, label, icon: Icon, testId }) => (
+                        renderDropdownItem(href, label, Icon, testId, router.pathname === href)
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* Resources Dropdown */}
+              <div className="relative">
+                <button
+                  ref={resourcesButtonRef}
+                  onClick={() => setIsResourcesOpen(!isResourcesOpen)}
+                  className={`relative inline-flex items-center justify-center gap-2 px-3 py-2 text-sm transition-colors md:w-auto md:text-center group ${isResourcesActive
+                    ? 'text-[var(--text-primary)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                >
+                  <BookOpen className={`h-4 w-4 transition-colors ${isResourcesActive ? 'text-[var(--accent)]' : ''}`} />
+                  <span className="hidden sm:inline relative">Resources</span>
+                  <span className="sm:hidden relative">Resources</span>
+                  <ChevronDown className={`h-3 w-3 ml-1 transition-transform ${isResourcesOpen ? 'rotate-180' : ''}`} />
+                  {isResourcesActive && (
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-[2px] bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent opacity-80"></span>
+                  )}
+                </button>
+                {isResourcesOpen && (
+                  <div
+                    ref={resourcesRef}
+                    className="absolute left-0 top-full mt-2 w-48 z-50 border border-[var(--border)] bg-[var(--bg-surface)] shadow-lg rounded-md"
+                  >
+                    <div className="py-1">
+                      {resourcesItems.map(({ href, label, icon: Icon, testId }) => (
+                        renderDropdownItem(href, label, Icon, testId, router.pathname === href)
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
               <Link href="/#agents">
                 <button
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[var(--accent)] text-[var(--bg-deep)] text-sm font-bold hover:bg-[var(--accent-dim)] transition-colors ml-2"
@@ -297,16 +483,38 @@ export function Header() {
             className="md:hidden mt-3 border border-[var(--border)] bg-[var(--bg-surface)] shadow-lg"
           >
             <div className="flex flex-col divide-y divide-[var(--border)]">
-              <div className="flex flex-col p-2">{renderNavLinks(() => setIsMobileMenuOpen(false))}</div>
+              <div className="flex flex-col p-2">
+                {renderNavLinks(() => setIsMobileMenuOpen(false))}
+                {/* Portfolio Section */}
+                <div className="pt-2">
+                  <div className="px-4 py-2 text-xs text-[var(--text-muted)] uppercase tracking-wider font-semibold">Portfolio</div>
+                  {portfolioItems.map(({ href, label, icon: Icon, testId }) =>
+                    renderDropdownItem(href, label, Icon, testId, router.pathname === href, () => setIsMobileMenuOpen(false))
+                  )}
+                </div>
+                {/* Trading Section */}
+                <div className="pt-2">
+                  <div className="px-4 py-2 text-xs text-[var(--text-muted)] uppercase tracking-wider font-semibold">Trading</div>
+                  {tradingItems.map(({ href, label, icon: Icon, testId }) =>
+                    renderDropdownItem(href, label, Icon, testId, router.pathname === href, () => setIsMobileMenuOpen(false))
+                  )}
+                </div>
+                {/* Resources Section */}
+                <div className="pt-2">
+                  <div className="px-4 py-2 text-xs text-[var(--text-muted)] uppercase tracking-wider font-semibold">Resources</div>
+                  {resourcesItems.map(({ href, label, icon: Icon, testId }) =>
+                    renderDropdownItem(href, label, Icon, testId, router.pathname === href, () => setIsMobileMenuOpen(false))
+                  )}
+                </div>
+              </div>
               <div className="p-3 flex flex-col gap-3">
-                <Link href="/create-agent">
+                <Link href="/#agents" onClick={() => setIsMobileMenuOpen(false)}>
                   <button
-                    onClick={() => setIsMobileMenuOpen(false)}
                     className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-[var(--accent)] text-[var(--bg-deep)] text-sm font-bold hover:bg-[var(--accent-dim)] transition-colors"
                     data-testid="nav-create"
                   >
                     <Plus className="h-4 w-4" />
-                    Create
+                    Join
                   </button>
                 </Link>
                 {true && (

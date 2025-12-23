@@ -10,7 +10,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
-import { usePrivy } from "@privy-io/react-auth";
 import { Header } from "@components/Header";
 import {
   TradingPreferencesForm,
@@ -30,20 +29,17 @@ import {
   CheckCircle,
   Zap,
 } from "lucide-react";
-import { ethers } from "ethers";
-import { getOstiumConfig } from "../lib/ostium-config";
+import simulationDataJson from "../json/simulation-data.json";
+import {
+  UNIVERSAL_WALLET_ADDRESS,
+  UNIVERSAL_OSTIUM_AGENT_ADDRESS,
+  UNIVERSAL_DELEGATION_ADDRESS,
+} from "../json/addresses";
 
-// Ostium configuration
-const {
-  tradingContract: OSTIUM_TRADING_CONTRACT,
-  usdcContract: USDC_TOKEN,
-  storageContract: OSTIUM_STORAGE,
-} = getOstiumConfig();
-const OSTIUM_TRADING_ABI = ["function setDelegate(address delegate) external"];
-const USDC_ABI = [
-  "function approve(address spender, uint256 amount) public returns (bool)",
-  "function allowance(address owner, address spender) view returns (uint256)",
-];
+// Frontend-only: Simulated blockchain addresses (not used for actual transactions)
+const OSTIUM_TRADING_CONTRACT = "0xSIMULATEDTRADING0000000000000000000001";
+const USDC_TOKEN = "0xSIMULATEDUSDC0000000000000000000000000001";
+const OSTIUM_STORAGE = "0xSIMULATEDSTORAGE0000000000000000000000001";
 
 type Step = "wallet" | "telegram" | "preferences" | "ostium" | "complete";
 
@@ -57,11 +53,17 @@ interface TelegramUser {
 
 export default function LazyTrading() {
   const router = useRouter();
-  const { authenticated, user, login } = usePrivy();
+  // Frontend-only: simulate authentication state
+  const authenticated = true;
+  const simulatedUserWallet = UNIVERSAL_WALLET_ADDRESS;
 
   const [step, setStep] = useState<Step>("wallet");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
+
+  // Separate loading states for delegation and USDC approval
+  const [delegationLoading, setDelegationLoading] = useState(false);
+  const [allowanceLoading, setAllowanceLoading] = useState(false);
 
   // Telegram state
   const [telegramUser, setTelegramUser] = useState<TelegramUser | null>(null);
@@ -77,9 +79,17 @@ export default function LazyTrading() {
 
   // Ostium state
   const [ostiumAgentAddress, setOstiumAgentAddress] = useState<string>("");
+  const [hyperliquidAgentAddress, setHyperliquidAgentAddress] = useState<string>("");
   const [delegationComplete, setDelegationComplete] = useState(false);
   const [allowanceComplete, setAllowanceComplete] = useState(false);
-  const [txHash, setTxHash] = useState<string | null>(null);
+  const [delegationTxHash, setDelegationTxHash] = useState<string | null>(null);
+  const [allowanceTxHash, setAllowanceTxHash] = useState<string | null>(null);
+
+  // ETH sending state (for funding agent address)
+  const [ethAmount, setEthAmount] = useState<string>("0.005");
+  const [sendingEth, setSendingEth] = useState(false);
+  const [ethTxHash, setEthTxHash] = useState<string | null>(null);
+  const [ethError, setEthError] = useState<string | null>(null);
 
   // Agent state
   const [agentId, setAgentId] = useState<string>("");
@@ -88,21 +98,22 @@ export default function LazyTrading() {
 
   // Load existing setup status when wallet is connected
   useEffect(() => {
-    if (authenticated && user?.wallet?.address && !initialLoadDone) {
+    if (authenticated && !initialLoadDone) {
       loadExistingSetup();
     }
-  }, [authenticated, user?.wallet?.address, initialLoadDone]);
+  }, [authenticated, initialLoadDone]);
 
   const loadExistingSetup = async () => {
-    if (!user?.wallet?.address) return;
+    if (!authenticated) return;
 
     try {
-      const response = await fetch(
-        `/api/lazy-trading/get-setup-status?userWallet=${user.wallet.address}`
-      );
-      const data = await response.json();
+      // Frontend-only: use simulation data from JSON
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API delay
 
-      if (data.success && data.hasSetup) {
+      const { lazyTradingSetup, ostiumStatus } = simulationDataJson as any;
+      const data = lazyTradingSetup || {};
+
+      if (data.hasSetup) {
         // Restore state from existing setup
         if (data.agent) {
           setAgentId(data.agent.id);
@@ -118,21 +129,36 @@ export default function LazyTrading() {
         }
         if (data.ostiumAgentAddress) {
           setOstiumAgentAddress(data.ostiumAgentAddress);
+        } else {
+          // Use universal address if not set
+          setOstiumAgentAddress(UNIVERSAL_OSTIUM_AGENT_ADDRESS);
+        }
+        if (data.hyperliquidAgentAddress) {
+          setHyperliquidAgentAddress(data.hyperliquidAgentAddress);
         }
 
-        // Set the current step based on progress
-        setStep(data.step as Step);
+        // For simulation: always take the user through the Ostium step
+        // regardless of any pre-existing delegation/approval flags
+        setDelegationComplete(false);
+        setAllowanceComplete(false);
+        setStep((data.step as Step) || "telegram");
 
         // If on ostium step, set address and check delegation/allowance status
         if (data.step === "ostium" && data.ostiumAgentAddress) {
           setOstiumAgentAddress(data.ostiumAgentAddress);
-          // Check status after address is set (useEffect will handle this)
         } else if (data.ostiumAgentAddress) {
-          // Even if not on ostium step, set the address for future use
           setOstiumAgentAddress(data.ostiumAgentAddress);
         }
       } else {
         // No existing setup, start fresh
+        // Use universal address as default for simulation
+        setOstiumAgentAddress(UNIVERSAL_OSTIUM_AGENT_ADDRESS);
+        // Always start with delegation/allowance as incomplete so user sees the Ostium step
+        setDelegationComplete(false);
+        setAllowanceComplete(false);
+        if (data.hyperliquidAgentAddress) {
+          setHyperliquidAgentAddress(data.hyperliquidAgentAddress);
+        }
         setStep("telegram");
       }
     } catch (err) {
@@ -160,68 +186,51 @@ export default function LazyTrading() {
 
   // Check Ostium status when on ostium step and agent address is available
   useEffect(() => {
-    if (step === "ostium" && user?.wallet?.address && ostiumAgentAddress) {
+    if (step === "ostium" && authenticated && ostiumAgentAddress) {
       console.log(
         "[Ostium] Agent address available, checking delegation status..."
       );
       checkOstiumStatus();
     }
-  }, [step, user?.wallet?.address, ostiumAgentAddress]);
+  }, [step, authenticated, ostiumAgentAddress]);
 
   const checkTelegramStatus = async () => {
-    if (!user?.wallet?.address) {
-      console.log("[Telegram] Cannot check status: no wallet address");
+    if (!authenticated) {
+      console.log("[Telegram] Cannot check status: not authenticated");
       return;
     }
 
     setCheckingTelegram(true);
     try {
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
       console.log(
         "[Telegram] Checking connection status for wallet:",
-        user.wallet.address
+        simulatedUserWallet
       );
 
-      // Include linkCode in the query if we have one (for polling)
-      const queryParams = new URLSearchParams({
-        userWallet: user.wallet.address,
-      });
-      if (linkCode) {
-        queryParams.append("linkCode", linkCode);
-        console.log("[Telegram] Using link code:", linkCode);
-      }
+      // Frontend-only: use simulation data from JSON
+      const { telegramUser: telegramUserData, telegramStatus } = simulationDataJson as any;
 
-      const response = await fetch(
-        `/api/lazy-trading/check-telegram-status?${queryParams.toString()}`
-      );
-      const data = await response.json();
-
-      console.log("[Telegram] Status check response:", {
-        success: data.success,
-        connected: data.connected,
-        hasTelegramUser: !!data.telegramUser,
-        telegramUser: data.telegramUser,
-      });
-
-      if (data.success && data.connected && data.telegramUser) {
+      // Simulate connection: if linkCode exists, assume connection after delay
+      // In real app, this would check backend for connection status
+      if (linkCode && telegramUserData) {
         console.log(
           "[Telegram] ✅ Telegram connected:",
-          data.telegramUser.telegram_username || data.telegramUser.first_name
+          telegramUserData.telegram_username || telegramUserData.first_name
         );
-        setTelegramUser(data.telegramUser);
-        // Clear linkCode to stop polling and show connected state
+        setTelegramUser(telegramUserData);
         setLinkCode("");
-        if (data.agentId) {
-          setAgentId(data.agentId);
-        }
-        // Stay on telegram step to show connected state
+        setStep("telegram");
+      } else if (telegramStatus?.connected && telegramUserData) {
+        // Already connected
+        setTelegramUser(telegramUserData);
+        setLinkCode("");
         setStep("telegram");
       } else {
         // Still waiting for connection
-        console.log("[Telegram] ⏳ Still waiting for connection...", {
-          success: data.success,
-          connected: data.connected,
-          hasTelegramUser: !!data.telegramUser,
-        });
+        console.log("[Telegram] ⏳ Still waiting for connection...");
         setStep("telegram");
       }
     } catch (err) {
@@ -233,30 +242,30 @@ export default function LazyTrading() {
   };
 
   const generateTelegramLink = async () => {
-    if (!user?.wallet?.address) return;
+    if (!authenticated) return;
 
     setLoading(true);
     setError("");
 
     try {
-      const response = await fetch("/api/lazy-trading/generate-telegram-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userWallet: user.wallet.address }),
-      });
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const data = await response.json();
+      // Frontend-only: simulate Telegram link generation
+      const { telegramUser: telegramUserData } = simulationDataJson as any;
 
-      if (data.success) {
-        if (data.alreadyLinked) {
-          setTelegramUser(data.telegramUser);
-        } else {
-          setLinkCode(data.linkCode);
-          setBotUsername(data.botUsername);
-          setDeepLink(data.deepLink);
-        }
+      // Simulate already linked check
+      if (telegramUserData) {
+        setTelegramUser(telegramUserData);
       } else {
-        setError(data.error || "Failed to generate link");
+        // Generate simulated link code
+        const simulatedLinkCode = `LINK${Date.now().toString(36).toUpperCase().slice(-8)}`;
+        const simulatedBotUsername = "maxxit_trading_bot";
+        const simulatedDeepLink = `https://t.me/${simulatedBotUsername}?start=${simulatedLinkCode}`;
+
+        setLinkCode(simulatedLinkCode);
+        setBotUsername(simulatedBotUsername);
+        setDeepLink(simulatedDeepLink);
       }
     } catch (err: any) {
       setError(err.message || "Failed to generate link");
@@ -277,46 +286,33 @@ export default function LazyTrading() {
   };
 
   const createAgentAndProceed = async (prefs: TradingPreferences) => {
-    if (!user?.wallet?.address || !telegramUser) return;
+    if (!authenticated || !telegramUser) return;
 
     setLoading(true);
     setError("");
 
     try {
-      const response = await fetch("/api/lazy-trading/create-agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userWallet: user.wallet.address,
-          telegramAlphaUserId: telegramUser.id,
-          tradingPreferences: prefs,
-        }),
-      });
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      const data = await response.json();
+      // Frontend-only: simulate agent creation
+      const simulatedAgentId = `lazy-agent-${Date.now()}`;
+      const simulatedDeploymentId = `deployment-${Date.now()}`;
 
-      if (data.success) {
-        setAgentId(data.agent.id);
-        if (data.deployment?.id) {
-          setDeploymentId(data.deployment.id);
-        }
+      setAgentId(simulatedAgentId);
+      setDeploymentId(simulatedDeploymentId);
 
-        if (data.ostiumAgentAddress) {
-          setOstiumAgentAddress(data.ostiumAgentAddress);
-          // Wait a bit for state to update, then check status
-          setTimeout(() => {
-            checkOstiumStatus();
-          }, 100);
-        } else {
-          // Generate agent address if not returned
-          await generateOstiumAddress();
-          // checkOstiumStatus will be called via useEffect when address is set
-        }
+      // Use universal Ostium agent address
+      setOstiumAgentAddress(UNIVERSAL_OSTIUM_AGENT_ADDRESS);
 
-        setStep("ostium");
-      } else {
-        setError(data.error || "Failed to create agent");
-      }
+      // Wait a bit for state to update, then check status
+      setTimeout(() => {
+        checkOstiumStatus();
+      }, 100);
+
+      // Always send user to the Ostium step so they can see and simulate
+      // both delegation and USDC approval in the UI
+      setStep("ostium");
     } catch (err: any) {
       setError(err.message || "Failed to create agent");
     } finally {
@@ -325,27 +321,22 @@ export default function LazyTrading() {
   };
 
   const generateOstiumAddress = async () => {
-    if (!user?.wallet?.address) return;
+    if (!authenticated) return;
 
     try {
-      const response = await fetch("/api/ostium/generate-agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userWallet: user.wallet.address }),
-      });
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
-      if (response.ok) {
-        const data = await response.json();
-        setOstiumAgentAddress(data.agentAddress);
-      }
+      // Frontend-only: use universal Ostium agent address
+      setOstiumAgentAddress(UNIVERSAL_OSTIUM_AGENT_ADDRESS);
     } catch (err) {
       console.error("Error generating Ostium address:", err);
     }
   };
 
   const checkOstiumStatus = async () => {
-    if (!user?.wallet?.address) {
-      console.log("[Ostium] Cannot check status: no wallet address");
+    if (!authenticated) {
+      console.log("[Ostium] Cannot check status: not authenticated");
       return;
     }
 
@@ -355,69 +346,26 @@ export default function LazyTrading() {
     }
 
     try {
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
       console.log(
         "[Ostium] Checking delegation status for:",
-        user.wallet.address,
+        simulatedUserWallet,
         "->",
         ostiumAgentAddress
       );
 
-      // Check delegation status
-      const delegationResponse = await fetch(
-        `/api/ostium/check-delegation-status?userWallet=${user.wallet.address}&agentAddress=${ostiumAgentAddress}`
-      );
-
-      if (delegationResponse.ok) {
-        const delegationData = await delegationResponse.json();
-        console.log("[Ostium] Delegation check result:", delegationData);
-
-        if (delegationData.isDelegatedToAgent) {
-          console.log("[Ostium] ✅ Delegation is complete");
-          setDelegationComplete(true);
-        } else {
-          console.log(
-            "[Ostium] ⚠️ Delegation not found or to different address:",
-            delegationData.delegatedAddress,
-            "expected:",
-            ostiumAgentAddress
-          );
-          setDelegationComplete(false);
-        }
-      } else {
-        console.error(
-          "[Ostium] Failed to check delegation:",
-          await delegationResponse.text()
-        );
-      }
-
-      // Check USDC allowance
-      const allowanceResponse = await fetch(
-        `/api/ostium/check-approval-status?userWallet=${user.wallet.address}`
-      );
-
-      if (allowanceResponse.ok) {
-        const allowanceData = await allowanceResponse.json();
-        console.log("[Ostium] Allowance check result:", allowanceData);
-
-        if (allowanceData.hasApproval) {
-          console.log("[Ostium] ✅ Allowance is complete");
-          setAllowanceComplete(true);
-        } else {
-          setAllowanceComplete(false);
-        }
-      } else {
-        console.error(
-          "[Ostium] Failed to check allowance:",
-          await allowanceResponse.text()
-        );
-      }
+      // Simulation: do not auto-complete delegation/allowance here.
+      // We keep the current state so the user must click the buttons.
+      console.log("[Ostium] Simulation status check - leaving delegation/allowance unchanged");
     } catch (err) {
       console.error("[Ostium] Error checking Ostium status:", err);
     }
   };
 
   const approveDelegation = async () => {
-    if (!authenticated || !user?.wallet?.address) {
+    if (!authenticated) {
       setError("Please connect your wallet first");
       return;
     }
@@ -427,65 +375,29 @@ export default function LazyTrading() {
       return;
     }
 
-    setLoading(true);
+    setDelegationLoading(true);
     setError("");
 
     try {
-      const provider = (window as any).ethereum;
-      if (!provider) {
-        throw new Error("No wallet provider found. Please install MetaMask.");
-      }
+      // Frontend-only: simulate blockchain transaction
+      // Simulate transaction delay
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      // Request account access first - this triggers MetaMask popup if needed
-      await provider.request({ method: "eth_requestAccounts" });
+      // Simulate transaction hash
+      const simulatedTxHash = `0x${Array.from({ length: 64 }, () =>
+        Math.floor(Math.random() * 16).toString(16)
+      ).join('')}`;
 
-      const ethersProvider = new ethers.providers.Web3Provider(provider);
-      const network = await ethersProvider.getNetwork();
+      setDelegationTxHash(simulatedTxHash);
+      console.log("[Delegation] Transaction submitted:", simulatedTxHash);
 
-      // Check network (Arbitrum One = 42161, Arbitrum Sepolia = 421614)
-      const ARBITRUM_CHAIN_ID =
-        process.env.NEXT_PUBLIC_CHAIN_ID === "42161" ? 42161 : 42161;
-      if (network.chainId !== ARBITRUM_CHAIN_ID) {
-        try {
-          await provider.request({
-            method: "wallet_switchEthereumChain",
-            params: [{ chainId: `0x${ARBITRUM_CHAIN_ID.toString(16)}` }],
-          });
-          // Re-create provider after network switch
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        } catch (switchError: any) {
-          if (switchError.code === 4902) {
-            throw new Error("Please add Arbitrum to your wallet");
-          }
-          throw new Error("Please switch to Arbitrum network");
-        }
-      }
+      // Simulate transaction confirmation delay
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // Get fresh provider after potential network switch
-      const freshProvider = new ethers.providers.Web3Provider(
-        (window as any).ethereum
-      );
-      const signer = freshProvider.getSigner();
-      const contract = new ethers.Contract(
-        OSTIUM_TRADING_CONTRACT,
-        OSTIUM_TRADING_ABI,
-        signer
-      );
-
-      console.log("Setting delegate to:", ostiumAgentAddress);
-
-      const gasEstimate = await contract.estimateGas.setDelegate(
-        ostiumAgentAddress
-      );
-      const gasLimit = gasEstimate.mul(150).div(100);
-
-      const tx = await contract.setDelegate(ostiumAgentAddress, { gasLimit });
-      setTxHash(tx.hash);
-
-      await tx.wait();
+      console.log("[Delegation] Setting delegate to:", ostiumAgentAddress);
 
       setDelegationComplete(true);
-      setTxHash(null);
+      setDelegationTxHash(null);
     } catch (err: any) {
       console.error("Delegation error:", err);
       if (err.code === 4001) {
@@ -496,59 +408,34 @@ export default function LazyTrading() {
         setError(err.message || "Failed to approve delegation");
       }
     } finally {
-      setLoading(false);
+      setDelegationLoading(false);
     }
   };
 
   const approveUsdc = async () => {
-    if (!authenticated || !user?.wallet?.address) return;
+    if (!authenticated) return;
 
-    setLoading(true);
+    setAllowanceLoading(true);
     setError("");
 
     try {
-      const provider = (window as any).ethereum;
-      if (!provider) {
-        throw new Error("No wallet provider found.");
-      }
+      // Frontend-only: simulate blockchain transaction
+      // Simulate transaction delay
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      const ethersProvider = new ethers.providers.Web3Provider(provider);
-      await ethersProvider.send("eth_requestAccounts", []);
+      // Simulate transaction hash
+      const simulatedTxHash = `0x${Array.from({ length: 64 }, () =>
+        Math.floor(Math.random() * 16).toString(16)
+      ).join('')}`;
 
-      const signer = ethersProvider.getSigner();
-      const usdcContract = new ethers.Contract(USDC_TOKEN, USDC_ABI, signer);
+      setAllowanceTxHash(simulatedTxHash);
+      console.log("[USDC Approval] Transaction submitted:", simulatedTxHash);
 
-      const allowanceAmount = ethers.utils.parseUnits("1000000", 6);
-
-      const approveData = usdcContract.interface.encodeFunctionData("approve", [
-        OSTIUM_STORAGE,
-        allowanceAmount,
-      ]);
-      const gasEstimate = await ethersProvider.estimateGas({
-        to: USDC_TOKEN,
-        from: user.wallet.address,
-        data: approveData,
-      });
-
-      const gasWithBuffer = gasEstimate.mul(150).div(100);
-
-      const txHash = await provider.request({
-        method: "eth_sendTransaction",
-        params: [
-          {
-            from: user.wallet.address,
-            to: USDC_TOKEN,
-            data: approveData,
-            gas: gasWithBuffer.toHexString(),
-          },
-        ],
-      });
-
-      setTxHash(txHash);
-      await ethersProvider.waitForTransaction(txHash);
+      // Simulate transaction confirmation delay
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
       setAllowanceComplete(true);
-      setTxHash(null);
+      setAllowanceTxHash(null);
 
       // Both complete - move to final step
       if (delegationComplete) {
@@ -561,7 +448,45 @@ export default function LazyTrading() {
         setError(err.message || "Failed to approve USDC");
       }
     } finally {
-      setLoading(false);
+      setAllowanceLoading(false);
+    }
+  };
+
+  // Handle sending ETH to agent address for gas fees
+  const handleSendETH = async () => {
+    if (!ostiumAgentAddress || !ethAmount || parseFloat(ethAmount) <= 0) {
+      setEthError("Please enter a valid ETH amount");
+      return;
+    }
+
+    setSendingEth(true);
+    setEthError(null);
+    setEthTxHash(null);
+
+    try {
+      // Frontend-only: simulate blockchain transaction
+      // Simulate transaction delay
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Simulate transaction hash
+      const simulatedTxHash = `0x${Array.from({ length: 64 }, () =>
+        Math.floor(Math.random() * 16).toString(16)
+      ).join('')}`;
+
+      setEthTxHash(simulatedTxHash);
+
+      // Simulate transaction confirmation delay
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      console.log("[LazyTrading] ETH sent successfully:", simulatedTxHash);
+    } catch (err: any) {
+      if (err.code === 4001 || err.message?.includes("rejected")) {
+        setEthError("Transaction rejected");
+      } else {
+        setEthError(err.message || "Failed to send ETH");
+      }
+    } finally {
+      setSendingEth(false);
     }
   };
 
@@ -610,9 +535,8 @@ export default function LazyTrading() {
             <div
               className="absolute top-4 left-4 h-0.5 bg-[var(--accent)] transition-all duration-500"
               style={{
-                width: `calc(${
-                  (currentStepIndex / (steps.length - 1)) * 100
-                }% - 32px)`,
+                width: `calc(${(currentStepIndex / (steps.length - 1)) * 100
+                  }% - 32px)`,
               }}
             />
             <div className="relative flex justify-between">
@@ -623,13 +547,12 @@ export default function LazyTrading() {
                 return (
                   <div key={s.id} className="flex flex-col items-center">
                     <div
-                      className={`w-8 h-8 flex items-center justify-center transition-all border ${
-                        isCompleted
-                          ? "bg-[var(--accent)] border-[var(--accent)] text-[var(--bg-deep)]"
-                          : isCurrent
+                      className={`w-8 h-8 flex items-center justify-center transition-all border ${isCompleted
+                        ? "bg-[var(--accent)] border-[var(--accent)] text-[var(--bg-deep)]"
+                        : isCurrent
                           ? "border-[var(--accent)] text-[var(--accent)]"
                           : "border-[var(--border)] text-[var(--text-muted)]"
-                      }`}
+                        }`}
                     >
                       {isCompleted ? (
                         <Check className="h-4 w-4" />
@@ -638,11 +561,10 @@ export default function LazyTrading() {
                       )}
                     </div>
                     <span
-                      className={`mt-2 text-[10px] font-bold hidden sm:block ${
-                        isCurrent
-                          ? "text-[var(--accent)]"
-                          : "text-[var(--text-muted)]"
-                      }`}
+                      className={`mt-2 text-[10px] font-bold hidden sm:block ${isCurrent
+                        ? "text-[var(--accent)]"
+                        : "text-[var(--text-muted)]"
+                        }`}
                     >
                       {s.label}
                     </span>
@@ -676,14 +598,14 @@ export default function LazyTrading() {
                 </p>
               </div>
 
-              {authenticated && user?.wallet?.address ? (
+              {authenticated ? (
                 <div className="space-y-4">
                   <div className="border border-[var(--accent)] bg-[var(--accent)]/10 p-4">
                     <p className="text-sm text-[var(--accent)] mb-2">
                       CONNECTED
                     </p>
                     <p className="font-mono text-sm text-[var(--text-primary)] break-all">
-                      {user.wallet.address}
+                      {simulatedUserWallet}
                     </p>
                   </div>
                   <button
@@ -705,7 +627,7 @@ export default function LazyTrading() {
                 </div>
               ) : (
                 <button
-                  onClick={() => login()}
+                  onClick={() => {/* Simulated - already authenticated */ }}
                   className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-2"
                 >
                   <Wallet className="w-5 h-5" />
@@ -754,7 +676,7 @@ export default function LazyTrading() {
                     {/* Manual Refresh Button */}
                     <button
                       onClick={checkTelegramStatus}
-                      disabled={checkingTelegram || !user?.wallet?.address}
+                      disabled={checkingTelegram || !authenticated}
                       className="w-full py-2 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       {checkingTelegram ? (
@@ -848,7 +770,7 @@ export default function LazyTrading() {
                   {/* Manual Refresh Button */}
                   <button
                     onClick={checkTelegramStatus}
-                    disabled={checkingTelegram || !user?.wallet?.address}
+                    disabled={checkingTelegram || !authenticated}
                     className="w-full py-2 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {checkingTelegram ? (
@@ -899,7 +821,7 @@ export default function LazyTrading() {
               </div>
 
               <TradingPreferencesForm
-                userWallet={user?.wallet?.address || ""}
+                userWallet={simulatedUserWallet}
                 onClose={() => router.push("/")}
                 onBack={() => setStep("telegram")}
                 localOnly={true}
@@ -934,20 +856,18 @@ export default function LazyTrading() {
 
               {/* Step 1: Delegation */}
               <div
-                className={`border p-4 ${
-                  delegationComplete
-                    ? "border-[var(--accent)] bg-[var(--accent)]/5"
-                    : "border-[var(--border)]"
-                }`}
+                className={`border p-4 ${delegationComplete
+                  ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                  : "border-[var(--border)]"
+                  }`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <span
-                      className={`w-8 h-8 flex items-center justify-center border ${
-                        delegationComplete
-                          ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--bg-deep)]"
-                          : "border-[var(--border)]"
-                      }`}
+                      className={`w-8 h-8 flex items-center justify-center border ${delegationComplete
+                        ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--bg-deep)]"
+                        : "border-[var(--border)]"
+                        }`}
                     >
                       {delegationComplete ? <Check className="w-4 h-4" /> : "1"}
                     </span>
@@ -969,10 +889,10 @@ export default function LazyTrading() {
                   <div className="space-y-2">
                     <button
                       onClick={approveDelegation}
-                      disabled={loading || !ostiumAgentAddress}
+                      disabled={delegationLoading || !ostiumAgentAddress}
                       className="w-full py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      {loading && !allowanceComplete ? (
+                      {delegationLoading ? (
                         <>
                           <Activity className="w-5 h-5 animate-pulse" />
                           SIGNING...
@@ -984,7 +904,7 @@ export default function LazyTrading() {
                     {ostiumAgentAddress && (
                       <button
                         onClick={checkOstiumStatus}
-                        disabled={loading}
+                        disabled={delegationLoading}
                         className="w-full py-2 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                       >
                         Refresh Status
@@ -992,24 +912,39 @@ export default function LazyTrading() {
                     )}
                   </div>
                 )}
+
+                {/* Delegation Transaction Hash */}
+                {delegationTxHash && (
+                  <div className="mt-3 border border-[var(--accent)] bg-[var(--accent)]/5 p-3">
+                    <p className="text-[var(--accent)] text-xs mb-1">
+                      Delegation transaction submitted
+                    </p>
+                    <a
+                      href={`https://arbiscan.io/tx/${delegationTxHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] flex items-center gap-1 font-mono"
+                    >
+                      {delegationTxHash.slice(0, 20)}... <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                )}
               </div>
 
               {/* Step 2: USDC Allowance */}
               <div
-                className={`border p-4 ${
-                  allowanceComplete
-                    ? "border-[var(--accent)] bg-[var(--accent)]/5"
-                    : "border-[var(--border)]"
-                }`}
+                className={`border p-4 ${allowanceComplete
+                  ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                  : "border-[var(--border)]"
+                  }`}
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <span
-                      className={`w-8 h-8 flex items-center justify-center border ${
-                        allowanceComplete
-                          ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--bg-deep)]"
-                          : "border-[var(--border)]"
-                      }`}
+                      className={`w-8 h-8 flex items-center justify-center border ${allowanceComplete
+                        ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--bg-deep)]"
+                        : "border-[var(--border)]"
+                        }`}
                     >
                       {allowanceComplete ? <Check className="w-4 h-4" /> : "2"}
                     </span>
@@ -1028,39 +963,47 @@ export default function LazyTrading() {
                 </div>
 
                 {!allowanceComplete && (
-                  <button
-                    onClick={approveUsdc}
-                    disabled={loading || !delegationComplete}
-                    className="w-full py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {loading && delegationComplete ? (
-                      <>
-                        <Activity className="w-5 h-5 animate-pulse" />
-                        SIGNING...
-                      </>
-                    ) : (
-                      "APPROVE USDC"
+                  <div className="space-y-2">
+                    <button
+                      onClick={approveUsdc}
+                      disabled={allowanceLoading || !delegationComplete}
+                      className="w-full py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {allowanceLoading ? (
+                        <>
+                          <Activity className="w-5 h-5 animate-pulse" />
+                          SIGNING...
+                        </>
+                      ) : (
+                        "APPROVE USDC"
+                      )}
+                    </button>
+                    {!delegationComplete && (
+                      <p className="text-xs text-[var(--text-secondary)] text-center">
+                        Complete delegation first
+                      </p>
                     )}
-                  </button>
+                  </div>
+                )}
+
+                {/* USDC Approval Transaction Hash */}
+                {allowanceTxHash && (
+                  <div className="mt-3 border border-[var(--accent)] bg-[var(--accent)]/5 p-3">
+                    <p className="text-[var(--accent)] text-xs mb-1">
+                      USDC approval transaction submitted
+                    </p>
+                    <a
+                      href={`https://arbiscan.io/tx/${allowanceTxHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] flex items-center gap-1 font-mono"
+                    >
+                      {allowanceTxHash.slice(0, 20)}... <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
                 )}
               </div>
 
-              {/* Transaction Hash */}
-              {txHash && (
-                <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-3">
-                  <p className="text-[var(--accent)] text-sm mb-2">
-                    Transaction submitted
-                  </p>
-                  <a
-                    href={`https://arbiscan.io/tx/${txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] flex items-center gap-1"
-                  >
-                    View on Arbiscan <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              )}
 
               {/* Info Box */}
               <div className="border border-[var(--border)] p-4 text-sm text-[var(--text-secondary)]">
@@ -1078,51 +1021,177 @@ export default function LazyTrading() {
 
           {/* Step 5: Complete */}
           {step === "complete" && (
-            <div className="text-center space-y-6 py-8">
-              <div className="w-20 h-20 mx-auto border-2 border-[var(--accent)] bg-[var(--accent)] flex items-center justify-center">
-                <CheckCircle className="w-10 h-10 text-[var(--bg-deep)]" />
-              </div>
-              <div>
+            <div className="space-y-6 py-4">
+              {/* Success Header */}
+              <div className="text-center">
+                <div className="w-20 h-20 mx-auto border-2 border-[var(--accent)] bg-[var(--accent)] flex items-center justify-center mb-4">
+                  <CheckCircle className="w-10 h-10 text-[var(--bg-deep)]" />
+                </div>
                 <h2 className="font-display text-2xl mb-2">YOU'RE ALL SET!</h2>
                 <p className="text-[var(--text-secondary)]">
                   Your Lazy Trading agent is ready to execute trades
                 </p>
               </div>
 
-              <div className="border border-[var(--accent)] bg-[var(--accent)]/10 p-6 text-left space-y-3">
+              {/* Checklist */}
+              <div className="border border-[var(--accent)] bg-[var(--accent)]/10 p-4 text-left space-y-2">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-[var(--accent)]" />
-                  <span>Wallet connected</span>
+                  <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
+                  <span className="text-sm">Wallet connected</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-[var(--accent)]" />
-                  <span>Telegram linked as signal source</span>
+                  <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
+                  <span className="text-sm">Telegram linked as signal source</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-[var(--accent)]" />
-                  <span>Trading preferences configured</span>
+                  <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
+                  <span className="text-sm">Trading preferences configured</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-[var(--accent)]" />
-                  <span>Ostium delegation approved</span>
+                  <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
+                  <span className="text-sm">Ostium delegation approved</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-[var(--accent)]" />
-                  <span>USDC spending approved</span>
+                  <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
+                  <span className="text-sm">USDC spending approved</span>
                 </div>
               </div>
 
+              {/* Agent Address Display */}
+              {ostiumAgentAddress && (
+                <div className="border border-[var(--border)] bg-[var(--bg-surface)] p-4">
+                  <p className="text-xs font-bold text-[var(--text-secondary)] mb-2">
+                    YOUR OSTIUM TRADING ADDRESS
+                  </p>
+                  <div className="flex items-center gap-2 bg-[var(--bg-deep)] p-3 border border-[var(--border)]">
+                    <code className="flex-1 text-xs font-mono text-[var(--text-primary)] break-all">
+                      {ostiumAgentAddress}
+                    </code>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(ostiumAgentAddress);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="p-2 hover:bg-[var(--bg-elevated)] transition-colors"
+                      title="Copy address"
+                    >
+                      {copied ? (
+                        <Check className="w-4 h-4 text-[var(--accent)]" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-[var(--text-muted)]" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ETH Funding Section */}
+              {ostiumAgentAddress && (
+                <div className="border border-[var(--accent)]/40 bg-[var(--accent)]/5 p-4">
+                  <p className="text-xs font-bold text-[var(--text-primary)] mb-2 flex items-center gap-2">
+                    <Send className="w-3.5 h-3.5 text-[var(--accent)]" />
+                    Fund Agent with ETH
+                  </p>
+                  <p className="text-xs text-[var(--text-secondary)] mb-3">
+                    Send ETH to your trading address so it can pay for gas fees when executing trades.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      placeholder="0.005"
+                      value={ethAmount}
+                      onChange={(e) => setEthAmount(e.target.value)}
+                      className="flex-1 px-3 py-2 bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--accent)]"
+                    />
+                    <button
+                      onClick={handleSendETH}
+                      disabled={sendingEth || !ethAmount || parseFloat(ethAmount) <= 0}
+                      className="px-4 py-2 bg-[var(--accent)] text-[var(--bg-deep)] font-bold text-xs hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {sendingEth ? (
+                        <>
+                          <Activity className="w-3.5 h-3.5 animate-pulse" />
+                          SENDING...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          SEND ETH
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  {ethTxHash && (
+                    <p className="text-xs text-[var(--accent)] mt-2 font-mono">
+                      TX: <a
+                        href={`https://arbiscan.io/tx/${ethTxHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline"
+                      >
+                        {ethTxHash.slice(0, 20)}...
+                      </a>
+                    </p>
+                  )}
+                  {ethError && (
+                    <p className="text-xs text-red-500 mt-2">
+                      {ethError}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Ostium Registration */}
+              <div className="border border-[var(--border)] p-4">
+                <p className="text-xs font-bold text-[var(--text-primary)] mb-2 flex items-center gap-2">
+                  <ExternalLink className="w-3.5 h-3.5 text-[var(--accent)]" />
+                  Register on Ostium Platform
+                </p>
+                <p className="text-xs text-[var(--text-secondary)] mb-3">
+                  To enable trading, you need to register on the Ostium platform and deposit USDC:
+                </p>
+                <ol className="space-y-1 text-xs text-[var(--text-secondary)] ml-4 list-decimal mb-3">
+                  <li>
+                    Visit{' '}
+                    <a
+                      href="https://app.ostium.com/trade"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[var(--accent)] hover:underline"
+                    >
+                      app.ostium.com/trade
+                    </a>
+                  </li>
+                  <li>Connect your wallet and set a username</li>
+                  <li>Deposit USDC to your account</li>
+                  <li>The agent will trade using the USDC you deposit</li>
+                </ol>
+                <a
+                  href="https://app.ostium.com/trade"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-[var(--bg-deep)] font-bold text-xs hover:bg-[var(--accent-dim)] transition-colors"
+                >
+                  Open Ostium Platform
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+
+              {/* How to Send Signals */}
               <div className="border border-[var(--border)] p-4 text-sm text-[var(--text-secondary)]">
                 <p className="font-bold text-[var(--text-primary)] mb-2">
                   📱 How to Send Signals
                 </p>
                 <p className="text-xs">
                   Send trading signals to the Telegram bot, and your agent will
-                  execute them automatically. Example: "Long ETH 5x" or "Short
-                  BTC 3x"
+                  execute them automatically.
                 </p>
               </div>
 
+              {/* Action Buttons */}
               <div className="flex gap-4">
                 <button
                   onClick={() => router.push("/my-deployments")}

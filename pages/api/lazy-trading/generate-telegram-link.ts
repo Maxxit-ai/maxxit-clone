@@ -92,23 +92,33 @@ export default async function handler(
     // Generate a unique link code with LT prefix for lazy trading
     const linkCode = `LT${bot.generateLinkCode()}`;
 
-    // Store a temporary mapping of linkCode -> wallet in a simple cache table
+    // Store a temporary mapping of linkCode -> wallet in the cache table
     // This allows the webhook to know which wallet the telegram belongs to
-    // We'll use a timestamp field to auto-expire old entries
+    // Entries expire after 10 minutes
     try {
-      await prisma.$executeRaw`
-        INSERT INTO lazy_trading_link_cache (link_code, user_wallet, expires_at)
-        VALUES (${linkCode}, ${normalizedWallet}, NOW() + INTERVAL '10 minutes')
-        ON CONFLICT (link_code) DO UPDATE SET user_wallet = ${normalizedWallet}, expires_at = NOW() + INTERVAL '10 minutes'
-      `;
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+      await prisma.lazy_trading_link_cache.upsert({
+        where: { link_code: linkCode },
+        update: {
+          user_wallet: normalizedWallet,
+          expires_at: expiresAt,
+        },
+        create: {
+          link_code: linkCode,
+          user_wallet: normalizedWallet,
+          expires_at: expiresAt,
+        },
+      });
+
       console.log(
         `[LazyTrading] Stored link code mapping: ${linkCode} -> ${normalizedWallet}`
       );
     } catch (cacheError: any) {
       // If table doesn't exist, log warning but continue
-      // The migration needs to be run first
+      // Run prisma db push to create the table
       console.warn(
-        "[LazyTrading] Could not store link code cache (run migration first):",
+        "[LazyTrading] Could not store link code cache:",
         cacheError.message
       );
     }

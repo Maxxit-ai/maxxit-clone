@@ -12,9 +12,9 @@ import AgentsSection from '@components/home/AgentsSection';
 import CTASection from '@components/home/CTASection';
 import FooterSection from '@components/home/FooterSection';
 import { AgentSummary } from '@components/home/types';
-import agentsJson from '../json/agents.json';
-import ostiumStatusJson from '../json/ostium-status.json';
+import simulationDataJson from '../json/simulation-data.json';
 import {
+  UNIVERSAL_WALLET_ADDRESS,
   UNIVERSAL_OSTIUM_AGENT_ADDRESS,
   UNIVERSAL_DELEGATION_ADDRESS,
 } from '../json/addresses';
@@ -49,10 +49,12 @@ export default function Home() {
   useEffect(() => {
     // Use local JSON data instead of backend/db and API calls
     try {
-      const staticAgents = agentsJson as AgentSummary[];
+      const { agents: staticAgents, ostiumStatus } = simulationDataJson as any;
       setAgents(staticAgents || []);
 
       // Use universal addresses for the demo user
+      // Connected wallet is the user's wallet (simulates Privy)
+      // Ostium agent address is the trading wallet for Ostium
       setUserAgentAddresses({
         hyperliquid: null,
         ostium: UNIVERSAL_OSTIUM_AGENT_ADDRESS,
@@ -63,7 +65,7 @@ export default function Home() {
         agentDeployments: deploymentsFromJson,
         delegationStatus,
         usdcAllowance,
-      } = ostiumStatusJson as any;
+      } = ostiumStatus || {};
 
       setAgentDeployments(deploymentsFromJson || {});
 

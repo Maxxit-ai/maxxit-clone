@@ -5,13 +5,17 @@ import { SPOTSetupButton } from "@components/SPOTSetupButton";
 import { HyperliquidSetupButton } from "@components/HyperliquidSetupButton";
 import { OstiumSetupButton } from "@components/OstiumSetupButton";
 import { HyperliquidAgentModal } from "@components/HyperliquidAgentModal";
-import { usePrivy } from "@privy-io/react-auth";
 import AgentsSection from "@components/home/AgentsSection";
 import { AgentDrawer } from "@components/AgentDrawer";
 import { HyperliquidConnect } from "@components/HyperliquidConnect";
 import { MultiVenueSelector } from "@components/MultiVenueSelector";
-import { db } from "../client/src/lib/db";
 import { AgentSummary } from "@components/home/types";
+import simulationDataJson from "../json/simulation-data.json";
+import {
+  UNIVERSAL_WALLET_ADDRESS,
+  UNIVERSAL_OSTIUM_AGENT_ADDRESS,
+  UNIVERSAL_DELEGATION_ADDRESS,
+} from "../json/addresses";
 import {
   Wallet,
   Activity,
@@ -53,7 +57,10 @@ interface DeploymentStatus {
 }
 
 export default function MyDeployments() {
-  const { authenticated, user, login } = usePrivy();
+  // Frontend-only: simulate authentication state
+  const [authenticated, setAuthenticated] = useState(true);
+  const simulatedUserWallet = UNIVERSAL_WALLET_ADDRESS;
+
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [deploymentsLoading, setDeploymentsLoading] = useState(true);
   const [telegramModalOpen, setTelegramModalOpen] = useState(false);
@@ -107,149 +114,86 @@ export default function MyDeployments() {
   const router = useRouter();
 
   useEffect(() => {
-    if (authenticated && user?.wallet?.address) {
+    if (authenticated) {
       fetchDeployments();
     } else {
       setDeploymentsLoading(false);
     }
-  }, [authenticated, user?.wallet?.address]);
+  }, [authenticated]);
 
   const fetchDeployments = async () => {
-    if (!user?.wallet?.address) return;
-
+    // Frontend-only: use simulation data from JSON
     try {
-      const response = await fetch(
-        `/api/deployments?userWallet=${user.wallet.address}`
-      );
+      const { deployments: deploymentsData, deploymentStatuses: statusesData } = simulationDataJson as any;
 
-      if (!response.ok) throw new Error("Failed to fetch deployments");
+      // Map JSON data to Deployment interface
+      const deploymentsList: Deployment[] = (deploymentsData || []).map((d: any) => ({
+        id: d.id,
+        agentId: d.agentId,
+        agent: {
+          name: d.agentName,
+          venue: d.agentVenue,
+        },
+        userWallet: d.userWallet,
+        safeWallet: d.safeWallet,
+        moduleEnabled: d.moduleEnabled,
+        status: d.status,
+        telegramLinked: d.telegramLinked || false,
+        enabledVenues: d.enabledVenues || [],
+      }));
 
-      const data = await response.json();
-      const deploymentsList = Array.isArray(data) ? data : [];
       setDeployments(deploymentsList);
 
+      // Load deployment statuses from JSON
+      if (statusesData) {
+        const statuses: Record<string, DeploymentStatus> = {};
+        Object.keys(statusesData).forEach((deploymentId) => {
+          statuses[deploymentId] = statusesData[deploymentId];
+        });
+        setDeploymentStatuses(statuses);
+      }
+
       if (deploymentsList.length > 0) {
-        fetchDeploymentStatuses(deploymentsList);
+        // Simulate loading states
+        deploymentsList.forEach((deployment) => {
+          setDeploymentStatusesLoading((prev) => ({
+            ...prev,
+            [deployment.id]: false,
+          }));
+        });
       }
     } catch (error) {
-      console.error("Failed to fetch deployments:", error);
+      console.error("Failed to load deployments:", error);
       setDeployments([]);
     } finally {
       setDeploymentsLoading(false);
     }
   };
 
-  const fetchDeploymentStatuses = async (deployments: Deployment[]) => {
-    if (!user?.wallet?.address) return;
-
-    const userWallet = user.wallet.address;
-
-    const statusPromises = deployments.map(async (deployment) => {
-      setDeploymentStatusesLoading((prev) => ({
-        ...prev,
-        [deployment.id]: true,
-      }));
-
-      try {
-        const response = await fetch(
-          `/api/agents/${deployment.agentId}/deployments?userWallet=${encodeURIComponent(userWallet)}`
-        );
-
-        if (response.ok) {
-          const statusData: DeploymentStatus = await response.json();
-          setDeploymentStatuses((prev) => ({
-            ...prev,
-            [deployment.id]: statusData,
-          }));
-        } else {
-          console.error(
-            `Failed to fetch deployment status for ${deployment.id}`
-          );
-        }
-      } catch (error) {
-        console.error(
-          `Error fetching deployment status for ${deployment.id}:`,
-          error
-        );
-      } finally {
-        setDeploymentStatusesLoading((prev) => ({
-          ...prev,
-          [deployment.id]: false,
-        }));
-      }
-    });
-
-    await Promise.all(statusPromises);
-  };
-
   const fetchAgents = async () => {
+    // Frontend-only: use simulation data from JSON
     try {
       setAgentsLoading(true);
-      const userWallet =
-        authenticated && user?.wallet?.address
-          ? user.wallet.address.toLowerCase()
-          : null;
-
-      const [agentsData, addressesData, deploymentsData] = await Promise.all([
-        db.get("agents", {
-          status: "eq.PUBLIC",
-          order: "apr30d.desc",
-          limit: "20",
-          select: "id,name,venue,apr30d,apr90d,aprSi,sharpe30d",
-        }),
-        userWallet
-          ? db
-            .get("user_agent_addresses", {
-              userWallet: `eq.${userWallet}`,
-            })
-            .catch(() => null)
-          : Promise.resolve(null),
-        userWallet
-          ? db
-            .get("agent_deployments", {
-              userWallet: `eq.${userWallet}`,
-              status: "eq.ACTIVE",
-            })
-            .catch(() => [])
-          : Promise.resolve([]),
-      ]);
+      const { agents: agentsData, ostiumStatus } = simulationDataJson as any;
 
       setAgents(agentsData || []);
 
-      if (addressesData && Array.isArray(addressesData) && addressesData.length) {
-        setUserAgentAddresses({
-          hyperliquid: addressesData[0].hyperliquidAgentAddress || null,
-          ostium: addressesData[0].ostiumAgentAddress || null,
-        });
-      } else if (addressesData && !Array.isArray(addressesData)) {
-        setUserAgentAddresses({
-          hyperliquid: addressesData.hyperliquidAgentAddress || null,
-          ostium: addressesData.ostiumAgentAddress || null,
-        });
-      } else {
-        setUserAgentAddresses(null);
-      }
+      // Use universal addresses for simulation
+      setUserAgentAddresses({
+        hyperliquid: null,
+        ostium: UNIVERSAL_OSTIUM_AGENT_ADDRESS,
+      });
 
-      if (deploymentsData && Array.isArray(deploymentsData)) {
+      // Map agent deployments from JSON
+      const { agentDeployments: deploymentsData } = ostiumStatus || {};
+      if (deploymentsData) {
         const deploymentsMap: Record<string, string[]> = {};
-        deploymentsData.forEach((deployment: any) => {
-          const agentId = deployment.agentId || deployment.agent_id;
-          const enabledVenues =
-            deployment.enabledVenues || deployment.enabled_venues || [];
-
-          if (agentId) {
-            if (!deploymentsMap[agentId]) {
-              deploymentsMap[agentId] = [];
-            }
-
-            enabledVenues.forEach((venue: string) => {
-              if (!deploymentsMap[agentId].includes(venue)) {
-                deploymentsMap[agentId].push(venue);
-              }
-            });
+        Object.keys(deploymentsData).forEach((agentId) => {
+          const venues = deploymentsData[agentId];
+          if (venues && Array.isArray(venues)) {
+            deploymentsMap[agentId] = venues;
           }
         });
-
         setAgentDeployments(deploymentsMap);
       } else {
         setAgentDeployments({});
@@ -267,44 +211,38 @@ export default function MyDeployments() {
     if (activeTab === "agents") {
       fetchAgents();
     }
-  }, [activeTab, authenticated, user?.wallet?.address]);
+  }, [activeTab, authenticated]);
 
-  // Fetch Ostium delegation status and USDC allowance when user has an Ostium address
+  // Frontend-only: load Ostium status from simulation data
   useEffect(() => {
-    async function fetchOstiumStatus() {
-      if (!authenticated || !user?.wallet?.address || !userAgentAddresses?.ostium) {
-        return;
-      }
-
-      try {
-        const [delegationResponse, allowanceResponse] = await Promise.all([
-          fetch(`/api/ostium/check-delegation-status?userWallet=${user.wallet.address}&agentAddress=${userAgentAddresses.ostium}`),
-          fetch(`/api/ostium/check-approval-status?userWallet=${user.wallet.address}`)
-        ]);
-
-        if (delegationResponse.ok) {
-          const delegationData = await delegationResponse.json();
-          setOstiumDelegationStatus({
-            hasDelegation: delegationData.hasDelegation,
-            delegatedAddress: delegationData.delegatedAddress,
-            isDelegatedToAgent: delegationData.isDelegatedToAgent,
-          });
-        }
-
-        if (allowanceResponse.ok) {
-          const allowanceData = await allowanceResponse.json();
-          setOstiumUsdcAllowance({
-            usdcAllowance: allowanceData.usdcAllowance,
-            hasApproval: allowanceData.hasApproval,
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching Ostium status:', error);
-      }
+    if (!authenticated || !userAgentAddresses?.ostium) {
+      return;
     }
 
-    fetchOstiumStatus();
-  }, [authenticated, user?.wallet?.address, userAgentAddresses?.ostium]);
+    try {
+      const { ostiumStatus } = simulationDataJson as any;
+      if (ostiumStatus) {
+        // Set delegation status
+        if (ostiumStatus.delegationStatus) {
+          setOstiumDelegationStatus({
+            hasDelegation: Boolean(ostiumStatus.delegationStatus.hasDelegation),
+            delegatedAddress: UNIVERSAL_DELEGATION_ADDRESS,
+            isDelegatedToAgent: Boolean(ostiumStatus.delegationStatus.isDelegatedToAgent),
+          });
+        }
+
+        // Set USDC allowance
+        if (ostiumStatus.usdcAllowance) {
+          setOstiumUsdcAllowance({
+            usdcAllowance: Number(ostiumStatus.usdcAllowance.usdcAllowance ?? 0),
+            hasApproval: Boolean(ostiumStatus.usdcAllowance.hasApproval),
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading Ostium status:', error);
+    }
+  }, [authenticated, userAgentAddresses?.ostium]);
 
   const handleConnectTelegram = (deploymentId: string) => {
     setSelectedDeploymentId(deploymentId);
@@ -315,25 +253,18 @@ export default function MyDeployments() {
   };
 
   const generateLinkCode = async () => {
+    // Frontend-only: simulate link code generation
     setGenerating(true);
     try {
-      const response = await fetch("/api/telegram/generate-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          deploymentId: selectedDeploymentId,
-          userWallet: user?.wallet?.address || "",
-        }),
-      });
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to generate link code");
-      }
+      // Generate simulated link code
+      const simulatedLinkCode = `LINK${Date.now().toString(36).toUpperCase()}`;
+      const simulatedBotUsername = "maxxit_trading_bot";
 
-      const data = await response.json();
-      setLinkCode(data.linkCode);
-      setBotUsername(data.botUsername);
+      setLinkCode(simulatedLinkCode);
+      setBotUsername(simulatedBotUsername);
     } catch (error: any) {
       alert("Error: " + error.message);
     } finally {
@@ -473,7 +404,7 @@ export default function MyDeployments() {
                 Connect your wallet to view your deployments
               </p>
               <button
-                onClick={login}
+                onClick={() => setAuthenticated(true)}
                 className="px-8 py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors"
               >
                 CONNECT WALLET
@@ -552,8 +483,8 @@ export default function MyDeployments() {
                       Wallet
                     </span>
                     <span className="font-mono text-sm">
-                      {deployment.safeWallet.slice(0, 6)}...
-                      {deployment.safeWallet.slice(-4)}
+                      {deployment.userWallet.slice(0, 6)}...
+                      {deployment.userWallet.slice(-4)}
                     </span>
                   </div>
 
@@ -576,7 +507,7 @@ export default function MyDeployments() {
                   </div>
 
                   {/* Trading Setup */}
-                  {!deployment.moduleEnabled && (
+                  {/* {!deployment.moduleEnabled && (
                     <div className="pt-4">
                       <p className="data-label mb-3">SETUP REQUIRED</p>
                       <div className="border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-4 mb-4">
@@ -631,7 +562,7 @@ export default function MyDeployments() {
                         />
                       )}
                     </div>
-                  )}
+                  )} */}
 
                   {/* Telegram Connection */}
                   {/* <div className="pt-4">
