@@ -139,6 +139,7 @@ export default function MyTrades() {
   const [telegramConnected, setTelegramConnected] = useState(false);
   const [telegramUsername, setTelegramUsername] = useState<string | null>(null);
   const [telegramLoading, setTelegramLoading] = useState(false);
+  const [telegramMessage, setTelegramMessage] = useState<string | null>(null);
 
   // Prevent background scroll when verification modal is open
   useEffect(() => {
@@ -186,23 +187,15 @@ export default function MyTrades() {
   const handleConnectTelegram = async () => {
     // Frontend-only: simulate Telegram connection
     setTelegramLoading(true);
+    // setTelegramMessage("Simulating Telegram connection...");
     try {
-      // Simulate API delay
       await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Generate simulated deep link
-      const simulatedDeepLink = `https://t.me/maxxit_trading_bot?start=link_${Date.now().toString(36)}`;
-
-      // Open the deep link in a new tab
-      window.open(simulatedDeepLink, "_blank");
-
-      // Show success message
-      alert(
-        `Link generated! Click the link that just opened, or manually open:\n\n${simulatedDeepLink}\n\nAfter clicking "Start" in Telegram, refresh this page to see the connection status.`
-      );
+      setTelegramConnected(true);
+      setTelegramUsername("lazy_trader");
+      // setTelegramMessage("Telegram connection simulated for demo only.");
     } catch (error) {
       console.error("Failed to connect Telegram:", error);
-      alert("Failed to connect Telegram. Please try again.");
+      setTelegramMessage("Failed to simulate Telegram connection. Please retry.");
     } finally {
       setTelegramLoading(false);
     }
@@ -449,6 +442,11 @@ export default function MyTrades() {
                       </>
                     )}
                   </button>
+                )}
+                {telegramMessage && (
+                  <p className="text-xs text-[var(--text-muted)] mt-3">
+                    {telegramMessage}
+                  </p>
                 )}
               </div>
             </div>
