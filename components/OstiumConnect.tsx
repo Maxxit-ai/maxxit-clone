@@ -452,7 +452,7 @@ export function OstiumConnect({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-[var(--text-primary)]">Wallet connected</p>
                       <p className="text-xs text-[var(--text-secondary)] truncate font-mono">
-                        {UNIVERSAL_CONNECTED_WALLET_ADDRESS}
+                        {UNIVERSAL_WALLET_ADDRESS}
                       </p>
                     </div>
                     <div className="text-[10px] px-2 py-1 border border-[var(--accent)] text-[var(--accent)] font-bold">
@@ -514,7 +514,7 @@ export function OstiumConnect({
                     </div>
                   ) : (
                     <TradingPreferencesForm
-                      userWallet={isWalletConnected ? UNIVERSAL_CONNECTED_WALLET_ADDRESS : ''}
+                      userWallet={isWalletConnected ? UNIVERSAL_WALLET_ADDRESS : ''}
                       onClose={onClose}
                       onBack={goBack}
                       localOnly={true}

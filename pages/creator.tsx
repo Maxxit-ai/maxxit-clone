@@ -78,15 +78,17 @@ export default function Creator() {
   useEffect(() => {
     // Frontend-only: initialize dashboard with simulated data from local JSON
     try {
-      const { agents } = simulationDataJson as any;
-      const staticAgents = (agents || []).map((a: any) => ({
+      const { creatorDashboard } = simulationDataJson as any;
+      const dash = creatorDashboard || {};
+
+      // Agents
+      const staticAgents = (dash.agents || []).map((a: any) => ({
         id: a.id,
         name: a.name,
         venue: a.venue,
-        status: "PUBLIC" as const,
+        status: (a.status || "PUBLIC") as Agent["status"],
         apr30d: a.apr30d ?? null,
       })) as Agent[];
-
       setAgents(staticAgents);
 
       // Simulated user agent addresses: use universal Ostium agent for this demo
@@ -95,43 +97,38 @@ export default function Creator() {
         ostium: UNIVERSAL_OSTIUM_AGENT_ADDRESS,
       });
 
-      // Simple simulated deployments, positions, and billing events
-      const simulatedDeployments: AgentDeployment[] = staticAgents.slice(0, 2).map((agent, idx) => ({
-        id: `deployment-${idx + 1}`,
-        agentId: agent.id,
-        status: "ACTIVE",
-        safeWallet: `0xSAFEWALLET${idx + 1}000000000000000000000000000000`,
-        subActive: true,
-      }));
-
+      // Deployments
+      const simulatedDeployments: AgentDeployment[] = (dash.deployments || []).map(
+        (d: any) => ({
+          id: d.id,
+          agentId: d.agentId,
+          status: d.status,
+          safeWallet: d.safeWallet,
+          subActive: Boolean(d.subActive),
+        })
+      );
       setDeployments(simulatedDeployments);
 
-      const simulatedPositions: Position[] = simulatedDeployments.map((d, idx) => ({
-        id: `position-${idx + 1}`,
-        tokenSymbol: idx % 2 === 0 ? "ETH" : "BTC",
-        venue: "OSTIUM",
-        side: idx % 2 === 0 ? "LONG" : "SHORT",
-        status: "OPEN",
-        entryPrice: idx % 2 === 0 ? "3200" : "65000",
-        pnl: idx % 2 === 0 ? "125.50" : "-42.10",
+      // Positions
+      const simulatedPositions: Position[] = (dash.positions || []).map((p: any) => ({
+        id: p.id,
+        tokenSymbol: p.tokenSymbol,
+        venue: p.venue,
+        side: p.side,
+        status: p.status,
+        entryPrice: p.entryPrice,
+        pnl: p.pnl,
       }));
-
       setPositions(simulatedPositions);
 
-      const simulatedBilling: BillingEvent[] = [
-        {
-          id: "billing-1",
-          kind: "PROFIT_SHARE",
-          amount: "152.34",
-        },
-        {
-          id: "billing-2",
-          kind: "INFRA_FEE",
-          amount: "23.45",
-        },
-      ];
-
+      // Billing events
+      const simulatedBilling: BillingEvent[] = (dash.billingEvents || []).map((b: any) => ({
+        id: b.id,
+        kind: b.kind,
+        amount: b.amount,
+      }));
       setBillingEvents(simulatedBilling);
+
       setError(null);
     } catch (err: any) {
       setError(err.message || "Failed to initialize dashboard");

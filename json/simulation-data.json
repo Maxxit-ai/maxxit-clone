@@ -35,7 +35,7 @@
       "isDelegatedToAgent": true
     },
     "usdcAllowance": {
-      "usdcAllowance": 100000,
+      "usdcAllowance": 100,
       "hasApproval": true
     },
     "agentDeployments": {
@@ -994,6 +994,177 @@
   "telegramStatus": {
     "connected": false,
     "username": null
+  },
+  "creatorDashboard": {
+    "agents": [
+      {
+        "id": "agent-3",
+        "name": "Cross-Venue Arb Collective",
+        "venue": "MULTI",
+        "status": "PUBLIC",
+        "apr30d": 31.6
+      }
+    ],
+    "deployments": [
+      {
+        "id": "deployment-1",
+        "agentId": "agent-3",
+        "status": "ACTIVE",
+        "safeWallet": "0xWALLET1000000000000000000000000000000001",
+        "subActive": true
+      },
+      {
+        "id": "deployment-2",
+        "agentId": "agent-3",
+        "status": "ACTIVE",
+        "safeWallet": "0xWALLET2000000000000000000000000000000002",
+        "subActive": true
+      },
+      {
+        "id": "deployment-3",
+        "agentId": "agent-3",
+        "status": "ACTIVE",
+        "safeWallet": "0xWALLET3000000000000000000000000000000003",
+        "subActive": true
+      }
+    ],
+    "positions": [
+      {
+        "id": "position-1",
+        "tokenSymbol": "ETH",
+        "venue": "OSTIUM",
+        "side": "LONG",
+        "status": "OPEN",
+        "entryPrice": "3200",
+        "pnl": "125.50"
+      },
+      {
+        "id": "position-2",
+        "tokenSymbol": "BTC",
+        "venue": "OSTIUM",
+        "side": "SHORT",
+        "status": "OPEN",
+        "entryPrice": "65000",
+        "pnl": "-42.10"
+      },
+      {
+        "id": "position-3",
+        "tokenSymbol": "SOL",
+        "venue": "OSTIUM",
+        "side": "LONG",
+        "status": "CLOSED",
+        "entryPrice": "95",
+        "pnl": "310.75"
+      }
+    ],
+    "billingEvents": [
+      {
+        "id": "billing-1",
+        "kind": "PROFIT_SHARE",
+        "amount": "152.34"
+      },
+      {
+        "id": "billing-2",
+        "kind": "INFRA_FEE",
+        "amount": "23.45"
+      },
+      {
+        "id": "billing-3",
+        "kind": "PROFIT_SHARE",
+        "amount": "98.60"
+      }
+    ]
+  },
+  "editAgent": {
+    "agents": [
+      {
+        "id": "agent-1",
+        "name": "Momentum Alpha Club",
+        "status": "PUBLIC",
+        "creatorWallet": "0xCREATOR00000000000000000000000000000001",
+        "researchInstitutes": ["ri-1", "ri-2"],
+        "ctAccounts": ["ct-1", "ct-2"],
+        "telegramUsers": ["tg-1", "tg-3"]
+      },
+      {
+        "id": "agent-2",
+        "name": "Market Maker Syndicate",
+        "status": "PUBLIC",
+        "creatorWallet": "0xCREATOR00000000000000000000000000000002",
+        "researchInstitutes": ["ri-2", "ri-3"],
+        "ctAccounts": ["ct-2", "ct-3"],
+        "telegramUsers": ["tg-2"]
+      },
+      {
+        "id": "agent-3",
+        "name": "Cross-Venue Arb Collective",
+        "status": "PUBLIC",
+        "creatorWallet": "0xCREATOR00000000000000000000000000000003",
+        "researchInstitutes": ["ri-1", "ri-2"],
+        "ctAccounts": ["ct-1", "ct-2"],
+        "telegramUsers": ["tg-1", "tg-2"]
+      }
+    ],
+    "researchInstitutes": [
+      {
+        "id": "ri-1",
+        "name": "Momentum Research Labs",
+        "description": "Momentum-driven signals and on-chain flows.",
+        "x_handle": "momentum_labs"
+      },
+      {
+        "id": "ri-2",
+        "name": "Onchain Intelligence Desk",
+        "description": "Macro + liquidity modeling for crypto majors.",
+        "x_handle": "onchain_intel"
+      },
+      {
+        "id": "ri-3",
+        "name": "Volatility Syndicate",
+        "description": "Option flow and volatility surface monitoring.",
+        "x_handle": "vol_syndicate"
+      }
+    ],
+    "ctAccounts": [
+      {
+        "id": "ct-1",
+        "xUsername": "alpha_whale",
+        "displayName": "Alpha Whale",
+        "followersCount": 124000
+      },
+      {
+        "id": "ct-2",
+        "xUsername": "delta_neutral",
+        "displayName": "Delta Neutral",
+        "followersCount": 67000
+      },
+      {
+        "id": "ct-3",
+        "xUsername": "basis_trader",
+        "displayName": "Basis Trader",
+        "followersCount": 42000
+      }
+    ],
+    "telegramUsers": [
+      {
+        "id": "tg-1",
+        "telegram_username": "lazy_trader",
+        "first_name": "Lazy",
+        "last_name": "Trader"
+      },
+      {
+        "id": "tg-2",
+        "telegram_username": "alpha_signals",
+        "first_name": "Alpha",
+        "last_name": "Signals"
+      },
+      {
+        "id": "tg-3",
+        "telegram_username": "quant_feed",
+        "first_name": "Quant",
+        "last_name": "Feed"
+      }
+    ]
   },
   "lazyTradingSetup": {
     "hasSetup": false,

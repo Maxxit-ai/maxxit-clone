@@ -2,36 +2,39 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Check, User, Sliders, Activity, Eye, Settings as SettingsIcon } from 'lucide-react';
 import { Header } from '@components/Header';
-import { usePrivy } from '@privy-io/react-auth';
 import { ResearchInstituteSelector } from '@components/ResearchInstituteSelector';
 import { TelegramAlphaUserSelector } from '@components/TelegramAlphaUserSelector';
 import { CtAccountSelector } from '@components/CtAccountSelector';
 import { FaXTwitter } from 'react-icons/fa6';
 import { Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import simulationDataJson from '../../json/simulation-data.json';
+import { UNIVERSAL_WALLET_ADDRESS } from '../../json/addresses';
 import type { Agent } from '@shared/schema';
 
 export default function EditAgent() {
   const router = useRouter();
   const { id } = router.query;
-  const { authenticated, user, login } = usePrivy();
   const { toast } = useToast();
-  
+  // Frontend-only simulation auth
+  const authenticated = true;
+  const simulatedUserWallet = UNIVERSAL_WALLET_ADDRESS;
+
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [agent, setAgent] = useState<Agent | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     status: 'DRAFT',
   });
-  
+
   const [selectedResearchInstitutes, setSelectedResearchInstitutes] = useState<string[]>([]);
   const [selectedCtAccounts, setSelectedCtAccounts] = useState<Set<string>>(new Set());
   const [selectedTelegramUsers, setSelectedTelegramUsers] = useState<Set<string>>(new Set());
-  
+
   const [reviewData, setReviewData] = useState<{
     researchInstitutes: Array<{ id: string; name: string; description: string | null; x_handle: string | null }>;
     ctAccounts: Array<{ id: string; xUsername: string; displayName: string | null; followersCount: number | null }>;
@@ -43,10 +46,10 @@ export default function EditAgent() {
   });
 
   useEffect(() => {
-    if (id && authenticated && user?.wallet?.address) {
+    if (id && authenticated) {
       loadAgentData();
     }
-  }, [id, authenticated, user?.wallet?.address]);
+  }, [id, authenticated]);
 
   useEffect(() => {
     if (step === 5) {
@@ -56,56 +59,51 @@ export default function EditAgent() {
 
   const loadAgentData = async () => {
     if (!id || typeof id !== 'string') return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
-      // Fetch agent details
-      const agentResponse = await fetch(`/api/agents/${id}`);
-      if (!agentResponse.ok) throw new Error('Failed to load agent');
-      const agentData = await agentResponse.json();
-      
-      // Check if user is the creator
-      const userWallet = user?.wallet?.address;
-      const creatorWallet = agentData.creator_wallet || agentData.creatorWallet;
-      
-      console.log('Authorization check:', {
-        userWallet,
-        creatorWallet,
-        agentData: agentData,
-        match: userWallet?.toLowerCase() === creatorWallet?.toLowerCase()
-      });
-      
-      if (!userWallet || !creatorWallet) {
-        setError('Unable to verify authorization');
-        setTimeout(() => router.push('/creator'), 2000);
-        return;
+      // Simulate network delay
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const { editAgent } = simulationDataJson as any;
+      const agents: any[] = editAgent?.agents || [];
+      const researchInstitutes: any[] = editAgent?.researchInstitutes || [];
+      const ctAccounts: any[] = editAgent?.ctAccounts || [];
+      const telegramUsers: any[] = editAgent?.telegramUsers || [];
+
+      const agentData = agents.find((a) => a.id === id);
+      if (!agentData) {
+        throw new Error('Agent not found in simulation data');
       }
-      
-      if (creatorWallet.toLowerCase() !== userWallet.toLowerCase()) {
-        setError('You are not authorized to edit this agent');
-        setTimeout(() => router.push('/creator'), 2000);
-        return;
-      }
-      
+
       setAgent(agentData);
       setFormData({
         name: agentData.name,
         status: agentData.status || 'DRAFT',
       });
-      
-      // Load sources
-      const [researchRes, accountsRes, telegramRes] = await Promise.all([
-        fetch(`/api/agents/${id}/research-institutes`).then(r => r.json()).catch(() => ({ institutes: [] })),
-        fetch(`/api/agents/${id}/accounts`).then(r => r.json()).catch(() => []),
-        fetch(`/api/agents/${id}/telegram-users`).then(r => r.json()).catch(() => ({ users: [] })),
-      ]);
-      
-      setSelectedResearchInstitutes(researchRes.institutes?.map((inst: any) => inst.id) || []);
-      setSelectedCtAccounts(new Set(accountsRes.map((acc: any) => acc.ct_accounts?.id || acc.ctAccountId).filter(Boolean)));
-      setSelectedTelegramUsers(new Set(telegramRes.users?.map((user: any) => user.id) || []));
-      
+
+      setSelectedResearchInstitutes(agentData.researchInstitutes || []);
+      setSelectedCtAccounts(new Set(agentData.ctAccounts || []));
+      setSelectedTelegramUsers(new Set(agentData.telegramUsers || []));
+
+      // Preload review data based on selections
+      const selectedInstitutes =
+        researchInstitutes.filter((inst) =>
+          (agentData.researchInstitutes || []).includes(inst.id)
+        ) || [];
+      const selectedCtAccountsData =
+        ctAccounts.filter((acc) => (agentData.ctAccounts || []).includes(acc.id)) || [];
+      const selectedTelegramData =
+        telegramUsers.filter((u) => (agentData.telegramUsers || []).includes(u.id)) || [];
+
+      setReviewData({
+        researchInstitutes: selectedInstitutes,
+        ctAccounts: selectedCtAccountsData,
+        telegramUsers: selectedTelegramData,
+      });
+
     } catch (err: any) {
       setError(err.message || 'Failed to load agent data');
     } finally {
@@ -115,105 +113,32 @@ export default function EditAgent() {
 
   const handleSave = async () => {
     if (!id || typeof id !== 'string') return;
-    
+
     setSaving(true);
     setError(null);
-    
+
     try {
-      // Update agent basic info
-      const response = await fetch(`/api/agents/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: formData.name,
-          status: formData.status,
-        }),
-      });
+      // Simulate save delay
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      if (!response.ok) throw new Error('Failed to update agent');
+      // Update local state to reflect saved data
+      setAgent((prev) =>
+        prev
+          ? { ...prev, name: formData.name, status: formData.status as Agent['status'] }
+          : prev
+      );
 
-      // Update research institutes
-      const currentResearch = await fetch(`/api/agents/${id}/research-institutes`).then(r => r.json()).catch(() => ({ institutes: [] }));
-      const currentResearchIds = currentResearch.institutes?.map((inst: any) => inst.id) || [];
-      
-      // Add new institutes
-      for (const instId of selectedResearchInstitutes) {
-        if (!currentResearchIds.includes(instId)) {
-          await fetch(`/api/agents/${id}/research-institutes`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ institute_id: instId }),
-          });
-        }
-      }
-      
-      // Remove institutes
-      for (const instId of currentResearchIds) {
-        if (!selectedResearchInstitutes.includes(instId)) {
-          await fetch(`/api/agents/${id}/research-institutes`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ institute_id: instId }),
-          });
-        }
-      }
-
-      // Update CT accounts
-      const currentAccounts = await fetch(`/api/agents/${id}/accounts`).then(r => r.json()).catch(() => []);
-      const currentAccountIds = currentAccounts.map((acc: any) => acc.ct_accounts?.id || acc.ctAccountId).filter(Boolean);
-      
-      // Add new accounts
-      for (const accId of Array.from(selectedCtAccounts)) {
-        if (!currentAccountIds.includes(accId)) {
-          await fetch(`/api/agents/${id}/accounts`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ctAccountId: accId }),
-          });
-        }
-      }
-      
-      // Remove accounts
-      for (const accId of currentAccountIds) {
-        if (!selectedCtAccounts.has(accId)) {
-          await fetch(`/api/agents/${id}/accounts?ctAccountId=${accId}`, {
-            method: 'DELETE',
-          }).catch(() => {});
-        }
-      }
-
-      // Update Telegram users
-      const currentTelegram = await fetch(`/api/agents/${id}/telegram-users`).then(r => r.json()).catch(() => ({ users: [] }));
-      const currentTelegramIds = currentTelegram.users?.map((user: any) => user.id) || [];
-      
-      // Add new users
-      for (const userId of Array.from(selectedTelegramUsers)) {
-        if (!currentTelegramIds.includes(userId)) {
-          await fetch(`/api/agents/${id}/telegram-users`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ telegram_alpha_user_id: userId }),
-          }).catch(() => {});
-        }
-      }
-      
-      // Remove users
-      for (const userId of currentTelegramIds) {
-        if (!selectedTelegramUsers.has(userId)) {
-          await fetch(`/api/agents/${id}/telegram-users?telegram_alpha_user_id=${userId}`, {
-            method: 'DELETE',
-          }).catch(() => {});
-        }
-      }
+      // Refresh review data based on current selections
+      fetchReviewData(true);
 
       toast({
-        title: "Agent Updated",
-        description: "Your agent has been updated successfully.",
+        title: "Agent Updated (simulated)",
+        description: "Changes saved locally for this session.",
       });
 
       router.push('/creator');
     } catch (err: any) {
-      setError(err.message || 'Failed to update agent');
+      setError(err.message || 'Failed to update agent (simulation)');
       toast({
         title: "Update Failed",
         description: err.message || "Failed to update agent",
@@ -244,7 +169,7 @@ export default function EditAgent() {
       setError('Please select at least one CT account');
       return;
     }
-    
+
     if (step < 5) {
       setStep(step + 1);
       setError(null);
@@ -255,26 +180,27 @@ export default function EditAgent() {
     if (step > 1) setStep(step - 1);
   };
 
-  const fetchReviewData = async () => {
+  const fetchReviewData = async (skipDelay = false) => {
     try {
-      const researchResponse = await fetch('/api/research-institutes');
-      const researchJson = await researchResponse.json();
+      if (!skipDelay) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+
+      const { editAgent } = simulationDataJson as any;
+      const researchInstitutes: any[] = editAgent?.researchInstitutes || [];
+      const ctAccounts: any[] = editAgent?.ctAccounts || [];
+      const telegramUsers: any[] = editAgent?.telegramUsers || [];
+
       const selectedInstitutes =
-        researchJson.institutes?.filter((inst: any) =>
+        researchInstitutes.filter((inst) =>
           selectedResearchInstitutes.includes(inst.id)
         ) || [];
 
-      // CT accounts
-      const ctResponse = await fetch('/api/ct-accounts');
-      const ctJson = await ctResponse.json();
       const selectedCtAccountsData =
-        ctJson?.filter((acc: any) => selectedCtAccounts.has(acc.id)) || [];
+        ctAccounts.filter((acc) => selectedCtAccounts.has(acc.id)) || [];
 
-      // Telegram users
-      const telegramResponse = await fetch('/api/telegram-alpha-users');
-      const telegramJson = await telegramResponse.json();
       const selectedTelegramData =
-        telegramJson.alphaUsers?.filter((u: any) => selectedTelegramUsers.has(u.id)) || [];
+        telegramUsers.filter((u) => selectedTelegramUsers.has(u.id)) || [];
 
       setReviewData({
         researchInstitutes: selectedInstitutes,
@@ -282,7 +208,7 @@ export default function EditAgent() {
         telegramUsers: selectedTelegramData,
       });
     } catch (err) {
-      console.error('Failed to fetch review data', err);
+      console.error('Failed to load review data (simulation)', err);
     }
   };
 
@@ -309,8 +235,8 @@ export default function EditAgent() {
         <div className="max-w-4xl mx-auto px-6 py-12 text-center">
           <h1 className="font-display text-3xl mb-4">Authentication Required</h1>
           <p className="text-[var(--text-secondary)] mb-6">Please connect your wallet to edit agents.</p>
-          <button 
-            onClick={login}
+          <button
+            onClick={() => { }}
             className="px-6 py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors"
           >
             CONNECT WALLET
@@ -354,7 +280,7 @@ export default function EditAgent() {
   return (
     <div className="min-h-screen bg-[var(--bg-deep)]">
       <Header />
-      
+
       <div className="max-w-4xl mx-auto px-6 py-12">
         {/* Title */}
         <div className="text-center mb-12">
@@ -379,13 +305,12 @@ export default function EditAgent() {
                 return (
                   <div key={s.number} className="flex flex-col items-center">
                     <div
-                      className={`w-8 h-8 flex items-center justify-center transition-all border ${
-                        isCompleted
-                          ? 'bg-[var(--accent)] border-[var(--accent)] text-[var(--bg-deep)]'
-                          : isCurrent
+                      className={`w-8 h-8 flex items-center justify-center transition-all border ${isCompleted
+                        ? 'bg-[var(--accent)] border-[var(--accent)] text-[var(--bg-deep)]'
+                        : isCurrent
                           ? 'border-[var(--accent)] text-[var(--accent)]'
                           : 'border-[var(--border)] text-[var(--text-muted)]'
-                      }`}
+                        }`}
                     >
                       {isCompleted ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
                     </div>
@@ -429,7 +354,7 @@ export default function EditAgent() {
                   placeholder="Alpha Momentum Trader"
                 />
               </div>
-              
+
               {/* Status Toggle */}
               <div>
                 <label className="data-label block mb-2">VISIBILITY</label>
@@ -437,39 +362,37 @@ export default function EditAgent() {
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, status: 'PUBLIC' })}
-                    className={`flex-1 px-4 py-3 border text-sm font-bold transition-all ${
-                      formData.status === 'PUBLIC'
-                        ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10 shadow-lg'
-                        : 'border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--text-primary)]'
-                    }`}
+                    className={`flex-1 px-4 py-3 border text-sm font-bold transition-all ${formData.status === 'PUBLIC'
+                      ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10 shadow-lg'
+                      : 'border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--text-primary)]'
+                      }`}
                   >
                     PUBLIC
                   </button>
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, status: 'PRIVATE' })}
-                    className={`flex-1 px-4 py-3 border text-sm font-bold transition-all ${
-                      formData.status === 'PRIVATE'
-                        ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10 shadow-lg'
-                        : 'border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--text-primary)]'
-                    }`}
+                    className={`flex-1 px-4 py-3 border text-sm font-bold transition-all ${formData.status === 'PRIVATE'
+                      ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10 shadow-lg'
+                      : 'border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--text-primary)]'
+                      }`}
                   >
                     PRIVATE
                   </button>
                 </div>
               </div>
-              
+
               <div className="flex gap-4">
-                <button 
-                  type="button" 
-                  onClick={() => router.push('/creator')} 
+                <button
+                  type="button"
+                  onClick={() => router.push('/creator')}
                   className="flex-1 py-4 border border-[var(--border)] font-bold hover:border-[var(--text-primary)] transition-colors"
                 >
                   CANCEL
                 </button>
-                <button 
-                  type="button" 
-                  onClick={nextStep} 
+                <button
+                  type="button"
+                  onClick={nextStep}
                   className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors"
                 >
                   NEXT →

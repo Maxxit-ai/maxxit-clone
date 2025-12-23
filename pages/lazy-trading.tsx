@@ -141,14 +141,6 @@ export default function LazyTrading() {
         // regardless of any pre-existing delegation/approval flags
         setDelegationComplete(false);
         setAllowanceComplete(false);
-        setStep((data.step as Step) || "telegram");
-
-        // If on ostium step, set address and check delegation/allowance status
-        if (data.step === "ostium" && data.ostiumAgentAddress) {
-          setOstiumAgentAddress(data.ostiumAgentAddress);
-        } else if (data.ostiumAgentAddress) {
-          setOstiumAgentAddress(data.ostiumAgentAddress);
-        }
       } else {
         // No existing setup, start fresh
         // Use universal address as default for simulation
@@ -159,11 +151,9 @@ export default function LazyTrading() {
         if (data.hyperliquidAgentAddress) {
           setHyperliquidAgentAddress(data.hyperliquidAgentAddress);
         }
-        setStep("telegram");
       }
     } catch (err) {
       console.error("Error loading existing setup:", err);
-      setStep("telegram");
     } finally {
       setInitialLoadDone(true);
     }
@@ -609,7 +599,9 @@ export default function LazyTrading() {
                     </p>
                   </div>
                   <button
-                    onClick={() => checkTelegramStatus()}
+                    onClick={() => {
+                      setStep("telegram");
+                    }}
                     className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-2"
                   >
                     {checkingTelegram ? (

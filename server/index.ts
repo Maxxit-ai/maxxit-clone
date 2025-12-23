@@ -2,7 +2,7 @@ import { exec } from 'child_process';
 
 console.log('Starting Next.js development server...');
 
-const child = exec('npx next dev -p 5000', {
+const child = exec('npx next dev -p 3000', {
   cwd: process.cwd(),
 });
 
