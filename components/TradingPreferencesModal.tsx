@@ -398,7 +398,7 @@ export function TradingPreferencesForm({
           <SliderRow
             title="Risk Tolerance"
             helper="How aggressive should sizing be?"
-            value={preferences.risk_tolerance}
+            value={preferences.risk_tolerance || 50}
             onChange={(v) => preserveScrollPosition(() => setPreferences({ ...preferences, risk_tolerance: v }))}
             left="Conservative"
             right="Aggressive"
@@ -415,7 +415,7 @@ export function TradingPreferencesForm({
           <SliderRow
             title="Trade Frequency"
             helper="How often to take trades?"
-            value={preferences.trade_frequency}
+            value={preferences.trade_frequency || 50}
             onChange={(v) => preserveScrollPosition(() => setPreferences({ ...preferences, trade_frequency: v }))}
             left="Patient"
             right="Active"
@@ -432,7 +432,7 @@ export function TradingPreferencesForm({
           <SliderRow
             title="Social Sentiment Impact"
             helper="Weight social media sentiment"
-            value={preferences.social_sentiment_weight}
+            value={preferences.social_sentiment_weight || 50}
             onChange={(v) => preserveScrollPosition(() => setPreferences({ ...preferences, social_sentiment_weight: v }))}
             left="Ignore"
             right="Follow"
@@ -449,7 +449,7 @@ export function TradingPreferencesForm({
           <SliderRow
             title="Price Momentum Strategy"
             helper="Trend follow or contrarian?"
-            value={preferences.price_momentum_focus}
+            value={preferences.price_momentum_focus || 50}
             onChange={(v) => preserveScrollPosition(() => setPreferences({ ...preferences, price_momentum_focus: v }))}
             left="Contrarian"
             right="Momentum"
@@ -466,7 +466,7 @@ export function TradingPreferencesForm({
           <SliderRow
             title="Market Cap Preference"
             helper="Focus on large caps or any token"
-            value={preferences.market_rank_priority}
+            value={preferences.market_rank_priority || 50}
             onChange={(v) => preserveScrollPosition(() => setPreferences({ ...preferences, market_rank_priority: v }))}
             left="Any Coin"
             right="Top Only"

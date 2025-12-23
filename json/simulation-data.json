@@ -1151,7 +1151,7 @@
         "id": "deployment-lazy-1",
         "agentId": "agent-lazy",
         "status": "ACTIVE",
-        "safeWallet": "0xSAFEWALLETLAZY00000000000000000000000001",
+        "safeWallet": "0xLAZYWALLET000000000000000000000000000001",
         "subActive": true
       }
     ],
