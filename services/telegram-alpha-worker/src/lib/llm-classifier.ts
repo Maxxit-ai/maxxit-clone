@@ -11,8 +11,8 @@ interface ClassificationResult {
   reasoning?: string;
   tokenPrice?: number | null; // Spot price from LunarCrush (USD)
   timelineWindow?: string | null; // Parsed time window / deadline for the signal
-  takeProfit?: number | null; // Take profit target extracted from signal
-  stopLoss?: number | null; // Stop loss target extracted from signal
+  takeProfit?: number | null; // Take profit target extracted from signal (as percentage, e.g., 20 for 20%)
+  stopLoss?: number | null; // Stop loss target extracted from signal (as percentage, e.g., -10 for -10%)
   signature?: string; // EigenAI response signature for verification
   rawOutput?: string; // Full raw output from LLM API (for EigenAI signature verification)
   model?: string; // Model used (for EigenAI signature verification)
@@ -67,7 +67,8 @@ export class LLMTweetClassifier {
    */
   async classifyTweetForToken(
     tweetText: string,
-    tokenSymbol: string
+    tokenSymbol: string,
+    userImpactFactor: number = 50
   ): Promise<ClassificationResult> {
     console.log(`[LLMClassifier] Classifying for token: ${tokenSymbol}`);
 
@@ -83,7 +84,8 @@ export class LLMTweetClassifier {
     const { prompt, marketContext } = this.buildPromptForSpecificToken(
       tweetText,
       tokenSymbol,
-      marketData
+      marketData,
+      userImpactFactor
     );
 
     // Build full prompt for signature verification (system + user message)
@@ -100,8 +102,7 @@ export class LLMTweetClassifier {
       result.marketContext = marketContext;
       result.fullPrompt = fullPrompt;
       result.tokenPrice =
-        typeof marketData?.price === "number" ? marketData.price : null;
-      
+        typeof marketData?.price === "number" ? marketData.price : null;     
       // Override extracted tokens to ensure only this token
       result.extractedTokens = result.isSignalCandidate ? [tokenSymbol] : [];
       
@@ -153,7 +154,7 @@ export class LLMTweetClassifier {
    * Classify a tweet and extract trading signals for ALL tokens mentioned
    * Returns array of classifications (one per token)
    */
-  async classifyTweet(tweetText: string): Promise<ClassificationResult[]> {
+  async classifyTweet(tweetText: string, userImpactFactor: number = 50): Promise<ClassificationResult[]> {
     // Step 1: Regex/keyword extraction (fast path)
     const seedTokens = this.extractAllTokenSymbols(tweetText);
     console.log(`[LLMClassifier] Extracted ${seedTokens.length} token(s) via regex:`, seedTokens);
@@ -191,7 +192,8 @@ export class LLMTweetClassifier {
       try {
         const classification = await this.classifyTweetForToken(
           tweetText,
-          token
+          token,
+          userImpactFactor
         );
         results.push(classification);
         
@@ -501,59 +503,73 @@ Return JSON (example format only, use actual tokens from the message):
   private buildPromptForSpecificToken(
     tweetText: string,
     tokenSymbol: string,
-    marketData: any | null
+    marketData: any | null,
+    userImpactFactor: number = 50
   ): { prompt: string; marketContext: string } {
     let marketContext = 'NO MARKET DATA';
-  
+
     if (marketData) {
       console.log(`[LLMClassifier] Market data for ${tokenSymbol}:`, JSON.stringify(marketData, null, 2));
-      
+
       const pct24h = marketData.percent_change_24h ?? 0;
       const pct7d = marketData.percent_change_7d ?? 0;
       const pct30d = marketData.percent_change_30d ?? 0;
       const vol = marketData.volume_24h ?? 0;
       const volM = (vol / 1e6).toFixed(1);
-  
+
       marketContext = `${marketData.symbol}: $${marketData.price?.toFixed(2)}, MCap=$${(marketData.market_cap / 1e9).toFixed(1)}B
   24h=${pct24h.toFixed(2)}% | 7d=${pct7d.toFixed(2)}% | 30d=${pct30d.toFixed(2)}% | Vol=${volM}M
   Galaxy=${marketData.galaxy_score} | Rank=${marketData.alt_rank} | Vol=${marketData.volatility?.toFixed(4)}`;
     }
   
   const prompt = `Elite crypto risk analyst. ${tokenSymbol} was PRE-SELECTED as having trading insight.
-  
+
   MESSAGE: "${tweetText}"
   TARGET TOKEN: ${tokenSymbol}
   ${tokenSymbol} MARKET DATA: ${marketContext}
-  
+  SENDER IMPACT FACTOR: ${userImpactFactor.toFixed(1)}/100 (Scale: 0=worst, 50=neutral, 100=best)
+
   TASK:
   Provide trading analysis for ${tokenSymbol}. Since ${tokenSymbol} was PRE-SELECTED, it HAS trading insight.
   **Always set isSignalCandidate=true** and derive direction/confidence from the message context.
-  
+
+  IMPACT FACTOR GUIDANCE:
+  - Impact Factor: Historical performance of signal sender (0-100)
+  - Neutral=50: NO info - proceed normally without favor/penalty
+  - Excellent(>80): Strongly favor, boost confidence significantly (exceptional historical success)
+  - High(60-80): Weight historical success, moderately boost confidence
+  - Low(20-40): More skeptical, require stronger signal evidence for high confidence
+  - Very Poor(<20): Highly skeptical, require extremely strong signal evidence for any confidence
+
   DATA MEANING:
-  • Price/MCap: Size & liquidity (larger = safer exits)
-  • 24h/7d/30d %: Momentum (consistent = stronger, mixed = uncertain)
-  • Vol: Liquidity (>50M good, <10M risky, 0 = red flag)
-  • GalaxyScore: Strength 0-100 (>70 strong, 50-70 moderate, <50 weak)
-  • AltRank: Performance (1-100 excellent, 100-500 average, >500 weak)
-  • Volatility: Stability (<0.02 stable, 0.02-0.05 normal, >0.05 risky)
+  - Price/MCap: Size & liquidity (larger=safer exits)
+  - 24h/7d/30d%: Momentum (consistent=stronger, mixed=uncertain)
+  - Vol: Liquidity (>50M good, <10M risky, 0=red flag)
+  - GalaxyScore: Strength 0-100 (>70 strong, 50-70 moderate, <50 weak)
+  - AltRank: Performance (1-100 excellent, 100-500 avg, >500 weak)
+  - Volatility: Stability (<0.02 stable, 0.02-0.05 normal, >0.05 risky)
   
   DIRECTION DERIVATION:
-  • Explicit: "buy", "long", "enter", "target X" → use stated direction
-  • Implicit strength: "best performing", "strongest", "momentum building", "accumulation" → BULLISH
-  • Implicit weakness: "worst performing", "weakest", "losing momentum", "distribution" → BEARISH
-  • Neutral mention: no clear strength/weakness → NEUTRAL (low confidence)
-  
+  - Explicit: "buy","long","enter","target X" → use stated direction
+  - Implicit strength: "best performing","strongest","momentum building","accumulation" → BULLISH
+  - Implicit weakness: "worst performing","weakest","losing momentum","distribution" → BEARISH
+  - Neutral mention: no clear strength/weakness → NEUTRAL (low confidence)
+
   ANALYSIS FOR ${tokenSymbol}:
-  1. Extract trading direction (bullish/bearish) - can be explicit OR implicit
+  1. Extract trading direction (bullish/bearish) - explicit OR implicit
   2. Check ${tokenSymbol} market alignment with signal direction
-  3. Risk penalties: low vol (<10M), high volatility (>0.05), poor rank (>1000)
-  
-  TP/SL EXTRACTION (for ${tokenSymbol} only):
-  ⚠️  CRITICAL: Only extract if SPECIFICALLY mentioned for ${tokenSymbol}
-  • If message says "BTC target $100k in 1 month, SOL is strong" → SOL gets NULL (target is for BTC, not SOL)
-  • TP: "target $X", "TP at X%", "take profit X" → extract ONLY if for ${tokenSymbol}
-  • SL: "stop loss X", "SL at X%", "cut at X" → extract ONLY if for ${tokenSymbol}
-  • If not mentioned FOR ${tokenSymbol}, set null
+  3. Risk penalties: vol<10M, volatility>0.05, rank>1000
+
+  TP/SL EXTRACTION (${tokenSymbol} only):
+  ⚠️ CRITICAL: Only extract if SPECIFICALLY for ${tokenSymbol}
+  - If msg says "BTC target $100k in 1mo, SOL is strong" → SOL gets NULL (target is for BTC not SOL)
+  - Absolute prices (e.g. "target $100","stop at $80"): CONVERT TO % using current price from market data
+  - Formula: % = ((target_price - current_price) / current_price) * 100
+  - Examples: current=$100, target=$120 → "20%"; current=$100, stop=$85 → "-15%"
+  - User provides % (e.g. "TP at 20%","SL at -5%"): use directly
+  - TP: "target $X","TP at X%","take profit X" → extract ONLY if for ${tokenSymbol}
+  - SL: "stop loss X","SL at X%","cut at X" → extract ONLY if for ${tokenSymbol}
+  - Not mentioned FOR ${tokenSymbol}: set null
   
   TIMELINE EXTRACTION (for ${tokenSymbol} only):
   ⚠️  CRITICAL: Only extract if SPECIFICALLY mentioned for ${tokenSymbol}
@@ -807,7 +823,14 @@ Return JSON (example format only, use actual tokens from the message):
         if (val === null || val === undefined) return null;
         if (typeof val === "number") return val;
         if (typeof val === "string") {
-          const num = parseFloat(val.replace(/[%$,]/g, ""));
+          const cleaned = val.trim();
+          // Check if it's already a percentage (e.g., "20%" or "-15%")
+          if (/^-?\d+(\.\d+)?%$/.test(cleaned)) {
+            const num = parseFloat(cleaned.replace(/[%\s]/g, ""));
+            return isNaN(num) ? null : num;
+          }
+          // Try to parse as number (absolute price)
+          const num = parseFloat(cleaned.replace(/[$,]/g, ""));
           return isNaN(num) ? null : num;
         }
         return null;
@@ -907,7 +930,8 @@ export function createLLMClassifier(): LLMTweetClassifier | null {
  * Returns array of classifications (one per token)
  */
 export async function classifyTweet(
-  tweetText: string
+  tweetText: string,
+  userImpactFactor: number = 50
 ): Promise<ClassificationResult[]> {
   const classifier = createLLMClassifier();
 
@@ -921,5 +945,5 @@ export async function classifyTweet(
     throw error;
   }
 
-  return classifier.classifyTweet(tweetText);
+  return classifier.classifyTweet(tweetText, userImpactFactor);
 }

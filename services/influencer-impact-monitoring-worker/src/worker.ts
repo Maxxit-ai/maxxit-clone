@@ -24,7 +24,7 @@ import {
   registerCleanup,
   createHealthCheckHandler,
 } from "@maxxit/common";
-import { updateImpactFactorInContract } from "../../../lib/impact-factor-contract";
+// import { updateImpactFactorInContract } from "../../../lib/impact-factor-contract";
 
 dotenv.config();
 
@@ -145,22 +145,22 @@ async function updateSignal(
   // Also update smart contract with impact factor results
   // For closed trades: use provided impactFactor and flag
   // For open trades: use 0 for impactFactor and true for flag (keep monitoring)
-  const contractImpactFactor = impactFactor !== undefined ? impactFactor : 0;
-  const contractImpactFactorFlag = impactFactorFlag !== undefined ? impactFactorFlag : true;
+  // const contractImpactFactor = impactFactor !== undefined ? impactFactor : 0;
+  // const contractImpactFactorFlag = impactFactorFlag !== undefined ? impactFactorFlag : true;
   
-  try {
-    await updateImpactFactorInContract(
-      signalId,
-      pnl,
-      maxFavorableExcursion,
-      maxAdverseExcursion,
-      contractImpactFactor,
-      contractImpactFactorFlag
-    );
-  } catch (error: any) {
-    console.error(`[ImpactFactorWorker] Failed to update contract (non-fatal):`, error.message);
-    // Continue - DB update succeeded
-  }
+  // try {
+  //   await updateImpactFactorInContract(
+  //     signalId,
+  //     pnl,
+  //     maxFavorableExcursion,
+  //     maxAdverseExcursion,
+  //     contractImpactFactor,
+  //     contractImpactFactorFlag
+  //   );
+  // } catch (error: any) {
+  //   console.error(`[ImpactFactorWorker] Failed to update contract (non-fatal):`, error.message);
+  //   // Continue - DB update succeeded
+  // }
 }
 
 /**
@@ -587,12 +587,12 @@ async function runWorker() {
 
   // Run immediately on startup
   await processImpactFactor();
-  // await updateUserImpactFactors(); // Aggregate user-level impact factors
+  await updateUserImpactFactors(); // Aggregate user-level impact factors
 
   // Then run on interval (24 hours)
   workerInterval = setInterval(async () => {
     await processImpactFactor();
-    // await updateUserImpactFactors(); // Aggregate user-level impact factors
+    await updateUserImpactFactors(); // Aggregate user-level impact factors
   }, INTERVAL);
 }
 

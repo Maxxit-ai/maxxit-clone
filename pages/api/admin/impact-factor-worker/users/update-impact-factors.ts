@@ -58,23 +58,33 @@ export default async function handler(
         );
         const avgImpactFactor = totalImpactFactor / user.telegram_posts.length;
 
-        // Update user's impact factor
+        // Transform impact factor from [-1.5, 1.5] to [0, 100] scale
+        // Formula: ((value + 1.5) / 3) * 100
+        // -1.5 → 0 (worst)
+        //  0.0 → 50 (neutral/starting point)
+        // +1.5 → 100 (best)
+        const scaledImpactFactor = ((avgImpactFactor + 1.5) / 3) * 100;
+
+        // Clamp to [0, 100] range to handle edge cases
+        const clampedImpactFactor = Math.max(0, Math.min(100, scaledImpactFactor));
+
+        // Update user's impact factor with scaled value
         await prisma.telegram_alpha_users.update({
           where: { id: user.id },
-          data: { impact_factor: avgImpactFactor },
+          data: { impact_factor: clampedImpactFactor },
         });
 
         usersUpdated++;
         userResults.push({
           id: user.id,
           username: user.telegram_username || user.first_name || "Unknown",
-          impact_factor: avgImpactFactor,
+          impact_factor: clampedImpactFactor,
           signal_count: user.telegram_posts.length,
         });
 
         console.log(
           `[UpdateUserImpactFactors] ✅ ${user.telegram_username || user.first_name}: ` +
-          `${avgImpactFactor.toFixed(4)} (${user.telegram_posts.length} signals)`
+          `${clampedImpactFactor.toFixed(2)}/100 (${user.telegram_posts.length} signals, raw avg: ${avgImpactFactor.toFixed(4)})`
         );
       } catch (error: any) {
         errors++;
