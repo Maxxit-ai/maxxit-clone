@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@maxxit/database";
+import { prisma } from "../../../../lib/prisma";
 
 /**
  * GET endpoint: Fetch active signals that need impact factor monitoring
@@ -16,7 +16,7 @@ export default async function handler(
   try {
     const signals = await prisma.telegram_posts.findMany({
       where: {
-        impact_factor_flag: true,
+        impact_factor_flag: false,
         is_signal_candidate: true,
         token_price: { not: null },
         extracted_tokens: { isEmpty: false },

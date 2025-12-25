@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@maxxit/database";
+import { prisma } from "../../../../../lib/prisma";
 
 /**
  * POST /api/admin/impact-factor-worker/users/update-impact-factors
@@ -25,7 +25,7 @@ export default async function handler(
         telegram_posts: {
           where: {
             impact_factor: { not: null },
-            impact_factor_flag: false, // Only completed signals (not actively monitored)
+            impact_factor_flag: true, // Only completed signals (not actively monitored)
             is_signal_candidate: true, // Only actual signals
           },
           select: {

@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@maxxit/database";
+import { prisma } from "../../../../lib/prisma";
 import { ethers } from "ethers";
 import { hashWebhookData, hashEigenAIData } from "../../../../lib/data-hash";
 import { getSignalFromContract } from "../../../../lib/impact-factor-contract";

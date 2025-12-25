@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { prisma } from "@maxxit/database";
+import { prisma } from "../../../../lib/prisma";
 
 /**
  * POST endpoint: Update telegram_post with impact factor results

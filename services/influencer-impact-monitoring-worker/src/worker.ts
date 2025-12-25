@@ -34,7 +34,7 @@ const INTERVAL = parseInt(process.env.IMPACT_FACTOR_INTERVAL || "86400000"); // 
 // API base URL (Next.js app on Vercel)
 const API_BASE_URL =
   process.env.IMPACT_FACTOR_API_URL ||
-  "http://localhost:5000/api/admin/impact-factor-worker";
+  "https://maxxit.ai/api/admin/impact-factor-worker";
 
 // Default values for signals without TP/SL/timeline
 const DEFAULT_TAKE_PROFIT_PCT = 10; // 10%
@@ -476,7 +476,7 @@ async function processImpactFactor() {
             lifetimeMFE,
             lifetimeMAE,
             impactFactor,
-            false // impact_factor_flag = false (stop monitoring)
+            true // impact_factor_flag = true (stop monitoring)
           );
 
           totalClosed++;
