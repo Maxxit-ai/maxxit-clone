@@ -120,10 +120,6 @@ const HeroSection = memo(
       [onLearnMoreScroll]
     );
 
-    const handleLazyTradingClick = useCallback(() => {
-      router.push("/lazy-trading");
-    }, [router]);
-
     return (
       <section className="py-16 relative flex-1 flex items-center overflow-hidden bg-black">
         <div className="absolute inset-0 w-full flex-1">
@@ -192,15 +188,15 @@ const HeroSection = memo(
                 →
               </span>
             </button>
-            <button
-              onClick={handleLazyTradingClick}
+            <Link href="https://ostium.maxxit.ai/lazy-trading"
+              target="_blank"
               className="group px-8 py-4 border-2 border-accent text-accent font-bold text-lg hover:bg-accent hover:text-[var(--bg-deep)] transition-all"
             >
               LAZY TRADING
               <span className="inline-block ml-2 group-hover:translate-x-1 transition-transform">
                 ⚡
               </span>
-            </button>
+            </Link>
             <button
               onClick={handleLearnMoreClick}
               className="px-8 py-4 border border-[var(--border)] font-bold text-lg hover:border-accent hover:text-accent transition-all"

@@ -4,85 +4,92 @@ import type { NextRequest } from "next/server";
 /**
  * CORS Middleware for API routes
  * Allows cross-origin requests from configured origins
+ *
+ * Handles preflight OPTIONS requests and sets CORS headers on all API responses
  */
 
-// Allowed origins for CORS
+// Allowed origins for CORS - add your domains here
 const allowedOrigins = [
-  "http://localhost:3000",
-  "http://localhost:3001",
-  "http://localhost:3002",
-  "http://localhost:3003",
-  "http://127.0.0.1:3000",
-  "http://127.0.0.1:3001",
-  "http://127.0.0.1:3002",
-  "http://127.0.0.1:3003",
-  // Add your production domains here
-  process.env.NEXT_PUBLIC_OSTIUM_FRONTEND_URL,
-  process.env.NEXT_PUBLIC_APP_URL,
+  "https://ostium.maxxit.ai",
+  "https://maxxit.ai",
+  "https://www.maxxit.ai",
 ].filter(Boolean) as string[];
 
+// CORS headers configuration
+const corsHeaders = {
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, ngrok-skip-browser-warning",
+  "Access-Control-Max-Age": "86400",
+};
+
+function getCorsOrigin(
+  origin: string | null,
+  isAllowedOrigin: boolean
+): string {
+  if (isAllowedOrigin && origin) {
+    return origin;
+  }
+  // For development or when origin is not in the allowed list,
+  // return the origin if present, otherwise "*"
+  return origin || "*";
+}
+
 export function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
   // Only apply CORS to API routes
-  if (!request.nextUrl.pathname.startsWith("/api")) {
+  if (!pathname.startsWith("/api")) {
     return NextResponse.next();
   }
 
   const origin = request.headers.get("origin");
 
   // Check if the origin is allowed
-  const isAllowedOrigin =
+  const isAllowedOrigin = !!(
     origin &&
     (allowedOrigins.includes(origin) ||
       origin.endsWith(".ngrok-free.app") ||
-      origin.endsWith(".vercel.app"));
+      origin.endsWith(".vercel.app") ||
+      origin.includes("localhost"))
+  );
 
   // Handle preflight OPTIONS request
+  // CRITICAL: Must return immediately with 200 status to prevent redirects
   if (request.method === "OPTIONS") {
-    const response = new NextResponse(null, { status: 200 });
+    const corsOrigin = getCorsOrigin(origin, isAllowedOrigin);
 
-    if (isAllowedOrigin) {
-      response.headers.set("Access-Control-Allow-Origin", origin);
-    } else {
-      // Allow all origins in development, be more restrictive in production
-      response.headers.set("Access-Control-Allow-Origin", "*");
-    }
-
-    response.headers.set(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-    );
-    response.headers.set(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-Requested-With, ngrok-skip-browser-warning"
-    );
-    response.headers.set("Access-Control-Max-Age", "86400");
-
-    return response;
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        "Access-Control-Allow-Origin": corsOrigin,
+        "Access-Control-Allow-Credentials": isAllowedOrigin ? "true" : "false",
+        ...corsHeaders,
+      },
+    });
   }
 
-  // Handle actual request
+  // Handle actual request - continue to API handler with CORS headers
   const response = NextResponse.next();
+  const corsOrigin = getCorsOrigin(origin, isAllowedOrigin);
 
+  // Set CORS headers on the response
+  response.headers.set("Access-Control-Allow-Origin", corsOrigin);
   if (isAllowedOrigin) {
-    response.headers.set("Access-Control-Allow-Origin", origin);
-  } else {
-    // Allow all origins in development
-    response.headers.set("Access-Control-Allow-Origin", "*");
+    response.headers.set("Access-Control-Allow-Credentials", "true");
   }
 
-  response.headers.set(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-  );
-  response.headers.set(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Requested-With, ngrok-skip-browser-warning"
-  );
+  // Set remaining CORS headers
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
 
   return response;
 }
 
 // Configure which paths the middleware runs on
 export const config = {
-  matcher: "/api/:path*",
+  matcher: [
+    "/api/:path*",
+  ],
 };

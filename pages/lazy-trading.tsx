@@ -59,6 +59,13 @@ export default function LazyTrading() {
   const router = useRouter();
   const { authenticated, user, login } = usePrivy();
 
+  // Redirect to external URL when page is accessed directly
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.location.href = 'https://ostium.maxxit.ai/lazy-trading';
+    }
+  }, []);
+
   const [step, setStep] = useState<Step>("wallet");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");

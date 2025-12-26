@@ -132,7 +132,7 @@ export function Header() {
   ];
 
   const tradingItems = [
-    { href: '/lazy-trading', label: 'Lazy Trading', icon: Bot, testId: 'nav-lazy-trading' },
+    { href: 'https://ostium.maxxit.ai/lazy-trading', label: 'Lazy Trading', icon: Bot, testId: 'nav-lazy-trading' },
     { href: '/creator', label: 'Create Club', icon: User, testId: 'nav-my-agents' },
   ];
 
@@ -334,21 +334,45 @@ export function Header() {
     testId: string,
     isActive: boolean,
     onClick?: () => void
-  ) => (
-    <Link key={href} href={href}>
-      <button
-        onClick={onClick}
-        className={`w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors ${isActive
-          ? 'text-[var(--text-primary)] bg-[var(--accent)]/10'
-          : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'
-          }`}
-        data-testid={testId}
-      >
-        <Icon className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-[var(--accent)]' : ''}`} />
-        {label}
-      </button>
-    </Link>
-  );
+  ) => {
+    const isExternal = href.startsWith('http://') || href.startsWith('https://');
+
+    if (isExternal) {
+      return (
+        <Link
+          key={href}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={onClick}
+          className={`w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors ${isActive
+            ? 'text-[var(--text-primary)] bg-[var(--accent)]/10'
+            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'
+            }`}
+          data-testid={testId}
+        >
+          <Icon className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-[var(--accent)]' : ''}`} />
+          {label}
+        </Link>
+      );
+    }
+
+    return (
+      <Link key={href} href={href}>
+        <button
+          onClick={onClick}
+          className={`w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors ${isActive
+            ? 'text-[var(--text-primary)] bg-[var(--accent)]/10'
+            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'
+            }`}
+          data-testid={testId}
+        >
+          <Icon className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-[var(--accent)]' : ''}`} />
+          {label}
+        </button>
+      </Link>
+    );
+  };
 
   return (
     <header className="sticky py-4 top-0 z-50 w-full border-b border-[var(--border)] bg-[var(--bg-deep)]/95 backdrop-blur-lg">
