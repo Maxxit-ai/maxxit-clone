@@ -24,6 +24,12 @@ dotenv.config();
 const PORT = process.env.PORT || 5008;
 const INTERVAL = parseInt(process.env.WORKER_INTERVAL || "30000"); // 30 seconds default
 
+// Duplicate signal check configuration
+// Set DUPLICATE_SIGNAL_CHECK_ENABLED=false to disable the check entirely
+// Set DUPLICATE_SIGNAL_CHECK_HOURS to change the time window (default: 6 hours)
+const DUPLICATE_CHECK_ENABLED = process.env.DUPLICATE_SIGNAL_CHECK_ENABLED !== "false"; // Default: true
+const DUPLICATE_CHECK_HOURS = parseInt(process.env.DUPLICATE_SIGNAL_CHECK_HOURS || "6"); // Default: 6 hours
+
 let workerInterval: NodeJS.Timeout | null = null;
 let isCycleRunning = false;
 
@@ -124,8 +130,7 @@ async function generateAllSignals() {
           const isPublicSource = (alphaUser as any)?.public_source === true;
 
           console.log(
-            `[SignalGenerator]    Source: @${
-              alphaUser.telegram_username || alphaUser.first_name
+            `[SignalGenerator]    Source: @${alphaUser.telegram_username || alphaUser.first_name
             }`
           );
           console.log(
@@ -288,17 +293,14 @@ async function generateAllSignals() {
 
                 if (success) {
                   console.log(
-                    `[SignalGenerator] ✅ Signal created for ${
-                      agent.name
+                    `[SignalGenerator] ✅ Signal created for ${agent.name
                     } (deployment ${deployment.id.substring(0, 8)}): ${token}`
                   );
                 }
               } catch (error: any) {
                 console.error(
-                  `[SignalGenerator] ❌ Failed to generate signal for ${
-                    agent.name
-                  } (deployment ${deployment.id.substring(0, 8)}): ${token}: ${
-                    error.message
+                  `[SignalGenerator] ❌ Failed to generate signal for ${agent.name
+                  } (deployment ${deployment.id.substring(0, 8)}): ${token}: ${error.message
                   }`
                 );
               }
@@ -430,72 +432,77 @@ async function generateSignalForAgentAndToken(
     // Determine side from post sentiment (already classified by LLM)
     const side = post.signal_type === "SHORT" ? "SHORT" : "LONG";
 
-    // Check for existing signal
-    const now = new Date();
-    const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+    // Check for existing signal (configurable via environment variables)
+    if (DUPLICATE_CHECK_ENABLED) {
+      const now = new Date();
+      const checkWindowMs = DUPLICATE_CHECK_HOURS * 60 * 60 * 1000;
+      const checkWindowStart = new Date(now.getTime() - checkWindowMs);
 
-    const existingSignal = await prisma.signals.findFirst({
-      where: {
-        agent_id: agent.id,
-        deployment_id: deployment.id,
-        token_symbol: token.toUpperCase(),
-        created_at: {
-          gte: sixHoursAgo,
-        },
-      },
-      include: {
-        positions: {
-          where: {
-            deployment_id: deployment.id,
+      const existingSignal = await prisma.signals.findFirst({
+        where: {
+          agent_id: agent.id,
+          deployment_id: deployment.id,
+          token_symbol: token.toUpperCase(),
+          created_at: {
+            gte: checkWindowStart,
           },
-          select: {
-            status: true,
-            entry_price: true,
-            qty: true,
-          },
-          take: 1,
         },
-      },
-    });
+        include: {
+          positions: {
+            where: {
+              deployment_id: deployment.id,
+            },
+            select: {
+              status: true,
+              entry_price: true,
+              qty: true,
+            },
+            take: 1,
+          },
+        },
+      });
 
-    if (existingSignal) {
-      const existingPosition = existingSignal.positions[0];
+      if (existingSignal) {
+        const existingPosition = existingSignal.positions[0];
 
-      if (existingPosition) {
-        const entryPrice = existingPosition.entry_price
-          ? Number(existingPosition.entry_price.toString())
-          : 0;
-        const qty = existingPosition.qty
-          ? Number(existingPosition.qty.toString())
-          : 0;
+        if (existingPosition) {
+          const entryPrice = existingPosition.entry_price
+            ? Number(existingPosition.entry_price.toString())
+            : 0;
+          const qty = existingPosition.qty
+            ? Number(existingPosition.qty.toString())
+            : 0;
 
-        const positionFailed =
-          existingPosition.status === "CLOSED" && entryPrice === 0 && qty === 0;
+          const positionFailed =
+            existingPosition.status === "CLOSED" && entryPrice === 0 && qty === 0;
 
-        if (positionFailed) {
+          if (positionFailed) {
+            console.log(
+              `    ⚠️  Existing signal for ${token} failed (position closed with 0 values)`
+            );
+            console.log(
+              `    ✅ Allowing new signal to be created (previous execution failed)`
+            );
+          } else {
+            console.log(
+              `    ⏭️  Signal already exists for ${token} for this deployment (within last ${DUPLICATE_CHECK_HOURS} hours)`
+            );
+            return false;
+          }
+        } else if (existingSignal.skipped_reason) {
           console.log(
-            `    ⚠️  Existing signal for ${token} failed (position closed with 0 values)`
+            `    ⏭️  Skipped signal already exists for ${token} (within last ${DUPLICATE_CHECK_HOURS} hours)`
           );
-          console.log(
-            `    ✅ Allowing new signal to be created (previous execution failed)`
-          );
+          return false;
         } else {
           console.log(
-            `    ⏭️  Signal already exists for ${token} for this deployment (within last 6 hours)`
+            `    ⏭️  Signal exists but no position yet for ${token} - trade executor will process`
           );
           return false;
         }
-      } else if (existingSignal.skipped_reason) {
-        console.log(
-          `    ⏭️  Skipped signal already exists for ${token} (within last 6 hours)`
-        );
-        return false;
-      } else {
-        console.log(
-          `    ⏭️  Signal exists but no position yet for ${token} - trade executor will process`
-        );
-        return false;
       }
+    } else {
+      console.log(`    ℹ️  Duplicate signal check DISABLED - proceeding without check`);
     }
 
     // Get trading preferences from the specific agent deployment (preferences are per deployment)
@@ -522,9 +529,8 @@ async function generateSignalForAgentAndToken(
       if (userAddress?.hyperliquid_agent_address) {
         try {
           const balanceResponse = await fetch(
-            `${
-              process.env.HYPERLIQUID_SERVICE_URL ||
-              "https://hyperliquid-service.onrender.com"
+            `${process.env.HYPERLIQUID_SERVICE_URL ||
+            "https://hyperliquid-service.onrender.com"
             }/balance`,
             {
               method: "POST",
@@ -555,8 +561,7 @@ async function generateSignalForAgentAndToken(
       if (userAddress?.ostium_agent_address) {
         try {
           const balanceResponse = await fetch(
-            `${
-              process.env.OSTIUM_SERVICE_URL || "http://localhost:5002"
+            `${process.env.OSTIUM_SERVICE_URL || "http://localhost:5002"
             }/balance`,
             {
               method: "POST",
@@ -788,6 +793,12 @@ async function runWorker() {
     console.log(
       "   Note: These are NOT read from signal, but hardcoded in monitor"
     );
+    console.log("");
+    console.log("🔄 Duplicate Signal Check Configuration:");
+    console.log(`   • Enabled: ${DUPLICATE_CHECK_ENABLED ? "YES" : "NO"}`);
+    if (DUPLICATE_CHECK_ENABLED) {
+      console.log(`   • Time Window: ${DUPLICATE_CHECK_HOURS} hours`);
+    }
     console.log("");
 
     // Test database connection first
