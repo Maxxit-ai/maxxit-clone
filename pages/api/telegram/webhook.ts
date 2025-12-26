@@ -161,13 +161,15 @@ async function handleTextMessage(update: TelegramUpdate) {
       // It's a command but user not linked
       await bot.sendMessage(
         chatId,
-        "👋 *Welcome to Maxxit Alpha Bot!*\n\n" +
-        "💡 *Share Alpha:* Send me your trading insights and signals. Agent creators can subscribe to your alpha!\n\n" +
-        "📊 *Want to trade yourself?*\n" +
-        "1. Create an agent at Maxxit\n" +
-        "2. Deploy it\n" +
-        "3. Use /link CODE to connect",
-        { parse_mode: "Markdown" }
+        '👋 *Welcome to Maxxit Alpha Bot!*\n\n' +
+        '💡 *Share Alpha:* Send me your trading insights and signals.\n' +
+        '⚠️ _Note: Max 5 tokens per message. Excess tokens are ignored._\n\n' +
+        'Agent creators can subscribe to your alpha!\n\n' +
+        '📊 *Want to trade yourself?*\n' +
+        '1. Create an agent at Maxxit\n' +
+        '2. Deploy it\n' +
+        '3. Use /link CODE to connect',
+        { parse_mode: 'Markdown' }
       );
       return;
     }
@@ -291,10 +293,13 @@ async function handleAlphaMessage(
       // Welcome message for first-time alpha provider
       await bot.sendMessage(
         chatId,
-        "🎉 *Welcome to Maxxit Alpha!*\n\n" +
-        "Your trading insights are now live! Agent creators can subscribe to your signals.\n\n" +
-        "📊 Keep sharing quality alpha to build your reputation and following!",
-        { parse_mode: "Markdown" }
+        '🎉 *Welcome to Maxxit Alpha!*\n\n' +
+        'Your trading insights are now live! Agent creators can subscribe to your signals.\n\n' +
+        '⚠️ *Important Rule:*\n' +
+        'Each message can contain a *maximum of 5 tokens*.\n' +
+        'If you mention more than 5, only the first 5 tokens will be processed.\n\n' +
+        '📊 Keep sharing quality alpha to build your reputation and following!',
+        { parse_mode: 'Markdown' }
       );
     } else {
       // Update last message time
@@ -323,6 +328,8 @@ async function handleAlphaMessage(
         confidence_score: null,
         signal_type: null,
         processed_for_signals: false,
+        impact_factor_flag: false,
+        impact_factor: 0,
       },
     });
 
@@ -331,9 +338,12 @@ async function handleAlphaMessage(
     // Give user feedback that message was received
     await bot.sendMessage(
       chatId,
-      "✅ *Message received!*\n\n" +
-      "Your alpha is being processed and will be available to agents following you shortly.",
-      { parse_mode: "Markdown" }
+      '✅ *Message received!*\n\n' +
+      'Your alpha is being processed and will be available to agents following you shortly.\n\n' +
+      '⚠️ _Note: Max 5 tokens processed per signal. Excess tokens will be ignored._ we will process the first 5 tokens in the message if there are more than 5.\n\n' + 
+      'If you want to process more tokens, please send a new message with the additional tokens.\n\n' +
+      'Thank you for sharing your alpha!',
+      { parse_mode: 'Markdown' }
     );
   } catch (error: any) {
     console.error("[Alpha] Error handling alpha message:", error);
