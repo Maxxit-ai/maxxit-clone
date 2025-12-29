@@ -3,6 +3,11 @@
  * Supports EigenAI and OpenAI APIs
  */
 
+import { prisma } from '@maxxit/database';
+
+// Cache age limit: 24 hours (in milliseconds)
+const CACHE_AGE_LIMIT_MS = 24 * 60 * 60 * 1000;
+
 interface ClassificationResult {
   isSignalCandidate: boolean;
   extractedTokens: string[];
@@ -408,9 +413,71 @@ Return JSON (example format only, use actual tokens from the message):
   }
 
   /**
+   * Fetch cached LunarCrush market data from database (ostium_available_pairs table)
+   */
+  private async getCachedLunarCrushData(symbolHint: string): Promise<any | null> {
+    try {
+      const upperHint = symbolHint.toUpperCase();
+      // Find pair by symbol prefix (e.g., "BTC" matches "BTC/USD")
+      const cachedData = await prisma.ostium_available_pairs.findFirst({
+        where: {
+          symbol: {
+            startsWith: upperHint,
+          },
+        },
+      });
+
+      if (!cachedData) {
+        console.log(`[LLMClassifier] No cached data for ${upperHint}`);
+        return null;
+      }
+
+      // Check if cache is fresh (less than 24 hours old)
+      const ageMs = Date.now() - cachedData.updated_at.getTime();
+      if (ageMs > CACHE_AGE_LIMIT_MS) {
+        console.log(
+          `[LLMClassifier] Cache expired for ${upperHint} (${(ageMs / 1000 / 60 / 60).toFixed(1)}h old)`
+        );
+        return null;
+      }
+
+      console.log(`[LLMClassifier] ✅ Using cached data for ${upperHint} (${(ageMs / 1000 / 60).toFixed(0)}m old)`);
+
+      return {
+        symbol: cachedData.symbol,
+        name: cachedData.symbol,
+        price: cachedData.price ? Number(cachedData.price) : null,
+        market_cap: cachedData.market_cap ? Number(cachedData.market_cap) : null,
+        percent_change_24h: cachedData.percent_change_24h,
+        percent_change_7d: null, // Not stored in ostium_available_pairs
+        percent_change_30d: null, // Not stored in ostium_available_pairs
+        volume_24h: cachedData.volume_24h ? Number(cachedData.volume_24h) : null,
+        galaxy_score: cachedData.galaxy_score,
+        alt_rank: cachedData.alt_rank,
+        volatility: cachedData.volatility,
+        market_cap_rank: cachedData.market_cap_rank,
+      };
+    } catch (error) {
+      console.error(
+        `[LLMClassifier] Error fetching cached LunarCrush data for ${symbolHint}:`,
+        error
+      );
+      return null;
+    }
+  }
+
+  /**
    * Fetch LunarCrush market data for a token symbol
+   * FIRST checks cache, then falls back to API
    */
   private async fetchLunarCrushData(symbolHint: string): Promise<any | null> {
+    // First, try to get cached data from database
+    const cachedData = await this.getCachedLunarCrushData(symbolHint);
+    if (cachedData) {
+      return cachedData;
+    }
+
+    // If no cache or cache expired, call API
     const apiKey = process.env.LUNARCRUSH_API_KEY;
     if (!apiKey) {
       console.warn(

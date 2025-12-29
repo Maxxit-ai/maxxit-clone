@@ -1704,6 +1704,36 @@ def get_market_info():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/ostium-pairs', methods=['GET'])
+def get_ostium_pairs():
+    """
+    Get all available Ostium pairs from the subgraph.
+    Uses sdk.subgraph.get_pairs to fetch raw pair data.
+    """
+    try:
+        # Use a dummy key for read-only subgraph operations
+        dummy_key = '0x' + '1' * 64
+        network = 'testnet' if OSTIUM_TESTNET else 'mainnet'
+        sdk = OstiumSDK(network=network, private_key=dummy_key, rpc_url=OSTIUM_RPC_URL)
+
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        pairs = loop.run_until_complete(sdk.subgraph.get_pairs())
+        loop.close()
+
+        return jsonify({
+            "success": True,
+            "pairs": pairs,
+            "count": len(pairs) if pairs else 0
+        })
+    except Exception as e:
+        logger.error(f"Get Ostium pairs error: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 
 
 @app.route('/available-markets', methods=['GET'])

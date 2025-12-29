@@ -543,15 +543,40 @@ model venue_markets {
 }
 
 model ostium_available_pairs {
+  // Ostium Pair Data
   id                  Int       @id
-  symbol              String
+  symbol              String    @unique
   max_leverage        Float?
   maker_max_leverage  Float?
   group               String?
+
+  // LunarCrush Market Metrics
+  galaxy_score            Float?
+  alt_rank                Int?
+  social_volume_24h       Float?
+  sentiment               Float?
+  percent_change_24h      Float?
+  volatility              Float?
+  price                   Decimal? @db.Decimal(38, 8)
+  volume_24h              Decimal? @db.Decimal(38, 8)
+  market_cap              Decimal? @db.Decimal(38, 8)
+  market_cap_rank         Int?
+  social_dominance        Float?
+  market_dominance        Float?
+  interactions_24h        Float?
+  galaxy_score_previous   Float?
+  alt_rank_previous       Int?
+
+  // Timestamps
   created_at          DateTime  @default(now()) @db.Timestamptz(6)
   updated_at          DateTime  @updatedAt @db.Timestamptz(6)
 
   @@index([group])
+  @@index([symbol])
+  @@index([updated_at])
+  @@index([price])
+  @@index([sentiment])
+  @@index([volatility])
 }
 
 model venue_routing_config {
