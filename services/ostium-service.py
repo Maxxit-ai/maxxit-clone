@@ -32,7 +32,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 try:
     from ostium_python_sdk import OstiumSDK
 except ImportError:
-    print("ERROR: ostium-python-sdk not installed. Run: pip install ostium-python-sdk")
+    print("ERROR: ostium-python-sdk-test not installed. Run: pip install ostium-python-sdk-test")
     exit(1)
 
 # Monkey-patch the SDK to fix raw_transaction bug
@@ -309,47 +309,11 @@ def get_positions():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
-        # Step 1: Get current open trades
-        open_trades_result = loop.run_until_complete(sdk.get_open_trades(trader_address=address))
-        
-        # Step 2: Get recent history to find TX hashes for matching
-        recent_history = loop.run_until_complete(
-            sdk.subgraph.get_recent_history(trader=address.lower(), last_n_orders=100)
-        )
+        open_trades = loop.run_until_complete(sdk.subgraph.get_open_trades(address))
         loop.close()
         
-        current_open_trades = []
-        if isinstance(open_trades_result, tuple) and len(open_trades_result) > 0:
-            current_open_trades = open_trades_result[0] if isinstance(open_trades_result[0], list) else []
-        
-        # Build a lookup map from history for TX hashes
-        tx_hash_lookup = {}
-        tx_hash_by_price = {}
-        
-        for history_item in recent_history:
-            order_action = history_item.get('orderAction', '').lower()
-            if order_action == 'open':
-                pair_info = history_item.get('pair', {})
-                pair_id = pair_info.get('id', '')
-                trade_index = history_item.get('index', '0')
-                tx_hash = history_item.get('executedTx', '')
-                
-                if not tx_hash:
-                    continue
-                
-                # Strategy 1: Match by (pair_id, trade_index)
-                lookup_key = f"{pair_id}_{trade_index}"
-                tx_hash_lookup[lookup_key] = tx_hash
-                
-                # Strategy 2: Match by tradeID
-                trade_id = history_item.get('tradeID', '')
-                if trade_id:
-                    tx_hash_lookup[f"trade_{trade_id}"] = tx_hash
-                
-        logger.info(f"Built TX hash lookup with {len(tx_hash_lookup)} index entries, {len(tx_hash_by_price)} price entries")
-        
         positions = []
-        for trade in current_open_trades:
+        for trade in open_trades:
             try:
                 pair_info = trade.get('pair', {})
                 pair_from = pair_info.get('from', 'UNKNOWN')
@@ -361,29 +325,11 @@ def get_positions():
                 trade_index = trade.get('index', '0')
                 trade_id = trade.get('tradeID', trade.get('index', '0'))
                 
-                lookup_key = f"{pair_id}_{trade_index}"
-                tx_hash = tx_hash_lookup.get(lookup_key, '')
-                
-                if not tx_hash:
-                    tx_hash = tx_hash_lookup.get(f"trade_{trade_id}", '')
-                
-                if not tx_hash:
-                    entry_price_usd = float(int(trade.get('openPrice', 0)) / 1e18)
-                    price_key = f"{pair_id}_{round(entry_price_usd, 6)}"
-                    tx_hash = tx_hash_by_price.get(price_key, '')
-                    if tx_hash:
-                        logger.info(f"Found TX hash by price match for {token_symbol}: {tx_hash[:16]}...")
-                
-                if tx_hash:
-                    logger.info(f"Found TX hash for {token_symbol} position: {tx_hash[:16]}...")
-                else:
-                    logger.warning(f"No TX hash found for {token_symbol} position (index={trade_index}, pair={pair_id})")
-                
                 collateral_usdc = float(int(trade.get('collateral', 0)) / 1e6)
                 entry_price_usd = float(int(trade.get('openPrice', 0)) / 1e18)
                 leverage = float(int(trade.get('leverage', 0)) / 100)
-                trade_notional_wei = int(trade.get('tradeNotional', 0))
-                position_size = float(trade_notional_wei / 1e18) if trade_notional_wei > 0 else 0.0
+                notional_wei = int(trade.get('notional', 0))
+                notional_usd = float(notional_wei / 1e6) if notional_wei > 0 else 0.0
                 
                 stop_loss_raw = trade.get('stopLossPrice', 0)
                 stop_loss_price = float(int(stop_loss_raw) / 1e18) if stop_loss_raw else 0.0
@@ -399,14 +345,11 @@ def get_positions():
                     "market": token_symbol,
                     "marketFull": market_symbol,
                     "side": "long" if trade.get('isBuy') else "short",
-                    "size": collateral_usdc,
+                    "collateral": collateral_usdc,
                     "entryPrice": entry_price_usd,
                     "leverage": leverage,
-                    "unrealizedPnl": 0.0,
                     "tradeId": str(trade_id),
-                    "txHash": tx_hash,
-                    "tradeNotional": trade_notional_wei,
-                    "positionSize": position_size,
+                    "notionalUsd": notional_usd,
                     "funding": funding_wei,
                     "rollover": rollover_wei,
                     "totalFees": total_fees_usd,
@@ -1542,6 +1485,120 @@ def get_order_by_id():
         logger.error(f"get_order_by_id error: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/trade-by-id', methods=['POST'])
+def get_trade_by_id():
+    """
+    Get trade details by trade ID (includes isOpen flag to check if position is still open)
+    Body: { "tradeId": "12345" }
+    """
+    try:
+        data = request.json
+        trade_id = data.get('tradeId')
+
+        if not trade_id:
+            return jsonify({"success": False, "error": "tradeId is required"}), 400
+
+        network = 'testnet' if OSTIUM_TESTNET else 'mainnet'
+        dummy_key = '0x' + '1' * 64
+        sdk = OstiumSDK(network=network, private_key=dummy_key, rpc_url=OSTIUM_RPC_URL)
+
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        trade = loop.run_until_complete(sdk.subgraph.get_trade_by_id(trade_id))
+        loop.close()
+
+        if trade:
+            logger.info(f"Found trade {trade_id}: isOpen={trade.get('isOpen', False)}")
+        else:
+            logger.info(f"Trade {trade_id} not found")
+
+        return jsonify({
+            "success": True,
+            "tradeId": trade_id,
+            "trade": trade
+        })
+    except Exception as e:
+        logger.error(f"get_trade_by_id error: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/closed-trade-by-id', methods=['POST'])
+def get_closed_trade_by_id():
+    """
+    Get closed orders for a specific trade ID (orderAction: "Close" and isCancelled: false)
+    Body: { "tradeId": "12345" }
+    """
+    try:
+        data = request.json
+        trade_id = data.get('tradeId')
+
+        if not trade_id:
+            return jsonify({"success": False, "error": "tradeId is required"}), 400
+
+        network = 'testnet' if OSTIUM_TESTNET else 'mainnet'
+        dummy_key = '0x' + '1' * 64
+        sdk = OstiumSDK(network=network, private_key=dummy_key, rpc_url=OSTIUM_RPC_URL)
+
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        closed_orders = loop.run_until_complete(sdk.subgraph.get_closed_trade_by_trade_id(trade_id))
+        loop.close()
+
+        logger.info(f"Found {len(closed_orders)} closed orders for trade ID: {trade_id}")
+
+        return jsonify({
+            "success": True,
+            "tradeId": trade_id,
+            "orders": closed_orders,
+            "count": len(closed_orders)
+        })
+    except Exception as e:
+        logger.error(f"get_closed_trade_by_id error: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/cancelled-orders-by-id', methods=['POST'])
+def get_cancelled_orders_by_id():
+    """
+    Get cancelled orders for a specific trade ID (isCancelled: true)
+    Body: { "tradeId": "12345" }
+    """
+    try:
+        data = request.json
+        trade_id = data.get('tradeId')
+
+        if not trade_id:
+            return jsonify({"success": False, "error": "tradeId is required"}), 400
+
+        network = 'testnet' if OSTIUM_TESTNET else 'mainnet'
+        dummy_key = '0x' + '1' * 64
+        sdk = OstiumSDK(network=network, private_key=dummy_key, rpc_url=OSTIUM_RPC_URL)
+
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        cancelled_orders = loop.run_until_complete(sdk.subgraph.get_cancelled_orders_by_trade_id(trade_id))
+        loop.close()
+
+        logger.info(f"Found {len(cancelled_orders)} cancelled orders for trade ID: {trade_id}")
+
+        return jsonify({
+            "success": True,
+            "tradeId": trade_id,
+            "orders": cancelled_orders,
+            "count": len(cancelled_orders)
+        })
+    except Exception as e:
+        logger.error(f"get_cancelled_orders_by_id error: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route('/approve-agent', methods=['POST'])
 def approve_agent():

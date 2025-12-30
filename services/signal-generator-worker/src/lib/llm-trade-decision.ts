@@ -21,14 +21,30 @@ interface TradeDecisionInput {
   venue: string; // HYPERLIQUID or OSTIUM
   token: string; // Token symbol
   side: string; // LONG or SHORT
-  maxLeverage?: number; // Venue/token-specific max leverage (if known)
+  maxLeverage?: number;
+  makerMaxLeverage?: number;
+  currentPositions?: OpenPosition[];
+}
+
+interface OpenPosition {
+  token: string;
+  side: string;
+  collateral: number;
+  entryPrice: number;
+  leverage: number;
+  notionalUsd: number;
+  takeProfitPrice: number | null;
+  stopLossPrice: number | null;
+  tradeId: string;
 }
 
 interface TradeDecision {
-  shouldTrade: boolean;
+  shouldOpenNewPosition: boolean;
+  closeExistingPositionId: string | null;
   fundAllocation: number; // Percentage of balance (0-100)
   leverage: number; // Leverage multiplier (1x-100x)
   reason: string; // Reason for the decision
+  netPositionChange?: 'OPEN' | 'CLOSE' | 'FLIP' | 'NONE';
 }
 
 type LLMProvider = "perplexity" | "openai";
@@ -82,7 +98,8 @@ export class LLMTradeDecisionMaker {
 
       // Return a conservative decision as fallback
       return {
-        shouldTrade: false,
+        shouldOpenNewPosition: false,
+        closeExistingPositionId: null,
         fundAllocation: 0,
         leverage: 1,
         reason: `Failed to get LLM decision: ${error.message}`
@@ -91,7 +108,7 @@ export class LLMTradeDecisionMaker {
   }
 
   /**
-   * Build the prompt for the LLM
+   * Build the prompt for LLM
    */
   private buildPrompt(input: TradeDecisionInput): string {
     // Format analytics data with descriptions
@@ -122,15 +139,47 @@ export class LLMTradeDecisionMaker {
       }
     }
 
-    return `You are AGENT HOW (Trading-Style Clone). Turn the signal + analytics into a trade decision that feels like the user would trade (cadence + conviction + what they prioritize), while using controlled-risk sizing and (when allowed) modest leverage.
+    let positionsSection = "No open positions";
+    if (input.currentPositions && input.currentPositions.length > 0) {
+      positionsSection = input.currentPositions.map(pos => {
+        const slText = pos.stopLossPrice ? `$${pos.stopLossPrice.toFixed(2)}` : "None";
+        const tpText = pos.takeProfitPrice ? `$${pos.takeProfitPrice.toFixed(2)}` : "None";
+
+        return `• ${pos.token} ${pos.side} | Collateral: $${pos.collateral.toFixed(2)} | Entry: $${pos.entryPrice.toFixed(2)} | Leverage: ${pos.leverage}x | Notional: $${pos.notionalUsd.toFixed(2)} | SL: ${slText} | TP: ${tpText} | TradeId: ${pos.tradeId}`;
+      }).join("\n");
+    }
+
+    return `You are AGENT HOW (Trading-Style Clone). You need to make a trading decision based on:
+1) A new signal from our system (SIGNAL section below)
+2) Current open positions (CURRENT POSITIONS section below)
+
+IMPORTANT: You must check for CONFLICTS between the new signal and existing positions.
+
+CONFLICT SCENARIOS TO HANDLE:
+1) If new signal says OPEN LONG on ETH, and there's already a LONG ETH position → Decide: ADD to position (increase exposure) or SKIP (avoid overexposure)
+2) If new signal says OPEN SHORT on ETH, and there's already a LONG ETH position → Decide: CLOSE existing LONG + OPEN new SHORT (flip position) or SKIP
+3) If new signal says CLOSE on a token we have position for → Decide: CLOSE the position
+
+For position changes:
+• CLOSE: If closing a position, provide strong reason (risk management, signal reversal, profit target hit, etc.)
+• FLIP: If flipping from LONG to SHORT (or vice versa), explain why the direction changed
+• OPEN: If opening new position, align with signal and market conditions
+
+Your decision must include:
+1) shouldOpenNewPosition: boolean
+2) closeExistingPositionId: string | null (the tradeId to close if flipping)
+3) fundAllocation: percentage of balance to use
+4) leverage: multiplier
+5) reason: detailed explanation of your decision
+6) netPositionChange: "OPEN" | "CLOSE" | "FLIP" | "NONE"
 
 Key constraints:
 	•	Do not quote user preference numbers/scales in the explanation.
-	•	Do show market/analytics/pricing numbers to reflect the research effort (e.g., price, % move, momentum/volatility/liquidity metrics, sentiment metrics, rank, funding/open interest—whatever exists in analytics).
+	•	Do show market/analytics/pricing numbers to reflect's research effort (e.g., price, % move, momentum/volatility/liquidity metrics, sentiment metrics, rank, funding/open interest—whatever exists in analytics).
 	•	Do not mention any external providers/services by name.
 
 SIGNAL:
-"${input.message}"
+|"${input.message}"
 
 CONFIDENCE (prior only): ${input.confidenceScore}
 Use as a starting hint, then override based on analytics. Do not size purely from this.
@@ -142,17 +191,22 @@ USER STYLE INPUTS (use internally; don't echo numeric values):
 ${JSON.stringify(input.userTradingPreferences || "Not available", null, 2)}
 
 BALANCE: $${input.userBalance.toFixed(2)} USDC
-MAX LEVERAGE: ${input.maxLeverage ?? "Unknown"}
+MAX LEVERAGE: ${input.maxLeverage ?? "Unknown"} (Maker: ${input.makerMaxLeverage ?? "Unknown"})
 
-TRADE:
+CURRENT OPEN POSITIONS:
+${positionsSection}
+
+NEW SIGNAL:
 	•	Venue: ${input.venue}
 	•	Token: ${input.token}
 	•	Side: ${input.side}
 
-DECIDE + SIZE:
-	•	Default to participation with low-risk exposure when evidence is mixed but not broken (a "probe").
-	•	Skip trade only on clear red flags (bad liquidity/slippage, chaotic volatility, major metric conflicts, unclear invalidation).
-	•	Keep capital in reserve if the user prefers multiple entries.
+DECISION + SIZE:
+	•	Analyze conflicts between new signal and existing positions
+	•	If conflict exists (same token, opposite direction), decide to FLIP (close old, open new)
+	•	If no direct conflict (same token, same direction), decide to ADD or SKIP based on exposure/risk
+	•	If signal says CLOSE, provide strong reason
+	•	Keep capital in reserve if user prefers multiple entries or risk is high
 	•	Use leverage to express conviction only if it stays well within max leverage and liquidation risk is reasonable.
 
 RESEARCH SAVED:
@@ -169,9 +223,10 @@ OUTPUT (JSON ONLY)
 Return only this JSON object:
 
 {
-"shouldTrade": boolean,
-"fundAllocation": number,   // 0-100 (% of balance)
-"leverage": number,         // 1-50 (see venue rules)
+"shouldOpenNewPosition": boolean,
+"closeExistingPositionId": string | null,
+"fundAllocation": number,
+"leverage": number,
 "marketEvidence": {
 "price": number | null,
 "priceChangePct": number | null,
@@ -179,7 +234,8 @@ Return only this JSON object:
 { "label": string, "value": number, "unit": string }
 ]
 },
-"reason": string
+"reason": string,
+"netPositionChange": "OPEN" | "CLOSE" | "FLIP" | "NONE"
 }
 
 Rules for marketEvidence:
@@ -190,10 +246,10 @@ Rules for marketEvidence:
 Rules for reason:
 	•	Must feel like it follows the user's style without quoting preference numbers.
 	•	Must reference some of the numbers from marketEvidence to demonstrate research effort.
-	•	Must explain why this fundAllocation and leverage fit the setup + user style.
+	•	Must explain your decision clearly: what conflict detected, why flipping/adding/skipping, fund allocation rationale.
 	•	Do not mention external providers/services.
 
-HARD RULE: If fundAllocation == 0 => shouldTrade must be false.
+HARD RULE: If fundAllocation == 0 => shouldOpenNewPosition must be false.
 RESPOND ONLY WITH THE JSON OBJECT.`;
   }
 
@@ -268,8 +324,6 @@ RESPOND ONLY WITH THE JSON OBJECT.`;
     return data.choices[0].message.content;
   }
 
-
-
   /**
    * Parse LLM response
    */
@@ -285,10 +339,12 @@ RESPOND ONLY WITH THE JSON OBJECT.`;
 
       // Validate and sanitize the response
       return {
-        shouldTrade: Boolean(parsed.shouldTrade),
+        shouldOpenNewPosition: Boolean(parsed.shouldOpenNewPosition),
+        closeExistingPositionId: parsed.closeExistingPositionId || null,
         fundAllocation: Math.max(0, Math.min(100, Number(parsed.fundAllocation) || 0)),
         leverage: Math.max(1, Math.min(50, Number(parsed.leverage) || 1)),
         reason: parsed.reason || "No reason provided",
+        netPositionChange: parsed.netPositionChange || "NONE",
       };
     } catch (error) {
       console.error("[LLM Trade Decision] Failed to parse LLM response:", error);
@@ -296,10 +352,12 @@ RESPOND ONLY WITH THE JSON OBJECT.`;
 
       // Return a conservative decision as fallback
       return {
-        shouldTrade: false,
+        shouldOpenNewPosition: false,
+        closeExistingPositionId: null,
         fundAllocation: 0,
         leverage: 1,
         reason: "Failed to parse LLM response",
+        netPositionChange: "NONE",
       };
     }
   }
@@ -356,10 +414,12 @@ export async function makeTradeDecision(input: TradeDecisionInput): Promise<Trad
 
     // Return a conservative decision as fallback
     return {
-      shouldTrade: false,
+      shouldOpenNewPosition: false,
+      closeExistingPositionId: null,
       fundAllocation: 0,
       leverage: 1,
-      reason: "No LLM API key configured for trade decision making"
+      reason: "No LLM API key configured for trade decision making",
+      netPositionChange: "NONE",
     };
   }
 

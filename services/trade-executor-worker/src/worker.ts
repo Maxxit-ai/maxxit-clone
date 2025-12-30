@@ -232,6 +232,72 @@ async function executeSignal(signalId: string, deploymentId: string) {
       return;
     }
 
+    if (signal.llm_close_trade_id && signal.llm_net_position_change === "FLIP") {
+      console.log(`[TradeExecutor]       🔄 FLIP detected - closing position ${signal.llm_close_trade_id} first`);
+
+      try {
+        const userAddress = await prisma.user_agent_addresses.findUnique({
+          where: { user_wallet: deployment.user_wallet.toLowerCase() },
+          select: { ostium_agent_address: true },
+        });
+
+        if (!userAddress?.ostium_agent_address) {
+          console.log(`[TradeExecutor]       ⚠️  No Ostium agent address found - skipping close`);
+        } else {
+          const userArbitrumWallet = deployment.safe_wallet || deployment.user_wallet;
+
+          console.log(`[TradeExecutor]       Closing position with:`);
+          console.log(`[TradeExecutor]         agentAddress: ${userAddress.ostium_agent_address}`);
+          console.log(`[TradeExecutor]         userAddress: ${userArbitrumWallet}`);
+          console.log(`[TradeExecutor]         market: ${signal.token_symbol}`);
+          console.log(`[TradeExecutor]         tradeId: ${signal.llm_close_trade_id}`);
+
+          const closeResponse = await fetch(
+            `${process.env.OSTIUM_SERVICE_URL || "http://localhost:5002"}/close-position`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                agentAddress: userAddress.ostium_agent_address,
+                userAddress: userArbitrumWallet,
+                market: signal.token_symbol,
+                tradeId: signal.llm_close_trade_id,
+              }),
+            }
+          );
+
+          if (closeResponse.ok) {
+            const closeResult = (await closeResponse.json()) as any;
+            if (closeResult.success) {
+              console.log(`[TradeExecutor]       ✅ Position ${signal.llm_close_trade_id} closed successfully`);
+              console.log(`[TradeExecutor]       Close PnL: $${closeResult.closePnl || 0}`);
+
+              await prisma.positions.updateMany({
+                where: {
+                  ostium_trade_id: signal.llm_close_trade_id,
+                  deployment_id: deploymentId,
+                  status: "OPEN",
+                },
+                data: {
+                  status: "CLOSED",
+                  closed_at: new Date(),
+                  exit_reason: `FLIP to ${signal.side} - LLM decision`,
+                  pnl: closeResult.closePnl || null,
+                },
+              });
+            } else {
+              console.log(`[TradeExecutor]       ⚠️  Close position returned: ${closeResult.message || "Unknown error"}`);
+            }
+          } else {
+            const errorText = await closeResponse.text();
+            console.log(`[TradeExecutor]       ⚠️  Failed to close position: ${errorText}`);
+          }
+        }
+      } catch (closeError: any) {
+        console.log(`[TradeExecutor]       ⚠️  Error closing position: ${closeError.message}`);
+      }
+    }
+
     // Execute trade via LLM-enabled executor
     const { executeTrade } = await import("./lib/trade-executor-llm");
     const result = await executeTrade(signal, deployment);
@@ -253,7 +319,7 @@ async function executeSignal(signalId: string, deploymentId: string) {
       const collateral = result.collateral || 0;
       const rawTradeIndex =
         result.ostiumTradeIndex !== undefined &&
-        result.ostiumTradeIndex !== null
+          result.ostiumTradeIndex !== null
           ? parseInt(String(result.ostiumTradeIndex), 10)
           : undefined;
       const ostiumTradeIndex =
@@ -321,8 +387,7 @@ async function executeSignal(signalId: string, deploymentId: string) {
           `[TradeExecutor]       Ostium Trade ID: ${ostiumTradeId || "NOT SET"}`
         );
         console.log(
-          `[TradeExecutor]       Ostium Trade Index: ${
-            ostiumTradeIndex !== undefined ? ostiumTradeIndex : "NOT SET"
+          `[TradeExecutor]       Ostium Trade Index: ${ostiumTradeIndex !== undefined ? ostiumTradeIndex : "NOT SET"
           }`
         );
       } catch (dbError: any) {
