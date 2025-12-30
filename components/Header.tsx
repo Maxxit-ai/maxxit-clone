@@ -132,7 +132,7 @@ export function Header() {
   ];
 
   const tradingItems = [
-    { href: 'https://ostium.maxxit.ai/lazy-trading', label: 'Lazy Trading', icon: Bot, testId: 'nav-lazy-trading' },
+    { href: '/lazy-trading', label: 'Lazy Trading', icon: Bot, testId: 'nav-lazy-trading' },
     { href: '/creator', label: 'Create Club', icon: User, testId: 'nav-my-agents' },
   ];
 
