@@ -640,6 +640,7 @@ async function generateSignalForAgentAndToken(
     let userBalance = 0;
     // Track venue/token-specific max leverage (used to inform the LLM)
     let venueMaxLeverage: number | undefined;
+    let venueMakerMaxLeverage: number | undefined;
 
     if (signalVenue === "HYPERLIQUID") {
       // Get Hyperliquid balance via service
@@ -750,6 +751,16 @@ async function generateSignalForAgentAndToken(
           ? numericLeverage
           : undefined;
       }
+
+      if (
+        ostiumPair?.maker_max_leverage !== undefined &&
+        ostiumPair?.maker_max_leverage !== null
+      ) {
+        const numericMakerLeverage = Number(ostiumPair.maker_max_leverage);
+        venueMakerMaxLeverage = Number.isFinite(numericMakerLeverage)
+          ? numericMakerLeverage
+          : undefined;
+      }
     }
 
     // Get raw LunarCrush data if available (for additional context)
@@ -775,6 +786,90 @@ async function generateSignalForAgentAndToken(
       }
     }
 
+    let currentPositions: {
+      token: string;
+      side: string;
+      collateral: number;
+      entryPrice: number;
+      leverage: number;
+      notionalUsd: number;
+      takeProfitPrice: number | null;
+      stopLossPrice: number | null;
+      tradeId: string;
+    }[] = [];
+
+    if (signalVenue === "OSTIUM") {
+      const userAddress = await prisma.user_agent_addresses.findUnique({
+        where: { user_wallet: deployment.user_wallet.toLowerCase() },
+        select: { ostium_agent_address: true },
+      });
+
+      if (userAddress?.ostium_agent_address) {
+        try {
+          const positionsResponse = await fetch(
+            `${process.env.OSTIUM_SERVICE_URL || "http://localhost:5002"}/positions`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                address: deployment.safe_wallet || deployment.user_wallet,
+              }),
+            }
+          );
+
+          if (positionsResponse.ok) {
+            const positionsData = (await positionsResponse.json()) as any;
+            if (positionsData.success && Array.isArray(positionsData.positions)) {
+              currentPositions = positionsData.positions.map((pos: any) => ({
+                token: pos.market,
+                side: pos.side?.toUpperCase() || "",
+                collateral: pos.collateral || 0,
+                entryPrice: pos.entryPrice || 0,
+                leverage: pos.leverage || 1,
+                notionalUsd: pos.notionalUsd || 0,
+                takeProfitPrice: pos.takeProfitPrice || null,
+                stopLossPrice: pos.stopLossPrice || null,
+                tradeId: pos.tradeId || "",
+              }));
+            }
+          }
+        } catch (error) {
+          console.log(`    ⚠️  Failed to fetch Ostium positions: ${error}`);
+        }
+      }
+    } else if (signalVenue === "HYPERLIQUID") {
+      const openPositions = await prisma.positions.findMany({
+        where: {
+          deployment_id: deployment.id,
+          status: "OPEN",
+          venue: "HYPERLIQUID",
+        },
+        select: {
+          id: true,
+          token_symbol: true,
+          side: true,
+          qty: true,
+          entry_price: true,
+          take_profit: true,
+          stop_loss: true,
+        },
+      });
+
+      currentPositions = openPositions.map((pos) => ({
+        token: pos.token_symbol,
+        side: pos.side,
+        collateral: pos.qty ? Number(pos.qty) : 0,
+        entryPrice: pos.entry_price ? Number(pos.entry_price) : 0,
+        leverage: 1,
+        notionalUsd: pos.qty ? Number(pos.qty) : 0,
+        takeProfitPrice: pos.take_profit ? Number(pos.take_profit) : null,
+        stopLossPrice: pos.stop_loss ? Number(pos.stop_loss) : null,
+        tradeId: pos.id,
+      }));
+    }
+
+    console.log(`    📈 Current open positions from ${signalVenue}: ${currentPositions.length}`);
+
     // Make LLM decision
     console.log(`    🤖 Making LLM trade decision for ${token}...`);
     const tradeDecision = await makeTradeDecision({
@@ -787,13 +882,18 @@ async function generateSignalForAgentAndToken(
       token,
       side,
       maxLeverage: venueMaxLeverage,
+      makerMaxLeverage: venueMakerMaxLeverage,
+      currentPositions,
       isLazyTraderAgent,
       influencerImpactFactor,
     });
 
     console.log(
-      `    📊 LLM Decision: ${tradeDecision.shouldTrade ? "TRADE" : "SKIP"}`
+      `    📊 LLM Decision: ${tradeDecision.shouldOpenNewPosition ? "OPEN NEW" : "SKIP"} | Net Position Change: ${tradeDecision.netPositionChange || "NONE"}`
     );
+    if (tradeDecision.closeExistingPositionIds.length > 0) {
+      console.log(`    🔄 Close Positions: ${tradeDecision.closeExistingPositionIds.join(', ')}`);
+    }
     console.log(
       `    💰 Fund Allocation: ${tradeDecision.fundAllocation.toFixed(2)}%`
     );
@@ -802,9 +902,9 @@ async function generateSignalForAgentAndToken(
     }
     console.log(`    💭 Reason: ${tradeDecision.reason}`);
 
-    // If LLM decides not to trade, create a skipped signal record
-    if (!tradeDecision.shouldTrade) {
-      console.log(`    ⏭️  Creating skipped signal based on LLM decision`);
+    // If LLM decides not to open a new position, create a skipped signal record
+    if (!tradeDecision.shouldOpenNewPosition) {
+      console.log(`    ⏭️  Creating skipped signal based on LLM decision (net: ${tradeDecision.netPositionChange || "NONE"})`);
 
       try {
         await prisma.signals.create({
@@ -827,9 +927,13 @@ async function generateSignalForAgentAndToken(
             source_tweets: [post.message_id],
             skipped_reason: tradeDecision.reason,
             llm_decision: tradeDecision.reason,
-            llm_should_trade: tradeDecision.shouldTrade,
+            llm_should_trade: tradeDecision.shouldOpenNewPosition,
             llm_fund_allocation: tradeDecision.fundAllocation,
             llm_leverage: tradeDecision.leverage,
+            llm_close_trade_id: tradeDecision.closeExistingPositionIds.length > 0
+              ? JSON.stringify(tradeDecision.closeExistingPositionIds)
+              : null,
+            llm_net_position_change: tradeDecision.netPositionChange || "NONE",
             trade_executed: null,
           },
         });
@@ -869,9 +973,13 @@ async function generateSignalForAgentAndToken(
           },
           source_tweets: [post.message_id],
           llm_decision: tradeDecision.reason,
-          llm_should_trade: tradeDecision.shouldTrade,
+          llm_should_trade: tradeDecision.shouldOpenNewPosition,
           llm_fund_allocation: tradeDecision.fundAllocation,
           llm_leverage: tradeDecision.leverage,
+          llm_close_trade_id: tradeDecision.closeExistingPositionIds.length > 0
+            ? JSON.stringify(tradeDecision.closeExistingPositionIds)
+            : null,
+          llm_net_position_change: tradeDecision.netPositionChange || "NONE",
           trade_executed: null,
         },
       });
