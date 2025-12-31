@@ -2,6 +2,9 @@ import { Header } from '@components/Header';
 import FooterSection from '@components/home/FooterSection';
 import { Check, Shield, Zap, Sparkles, Orbit } from 'lucide-react';
 import { usePrivy } from '@privy-io/react-auth';
+import { useState } from 'react';
+import { PaymentSelectorModal } from '@components/PaymentSelectorModal';
+import { Web3CheckoutModal } from '@components/Web3CheckoutModal';
 
 const pricingTiers = [
     {
@@ -67,7 +70,55 @@ const pricingTiers = [
 ];
 
 export default function Pricing() {
-    const { login, authenticated } = usePrivy();
+    const { login, authenticated, user } = usePrivy();
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [isWeb3ModalOpen, setIsWeb3ModalOpen] = useState(false);
+    const [selectedTier, setSelectedTier] = useState<any>(null);
+    const [isRedirecting, setIsRedirecting] = useState(false);
+
+    const handleBuyCredits = (tier: any) => {
+        if (!authenticated) {
+            login();
+            return;
+        }
+        if (tier.name === "FREE") return;
+
+        setSelectedTier(tier);
+        setIsPaymentModalOpen(true);
+    };
+
+    const handlePaymentSelection = async (method: 'stripe' | 'web3') => {
+        if (method === 'stripe') {
+            setIsRedirecting(true);
+            try {
+                const response = await fetch('/api/payments/stripe/create-checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tierName: selectedTier.name,
+                        userWallet: user?.wallet?.address
+                    }),
+                });
+
+                const data = await response.json();
+                if (data.url) {
+                    window.location.href = data.url;
+                } else {
+                    console.error('Failed to create checkout session:', data.error);
+                    alert('Failed to start Stripe checkout. Please try again.');
+                }
+            } catch (error) {
+                console.error('Stripe error:', error);
+                alert('An error occurred. Please try again.');
+            } finally {
+                setIsRedirecting(false);
+                setIsPaymentModalOpen(false);
+            }
+        } else {
+            setIsPaymentModalOpen(false);
+            setIsWeb3ModalOpen(true);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-[var(--bg-deep)] text-[var(--text-primary)] font-mono">
@@ -75,6 +126,18 @@ export default function Pricing() {
 
             <main className="max-w-7xl mx-auto px-6 py-20">
                 <div className="text-center mb-16 space-y-4">
+                    {isRedirecting && (
+                        <div className="fixed inset-0 z-[110] bg-[var(--bg-deep)]/90 backdrop-blur-xl flex flex-center items-center justify-center flex-col gap-6 animate-in fade-in duration-500">
+                            <div className="relative">
+                                <Orbit className="h-16 w-16 text-[var(--accent)] animate-spin-slow" />
+                                <Zap className="h-6 w-6 text-[var(--accent)] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+                            </div>
+                            <div className="text-center">
+                                <h2 className="text-2xl font-display uppercase tracking-widest text-[var(--accent)] mb-2">INITIALIZING SECURE GATEWAY</h2>
+                                <p className="text-[var(--text-muted)] text-xs tracking-[0.2em] font-bold">PREPARING ENCRYPTED SESSION · STACK: STRIPE</p>
+                            </div>
+                        </div>
+                    )}
                     <div className="inline-flex items-center gap-2 px-3 py-1 border border-[var(--accent)] text-[var(--accent)] text-xs font-bold tracking-widest mb-4">
                         <Orbit className="h-4 w-4 animate-spin-slow" />
                         PROTOCOL FUEL
@@ -126,17 +189,34 @@ export default function Pricing() {
                             </ul>
 
                             <button
-                                onClick={() => !authenticated && login()}
+                                onClick={() => handleBuyCredits(tier)}
                                 className={`w-full py-4 text-sm font-bold tracking-widest transition-all duration-300 ${tier.name === "FREE"
-                                        ? 'border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]'
-                                        : 'bg-[var(--accent)] text-[var(--bg-deep)] hover:bg-[var(--accent-dim)] shadow-[0_0_20px_rgba(0,255,136,0.2)] hover:shadow-[0_0_30px_rgba(0,255,136,0.4)]'
+                                    ? 'border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]'
+                                    : 'bg-[var(--accent)] text-[var(--bg-deep)] hover:bg-[var(--accent-dim)] shadow-[0_0_20px_rgba(0,255,136,0.2)] hover:shadow-[0_0_30px_rgba(0,255,136,0.4)]'
                                     }`}
                             >
-                                {authenticated ? tier.buttonText : "CONNECT WALLET"}
+                                {authenticated ? (tier.name === "FREE" ? "CURRENT PLAN" : tier.buttonText) : "CONNECT WALLET"}
                             </button>
                         </div>
                     ))}
                 </div>
+
+                <PaymentSelectorModal
+                    isOpen={isPaymentModalOpen}
+                    onClose={() => setIsPaymentModalOpen(false)}
+                    tier={selectedTier}
+                    onSelectPayment={handlePaymentSelection}
+                />
+
+                <Web3CheckoutModal
+                    isOpen={isWeb3ModalOpen}
+                    onClose={() => setIsWeb3ModalOpen(false)}
+                    tier={selectedTier}
+                    userWallet={user?.wallet?.address}
+                    onSuccess={(txHash) => {
+                        console.log('Web3 Payment Success:', txHash);
+                    }}
+                />
 
                 <section className="mt-32 p-12 bg-grid-pattern border border-[var(--border)] relative overflow-hidden">
                     <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
