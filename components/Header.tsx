@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { Home, Wallet, User, Plus, TrendingUp, Menu, BookOpen, ChevronDown } from 'lucide-react';
-import { Bot, BarChart3, FileText, Copy, Check, LogOut, X, AlertCircle } from 'lucide-react';
+import { Home, Wallet, User, Plus, TrendingUp, Menu, BookOpen, ChevronDown, Activity } from 'lucide-react';
+import { Bot, BarChart3, FileText, Copy, Check, LogOut, X, AlertCircle, Sparkles } from 'lucide-react';
 import { usePrivy } from '@privy-io/react-auth';
 import Image from 'next/image';
 import { ethers } from 'ethers';
@@ -127,6 +127,7 @@ export function Header() {
   const navLinks = [{ href: '/', label: 'Home', icon: Home, testId: 'nav-home' }];
 
   const portfolioItems = [
+    { href: '/dashboard', label: 'Dashboard', icon: Activity, testId: 'nav-dashboard' },
     { href: '/my-deployments', label: 'My Clubs', icon: Wallet, testId: 'nav-deployments' },
     { href: '/my-trades', label: 'My Trades', icon: TrendingUp, testId: 'nav-my-trades' },
   ];
@@ -139,11 +140,12 @@ export function Header() {
   const resourcesItems = [
     { href: '/blog', label: 'Blog', icon: BookOpen, testId: 'nav-blog' },
     { href: '/docs', label: 'Docs', icon: FileText, testId: 'nav-docs' },
+    { href: '/pricing', label: 'Pricing', icon: Sparkles, testId: 'nav-pricing' },
   ];
 
-  const isPortfolioActive = router.pathname === '/my-deployments' || router.pathname === '/my-trades';
+  const isPortfolioActive = router.pathname === '/dashboard' || router.pathname === '/my-deployments' || router.pathname === '/my-trades';
   const isTradingActive = router.pathname === '/lazy-trading' || router.pathname === '/creator';
-  const isResourcesActive = router.pathname === '/blog' || router.pathname === '/docs';
+  const isResourcesActive = router.pathname === '/blog' || router.pathname === '/docs' || router.pathname === '/pricing';
 
   // Close popup when clicking outside
   useEffect(() => {
