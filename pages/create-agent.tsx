@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { insertAgentSchema, VenueEnum } from '@shared/schema';
+import { insertAgentSchema, VenueEnum, InsertAgent } from '@shared/schema';
 import { db } from '../client/src/lib/db';
 import { useRouter } from 'next/router';
 import { Check, User, Building2, Sliders, Wallet, Eye, Rocket, Twitter, Search, Plus as PlusIcon, X, Shield, Send, Activity } from 'lucide-react';
@@ -201,8 +201,9 @@ export default function CreateAgent() {
     setIsSubmitting(true);
     setError(null);
     try {
-      const { description, ...agentData } = data;
+      const agentData: InsertAgent = { ...data };
       agentData.creatorWallet = user?.wallet?.address || data.creatorWallet;
+      agentData.description = data.description ? data.description : null;
       if (!agentData.profitReceiverAddress) agentData.profitReceiverAddress = agentData.creatorWallet;
       if (proofOfIntent) {
         agentData.proofOfIntentMessage = proofOfIntent.message;

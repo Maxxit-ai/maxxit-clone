@@ -132,6 +132,7 @@ model agents {
   id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   creator_wallet            String
   name                      String
+  description               String?
   venue                     venue_t
   weights                   Int[]                       @db.SmallInt
   apr_30d                   Float?                      @db.Real
