@@ -45,7 +45,7 @@ export function Web3CheckoutModal({
     userWallet,
     onSuccess
 }: Web3CheckoutModalProps) {
-    const [status, setStatus] = useState<'idle' | 'preparing' | 'signing' | 'pending' | 'success' | 'error'>('idle');
+    const [status, setStatus] = useState<'idle' | 'preparing' | 'signing' | 'pending' | 'verifying' | 'success' | 'error'>('idle');
     const [error, setError] = useState<string | null>(null);
     const [txHash, setTxHash] = useState<string | null>(null);
 
@@ -145,8 +145,31 @@ export function Web3CheckoutModal({
             // Wait for confirmation using the provider
             await provider.waitForTransaction(txHash);
 
-            setStatus('success');
-            onSuccess(txHash);
+            // NEW: Verify with Maxxit Backend to assign credits
+            setStatus('verifying');
+            try {
+                const response = await fetch('/api/payments/web3/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        txHash,
+                        tierName: tier.name,
+                        userWallet
+                    }),
+                });
+
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Verification failed');
+                }
+
+                setStatus('success');
+                onSuccess(txHash);
+            } catch (vErr: any) {
+                console.error('Backend Verification Error:', vErr);
+                setError(`Transaction confirmed on-chain, but credit assignment failed: ${vErr.message}. Please contact support with your TX hash.`);
+                setStatus('error');
+            }
         } catch (err: any) {
             console.error('Web3 Payment Error:', err);
 
@@ -251,13 +274,15 @@ export function Web3CheckoutModal({
                                     {status === 'preparing' && 'PREPARING ASSETS'}
                                     {status === 'signing' && 'AWAITING SIGNATURE'}
                                     {status === 'pending' && 'PROTOCOL CONFIRMATION'}
+                                    {status === 'verifying' && 'VERIFYING PAYMENT'}
                                     {status === 'success' && 'PAYMENT VERIFIED'}
                                 </h3>
                                 <p className="text-[var(--text-muted)] text-sm max-w-xs mx-auto">
                                     {status === 'preparing' && 'Initializing transaction parameters...'}
                                     {status === 'signing' && 'Please confirm the transaction in your wallet.'}
                                     {status === 'pending' && 'Broadcasting to Arbitrum network...'}
-                                    {status === 'success' && 'Credits are being deployed to your account.'}
+                                    {status === 'verifying' && 'Backend is confirming transaction and assigning credits...'}
+                                    {status === 'success' && 'Credits have been added to your account.'}
                                 </p>
                             </div>
 

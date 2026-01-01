@@ -43,8 +43,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 },
             ],
             mode: 'payment',
-            success_url: `${origin}/pricing?status=success&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${origin}/pricing?status=cancelled`,
+            success_url: `${origin}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${origin}/payment/cancel`,
             metadata: {
                 userWallet,
                 tierName,

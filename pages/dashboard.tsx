@@ -52,7 +52,7 @@ interface DashboardCache {
         totalUnrealizedPnl: number;
         totalUnrealizedPnlPercent: number;
     };
-    balance: { usdc: string; eth: string } | null;
+    balance: { usdc: string; eth: string; credits: string } | null;
     timestamp: number;
     wallet: string;
 }
@@ -72,7 +72,7 @@ export default function Dashboard() {
         totalUnrealizedPnl: 0,
         totalUnrealizedPnlPercent: 0
     });
-    const [balance, setBalance] = useState<{ usdc: string; eth: string } | null>(null);
+    const [balance, setBalance] = useState<{ usdc: string; eth: string; credits: string } | null>(null);
 
     useEffect(() => {
         if (authenticated && user?.wallet?.address) {
@@ -105,16 +105,21 @@ export default function Dashboard() {
         }
 
         try {
-            // Fetch Trades
-            const tradesRes = await fetch(`/api/trades/my-trades?userWallet=${user.wallet.address}&page=1&pageSize=5`);
-            const tradesData = await tradesRes.json();
+            // Fetch Trades, Deployments, and Credits in parallel
+            const [tradesRes, deploymentsRes, creditsRes] = await Promise.all([
+                fetch(`/api/trades/my-trades?userWallet=${user.wallet.address}&page=1&pageSize=5`),
+                fetch(`/api/deployments?userWallet=${user.wallet.address}`),
+                fetch(`/api/user/credits/balance?wallet=${user.wallet.address}`),
+            ]);
 
-            // Fetch Deployments
-            const deploymentsRes = await fetch(`/api/deployments?userWallet=${user.wallet.address}`);
-            const deploymentsData = await deploymentsRes.json();
+            const [tradesData, deploymentsData, creditsData] = await Promise.all([
+                tradesRes.json(),
+                deploymentsRes.json(),
+                creditsRes.json(),
+            ]);
 
-            // Fetch Balance
-            let currentBalance = null;
+            // Fetch Portfolio Balance
+            let currentBalance = { usdc: '0', eth: '0' };
             try {
                 const balanceRes = await fetch('/api/ostium/balance', {
                     method: 'POST',
@@ -129,10 +134,12 @@ export default function Dashboard() {
                 console.error("Failed to fetch balance:", e);
             }
 
-            const currentTrades = tradesData.trades || [];
-            const currentDeployments = deploymentsData || [];
+            const finalBalance = {
+                ...currentBalance,
+                credits: creditsData.balance || '0'
+            };
 
-            let currentSummary = {
+            const currentSummary = {
                 totalTrades: tradesData.summary?.total || 0,
                 openPositions: tradesData.summary?.open || 0,
                 totalUnrealizedPnl: 0,
@@ -142,7 +149,7 @@ export default function Dashboard() {
             if (tradesData.summary) {
                 let totalPnl = 0;
                 let count = 0;
-                currentTrades.forEach((t: Trade) => {
+                (tradesData.trades || []).forEach((t: Trade) => { // Use tradesData.trades here
                     if (t.status === 'OPEN' && t.unrealizedPnl) {
                         totalPnl += parseFloat(t.unrealizedPnl);
                         count++;
@@ -155,17 +162,17 @@ export default function Dashboard() {
                 currentSummary.totalUnrealizedPnlPercent = 0;
             }
 
-            setTrades(currentTrades);
-            setDeployments(currentDeployments);
-            setSummary(currentSummary);
-            setBalance(currentBalance);
+            setTrades(tradesData.trades || []);
+            setDeployments(deploymentsData.deployments || []);
+            setSummary(currentSummary); // Use the calculated currentSummary
+            setBalance(finalBalance);
 
-            // Update global cache
+            // Update cache
             globalDashboardCache = {
-                trades: currentTrades,
-                deployments: currentDeployments,
-                summary: currentSummary,
-                balance: currentBalance,
+                trades: tradesData.trades || [],
+                deployments: deploymentsData.deployments || [],
+                summary: currentSummary, // Use the calculated currentSummary
+                balance: finalBalance,
                 timestamp: Date.now(),
                 wallet: user.wallet.address
             };
@@ -229,7 +236,7 @@ export default function Dashboard() {
         },
         {
             label: "CREDIT BALANCE",
-            value: "8,250",
+            value: balance ? balance.credits.toLocaleString() : "--",
             change: "Buy more",
             positive: true,
             icon: CreditCard
