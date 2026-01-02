@@ -132,6 +132,7 @@ model agents {
   id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   creator_wallet            String
   name                      String
+  description               String?
   venue                     venue_t
   weights                   Int[]                       @db.SmallInt
   apr_30d                   Float?                      @db.Real
@@ -387,6 +388,7 @@ model telegram_alpha_users {
   user_wallet           String?                 // Wallet address for lazy traders (links telegram to wallet)
   last_message_at       DateTime?               @db.Timestamptz(6)
   created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  credit_price          Decimal                 @default(0) @db.Decimal(20, 8)
   agent_telegram_users  agent_telegram_users[]
   telegram_posts        telegram_posts[]
 
@@ -683,6 +685,36 @@ model lazy_trading_link_cache {
   @@index([user_wallet])
 }
 
+model credit_ledger_entry {
+  id           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_wallet  String // 'SYSTEM' for treasury-only rows
+  amount       Decimal              @db.Decimal(20, 8)
+  entry_type   credit_entry_type_t
+  purpose      String
+  reference_id String?              @unique // Stripe Session ID or Web3 Tx Hash (for idempotency)
+  metadata     Json?
+  created_at   DateTime             @default(now()) @db.Timestamptz(6)
+
+  @@index([user_wallet])
+  @@index([reference_id])
+  @@index([created_at])
+}
+
+model user_credit_balance {
+  user_wallet String   @id
+  balance     Decimal  @default(0) @db.Decimal(20, 8)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([user_wallet])
+}
+
+model system_treasury {
+  id             String   @id @default("GLOBAL_TREASURY")
+  total_minted   Decimal  @default(0) @db.Decimal(20, 8)
+  total_consumed Decimal  @default(0) @db.Decimal(20, 8)
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+}
+
 model top_traders {
   id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   wallet_address      String   @unique
@@ -756,4 +788,11 @@ enum notification_status_t {
   PENDING
   SENT
   FAILED
+}
+
+enum credit_entry_type_t {
+  PURCHASE
+  USAGE
+  REWARD
+  ADJUSTMENT
 }
