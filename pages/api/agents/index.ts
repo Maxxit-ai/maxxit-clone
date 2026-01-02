@@ -82,10 +82,37 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
     orderBy,
     take: parseInt(limit as string),
     skip: parseInt(offset as string),
+    include: {
+      agent_telegram_users: {
+        include: {
+          telegram_alpha_users: true
+        }
+      }
+    }
+  });
+
+  // Process agents to calculate total cost
+  const processedAgents = agents.map(agent => {
+    let alphaSum = 0;
+    if (agent.agent_telegram_users) {
+      agent.agent_telegram_users.forEach((au: any) => {
+        if (au.telegram_alpha_users?.credit_price) {
+          alphaSum += Number(au.telegram_alpha_users.credit_price);
+        }
+      });
+    }
+
+    // Add 10% platform fee and round/ceil as appropriate
+    const totalCost = alphaSum > 0 ? alphaSum * 1.1 : 0;
+
+    return {
+      ...agent,
+      totalCost: totalCost
+    };
   });
 
   // Convert response keys to camelCase for frontend
-  const camelCaseAgents = convertKeysToCamelCase(agents);
+  const camelCaseAgents = convertKeysToCamelCase(processedAgents);
   return res.status(200).json(camelCaseAgents);
 }
 

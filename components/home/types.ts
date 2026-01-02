@@ -7,6 +7,7 @@ export interface AgentSummary {
   apr90d: number | null;
   aprSi: number | null;
   sharpe30d: number | null;
+  totalCost?: number;
 }
 
 
