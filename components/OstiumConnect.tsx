@@ -4,11 +4,39 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { X, Wallet, CheckCircle, AlertCircle, Zap, Activity, ExternalLink } from 'lucide-react';
+import { X, Wallet, CheckCircle, AlertCircle, Zap, Activity, ExternalLink, CreditCard, Shield, ArrowRight, Sparkles, Plus } from 'lucide-react';
 import { ethers } from 'ethers';
 import { TradingPreferencesForm, TradingPreferences } from './TradingPreferencesModal';
 import { getOstiumConfig } from '../lib/ostium-config';
-// import { TradingPreferencesModal, TradingPreferences } from './TradingPreferencesModal';
+import { Web3CheckoutModal } from './Web3CheckoutModal';
+import { PaymentSelectorModal } from './PaymentSelectorModal';
+
+const pricingTiers = [
+  {
+    name: "STARTER",
+    price: "$19",
+    credits: "1,000 Credits",
+    value: 1000,
+    description: "Kickstart your automated trading with essential credits.",
+    accent: "var(--accent)",
+  },
+  {
+    name: "PRO",
+    price: "$49",
+    credits: "5,000 Credits",
+    value: 5000,
+    description: "The sweet spot for active traders seeking efficiency.",
+    accent: "var(--accent)",
+  },
+  {
+    name: "WHALE",
+    price: "$99",
+    credits: "15,000 Credits",
+    value: 15000,
+    description: "Maximum power for serious institutional-grade trading.",
+    accent: "#ffaa00",
+  }
+];
 
 interface OstiumConnectProps {
   agentId: string;
@@ -53,10 +81,23 @@ export function OstiumConnect({
   const isAssigningRef = useRef(false);
   const [hasInitialized, setHasInitialized] = useState(false); // Persists in state, not ref
 
+  // Payment & Cost State
+  const [agentData, setAgentData] = useState<any>(null);
+  const [creditBalance, setCreditBalance] = useState<number>(0);
+  const [totalCost, setTotalCost] = useState<number>(0);
+  const [isWeb3ModalOpen, setIsWeb3ModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedTier, setSelectedTier] = useState<any>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [showTopUpUI, setShowTopUpUI] = useState(false);
+
   useEffect(() => {
     // If already authenticated when component mounts, go to preferences step first
     if (authenticated && user?.wallet?.address && step === 'connect' && !hasInitialized) {
       setHasInitialized(true);
+      // Load agent data and credit balance
+      loadAgentData();
+      loadCreditBalance();
       // Load first deployment preferences if they exist
       setLoadingFirstDeploymentPreferences(true);
       loadFirstDeploymentPreferences().then((prefs) => {
@@ -70,6 +111,45 @@ export function OstiumConnect({
       setStep('preferences');
     }
   }, [authenticated, user?.wallet?.address, step, hasInitialized]);
+
+  const loadAgentData = async () => {
+    try {
+      const response = await fetch(`/api/agents/${agentId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setAgentData(data);
+
+        // Calculate total cost
+        let subtotal = 0;
+        if (data.agent_telegram_users) {
+          data.agent_telegram_users.forEach((au: any) => {
+            if (au.telegram_alpha_users?.credit_price) {
+              subtotal += parseFloat(au.telegram_alpha_users.credit_price);
+            }
+          });
+        }
+        const platformFee = subtotal * 0.1;
+        setTotalCost(subtotal + platformFee);
+        console.log('[OstiumConnect] Agent cost calculated:', { subtotal, platformFee, total: subtotal + platformFee });
+      }
+    } catch (err) {
+      console.error('[OstiumConnect] Error loading agent data:', err);
+    }
+  };
+
+  const loadCreditBalance = async () => {
+    if (!user?.wallet?.address) return;
+    try {
+      const response = await fetch(`/api/user/credits/balance?wallet=${user.wallet.address}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCreditBalance(parseFloat(data.balance || '0'));
+        console.log('[OstiumConnect] User credit balance:', data.balance);
+      }
+    } catch (err) {
+      console.error('[OstiumConnect] Error loading credit balance:', err);
+    }
+  };
 
   const checkSetupStatus = async () => {
     if (!user?.wallet?.address) return;
@@ -224,6 +304,13 @@ export function OstiumConnect({
   };
 
   const joinAgent = async () => {
+    // 1. Check if user has enough credits
+    if (totalCost > 0 && creditBalance < totalCost) {
+      console.log('[OstiumConnect] Insufficient credits to join, showing top-up UI');
+      setShowTopUpUI(true);
+      return;
+    }
+
     setJoiningAgent(true);
     setError('');
 
@@ -241,9 +328,10 @@ export function OstiumConnect({
         console.warn('[OstiumConnect] Creating deployment without preferences - will use defaults');
       }
 
-      console.log('[OstiumConnect] Creating deployment:', requestBody);
+      console.log('[OstiumConnect] Joining agent with payment:', requestBody);
 
-      const response = await fetch('/api/ostium/create-deployment', {
+      // Use the new atomic join-with-payment API
+      const response = await fetch('/api/agents/join-with-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -251,22 +339,63 @@ export function OstiumConnect({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create deployment');
+        throw new Error(errorData.error || 'Failed to join agent');
       }
 
       const data = await response.json();
       setDeploymentId(data.deployment.id);
-      console.log('[OstiumConnect] ✅ Deployment created successfully:', data.deployment.id);
+      console.log('[OstiumConnect] ✅ Joined agent successfully:', data.deployment.id);
+
+      // Refresh balance after join
+      loadCreditBalance();
 
       // Call onSuccess to refresh setup status
       if (onSuccess) {
         onSuccess();
       }
     } catch (err: any) {
-      console.error('Error creating deployment:', err);
+      console.error('Error joining agent:', err);
       setError(err.message || 'Failed to join agent');
     } finally {
       setJoiningAgent(false);
+    }
+  };
+
+  const handleBuyCredits = (tier: any) => {
+    setSelectedTier(tier);
+    setIsPaymentModalOpen(true);
+  };
+
+  const handlePaymentSelection = async (method: 'stripe' | 'web3') => {
+    if (method === 'stripe') {
+      setIsRedirecting(true);
+      try {
+        const response = await fetch('/api/payments/stripe/create-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tierName: selectedTier.name,
+            userWallet: user?.wallet?.address
+          }),
+        });
+
+        const data = await response.json();
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          console.error('Failed to create checkout session:', data.error);
+          alert('Failed to start Stripe checkout. Please try again.');
+        }
+      } catch (error) {
+        console.error('Stripe error:', error);
+        alert('An error occurred. Please try again.');
+      } finally {
+        setIsRedirecting(false);
+        setIsPaymentModalOpen(false);
+      }
+    } else {
+      setIsPaymentModalOpen(false);
+      setIsWeb3ModalOpen(true);
     }
   };
 
@@ -669,7 +798,76 @@ export function OstiumConnect({
               }
             }}
           >
-            {error && (
+            {showTopUpUI ? (
+              <div className="space-y-6 py-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 border border-[var(--accent)] flex items-center justify-center bg-[var(--accent)]/10">
+                    <Plus className="w-6 h-6 text-[var(--accent)]" />
+                  </div>
+                  <div>
+                    <h3 className="font-display text-xl uppercase tracking-tight">Top-up Required</h3>
+                    <p className="text-xs text-[var(--text-muted)]">You need more credits to join this project's signals.</p>
+                  </div>
+                </div>
+
+                {/* Cost Breakdown */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="border border-[var(--border)] p-4 bg-[var(--bg-deep)]/50">
+                    <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold mb-1">Join Cost</p>
+                    <p className="text-xl font-display">{totalCost.toFixed(0)} <span className="text-[10px] text-[var(--text-secondary)]">CREDS</span></p>
+                  </div>
+                  <div className="border border-[var(--border)] p-4 bg-[var(--bg-deep)]/50">
+                    <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold mb-1">Your Balance</p>
+                    <p className="text-xl font-display">{creditBalance.toFixed(0)} <span className="text-[10px] text-[var(--text-secondary)]">CREDS</span></p>
+                  </div>
+                  <div className="border border-[var(--accent)]/30 p-4 bg-[var(--accent)]/5">
+                    <p className="text-[10px] text-[var(--accent)] uppercase font-bold mb-1">Shortfall</p>
+                    <p className="text-xl font-display text-[var(--accent)]">{(totalCost - creditBalance).toFixed(0)} <span className="text-[10px]">CREDS</span></p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-sm font-bold tracking-widest uppercase text-[var(--text-secondary)]">Select a Package</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {pricingTiers.map((tier) => {
+                      const isRecommended = tier.value >= (totalCost - creditBalance) && tier.name === "STARTER";
+                      return (
+                        <button
+                          key={tier.name}
+                          onClick={() => handleBuyCredits(tier)}
+                          className={`relative text-left p-6 border transition-all group overflow-hidden ${isRecommended ? 'border-[var(--accent)] bg-[var(--accent)]/5' : 'border-[var(--border)] hover:border-[var(--accent)]/50 bg-[var(--bg-elevated)]/30'
+                            }`}
+                        >
+                          {isRecommended && (
+                            <div className="absolute top-0 right-0 px-2 py-0.5 bg-[var(--accent)] text-[var(--bg-deep)] text-[8px] font-bold uppercase">
+                              Recommended
+                            </div>
+                          )}
+                          <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1">{tier.name}</p>
+                          <p className="text-lg font-display text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">{tier.credits}</p>
+                          <p className="text-xl font-display text-[var(--accent)] mt-2">{tier.price}</p>
+                          <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-[var(--text-muted)] group-hover:text-[var(--text-primary)] transition-colors">
+                            BUY NOW <ArrowRight className="w-3 h-3" />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t border-[var(--border)]">
+                  <button
+                    onClick={() => setShowTopUpUI(false)}
+                    className="px-6 py-3 border border-[var(--border)] text-[var(--text-secondary)] font-bold hover:text-[var(--text-primary)] hover:border-[var(--text-muted)] transition-colors"
+                  >
+                    CANCEL
+                  </button>
+                  <div className="flex-1 text-right">
+                    <p className="text-[10px] text-[var(--text-muted)] uppercase italic">JOIN REMAINING AFTER TOP-UP</p>
+                  </div>
+                </div>
+              </div>
+            ) : error && (
               <div className="flex items-start gap-3 p-4 border border-[var(--danger)] bg-[var(--danger)]/10">
                 <AlertCircle className="w-5 h-5 text-[var(--danger)] flex-shrink-0 mt-0.5" />
                 <span className="text-sm text-[var(--danger)]">{error}</span>
@@ -1057,6 +1255,36 @@ export function OstiumConnect({
             )}
           </div>
         </div>
+
+        <PaymentSelectorModal
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+          tier={selectedTier}
+          onSelectPayment={handlePaymentSelection}
+        />
+
+        <Web3CheckoutModal
+          isOpen={isWeb3ModalOpen}
+          onClose={() => setIsWeb3ModalOpen(false)}
+          tier={selectedTier}
+          userWallet={user?.wallet?.address}
+          onSuccess={(hash) => {
+            console.log('[OstiumConnect] Top-up success:', hash);
+            setIsWeb3ModalOpen(false);
+            setShowTopUpUI(false);
+            loadCreditBalance(); // Refresh balance
+          }}
+        />
+
+        {(isRedirecting || isRedirecting) && (
+          <div className="fixed inset-0 z-[200] bg-[var(--bg-deep)]/90 backdrop-blur-xl flex items-center justify-center flex-col gap-6">
+            <Activity className="h-16 w-16 text-[var(--accent)] animate-spin" />
+            <div className="text-center">
+              <h2 className="text-2xl font-display uppercase tracking-widest text-[var(--accent)] mb-2">Redirecting to Secure Payment</h2>
+              <p className="text-[var(--text-muted)] text-xs font-bold">PLEASE WAIT · STACK: STRIPE</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
