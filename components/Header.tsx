@@ -7,8 +7,29 @@ import { usePrivy } from '@privy-io/react-auth';
 import Image from 'next/image';
 import { ethers } from 'ethers';
 
-const ARBITRUM_ONE_CHAIN_ID = 42161;
-const USDC_CONTRACT_ADDRESS = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
+// Set this to true for testing on Sepolia, false for Mainnet
+const IS_TESTNET = process.env.NEXT_PUBLIC_USE_TESTNET === 'true';
+
+const NETWORKS = {
+  MAINNET: {
+    chainId: 42161,
+    chainName: 'Arbitrum One',
+    usdcAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+    explorer: 'https://arbiscan.io',
+    rpc: 'https://arb1.arbitrum.io/rpc',
+    hexId: '0xa4b1'
+  },
+  TESTNET: {
+    chainId: 421614,
+    chainName: 'Arbitrum Sepolia',
+    usdcAddress: '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d',
+    explorer: 'https://sepolia.arbiscan.io',
+    rpc: 'https://sepolia-rollup.arbitrum.io/rpc',
+    hexId: '0x66eee' // 421614 in hex
+  }
+};
+
+const ACTIVE_NETWORK = IS_TESTNET ? NETWORKS.TESTNET : NETWORKS.MAINNET;
 const USDC_ABI = [
   'function balanceOf(address account) external view returns (uint256)',
   'function decimals() external view returns (uint8)',
@@ -67,7 +88,7 @@ export function Header() {
     };
   }, []);
 
-  const isOnArbitrum = currentChainId === ARBITRUM_ONE_CHAIN_ID;
+  const isOnArbitrum = currentChainId === ACTIVE_NETWORK.chainId;
   const needsNetworkSwitch = authenticated && currentChainId !== null && !isOnArbitrum;
 
   useEffect(() => {
@@ -91,7 +112,7 @@ export function Header() {
 
       // Get provider from connected wallet
       const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const contract = new ethers.Contract(USDC_CONTRACT_ADDRESS, USDC_ABI, provider);
+      const contract = new ethers.Contract(ACTIVE_NETWORK.usdcAddress, USDC_ABI, provider);
 
       // Direct contract call to get balance
       const balance = await contract.balanceOf(walletAddress);
@@ -259,7 +280,8 @@ export function Header() {
     return () => window.removeEventListener('resize', handleResize);
   }, [isMobileMenuOpen]);
 
-  // Handle switching to Arbitrum One network
+
+  // Handle switching to correct Arbitrum network
   const handleSwitchToArbitrum = async () => {
     if (!window.ethereum) {
       console.error('Ethereum provider not found');
@@ -270,7 +292,7 @@ export function Header() {
       setIsSwitchingNetwork(true);
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0xa4b1' }], // 0xa4b1 is the hex for 42161 (Arbitrum One)
+        params: [{ chainId: ACTIVE_NETWORK.hexId }],
       });
     } catch (switchError: any) {
       // This error code indicates that the chain has not been added to MetaMask
@@ -280,10 +302,10 @@ export function Header() {
             method: 'wallet_addEthereumChain',
             params: [
               {
-                chainId: '0xa4b1',
-                chainName: 'Arbitrum One',
-                rpcUrls: ['https://arb1.arbitrum.io/rpc'],
-                blockExplorerUrls: ['https://arbiscan.io'],
+                chainId: ACTIVE_NETWORK.hexId,
+                chainName: ACTIVE_NETWORK.chainName,
+                rpcUrls: [ACTIVE_NETWORK.rpc],
+                blockExplorerUrls: [ACTIVE_NETWORK.explorer],
                 nativeCurrency: {
                   name: 'Ethereum',
                   symbol: 'ETH',
@@ -293,7 +315,7 @@ export function Header() {
             ],
           });
         } catch (addError) {
-          console.error('Failed to add Arbitrum network:', addError);
+          console.error('Failed to add network:', addError);
         }
       }
       console.error('Failed to switch network:', switchError);
@@ -510,7 +532,7 @@ export function Header() {
                           className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[var(--accent)] text-[var(--bg-deep)] text-sm font-bold hover:bg-[var(--accent-dim)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           data-testid="button-switch-network"
                         >
-                          {isSwitchingNetwork ? 'Switching...' : 'Switch to Arbitrum'}
+                          {isSwitchingNetwork ? 'Switching...' : `Switch to ${ACTIVE_NETWORK.chainName}`}
                         </button>
                       ) : (
                         <button
@@ -693,7 +715,7 @@ export function Header() {
                             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-[var(--accent)] text-[var(--bg-deep)] text-sm font-bold hover:bg-[var(--accent-dim)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             data-testid="button-switch-network-mobile"
                           >
-                            {isSwitchingNetwork ? 'Switching...' : 'Switch to Arbitrum One'}
+                            {isSwitchingNetwork ? 'Switching...' : `Switch to ${ACTIVE_NETWORK.chainName}`}
                           </button>
                         ) : (
                           <div className="flex flex-col gap-2 border border-[var(--border)] p-3 bg-[var(--bg-elevated)]">

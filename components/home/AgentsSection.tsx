@@ -468,12 +468,26 @@ const AgentsSection = ({ agents, loading, error, onCardClick, onDeployClick, use
 
                     {/* Description Section */}
                     {agent.description && (
-                      <div className=" mb-5 pb-4 border-b border-[#ededed]/30">
+                      <div className="mb-4">
                         <p className="text-xs text-[var(--text-secondary)] line-clamp-2 leading-relaxed opacity-80">
                           {agent.description}
                         </p>
                       </div>
                     )}
+
+                    {/* Price Section */}
+                    <div className="mb-5 pb-4 border-b border-[#ededed]/20">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] opacity-70">
+                          COUNCIL PRICE
+                        </p>
+                        <p className={`text-sm font-mono font-bold ${agent.totalCost && agent.totalCost > 0 ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'}`}>
+                          {agent.totalCost && agent.totalCost > 0
+                            ? `${agent.totalCost.toFixed(0)} CREDS`
+                            : 'FREE'}
+                        </p>
+                      </div>
+                    </div>
 
                     {/* Metrics Section - Unified Design */}
                     <div className="flex-1 flex flex-col justify-center">
