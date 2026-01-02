@@ -50,6 +50,7 @@ interface Trade {
     llmRawOutput: string;
     llmModelUsed: string;
     llmChainId: number;
+    llmFullPrompt: string | null;
     llmMarketContext: string | null;
     llmReasoning: string;
     messageCreatedAt: string;
@@ -300,6 +301,7 @@ export default function MyTrades() {
           llm_raw_output: trade.signatureData.llmRawOutput,
           llm_model_used: trade.signatureData.llmModelUsed,
           llm_chain_id: trade.signatureData.llmChainId,
+          llm_full_prompt: trade.signatureData.llmFullPrompt,
           llm_market_context:
             trade.signatureData.llmMarketContext || "NO MARKET DATA AVAILABLE",
         }),
