@@ -15,6 +15,7 @@ const createWithPaymentSchema = z.object({
         ctAccountIds: z.array(z.string().uuid()).optional().default([]),
         researchInstituteIds: z.array(z.string().uuid()).optional().default([]),
         telegramAlphaUserIds: z.array(z.string().uuid()).optional().default([]),
+        topTraderIds: z.array(z.string().uuid()).optional().default([]),
     })
 });
 
