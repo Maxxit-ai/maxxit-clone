@@ -88,7 +88,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     // Actually purchaseAlphaAccess will handle it, but we want to be safe with the query
                 }
 
-                await CreditService.purchaseAlphaAccess(tx, normalizedWallet, alphaInfos, `JOIN_CLUB_${agentId}`);
+                await CreditService.purchaseAlphaAccess(tx, normalizedWallet, alphaInfos, `JOIN_CLUB_${agentId}_${normalizedWallet}`);
             }
 
             // 3. Create or Update Deployment

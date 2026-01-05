@@ -20,7 +20,7 @@ const NETWORKS = {
 };
 
 const ACTIVE_NETWORK = IS_TESTNET ? NETWORKS.TESTNET : NETWORKS.MAINNET;
-const TREASURY_WALLET = process.env.TREASURY_WALLET_ADDRESS?.toLowerCase();
+const TREASURY_WALLET = process.env.NEXT_PUBLIC_TREASURY_WALLET_ADDRESS?.toLowerCase();
 
 const pricingTiers: Record<string, { price: number; credits: number; trades: number }> = {
     "STARTER": { price: 19, credits: 1000, trades: 100 },
