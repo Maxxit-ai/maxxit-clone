@@ -51,6 +51,7 @@ interface Trade {
     llmRawOutput: string;
     llmModelUsed: string;
     llmChainId: number;
+    llmFullPrompt: string | null;
     llmMarketContext: string | null;
     llmReasoning: string;
     messageCreatedAt: string;
