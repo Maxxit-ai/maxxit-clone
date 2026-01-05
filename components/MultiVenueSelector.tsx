@@ -6,6 +6,7 @@ import { OstiumConnect } from './OstiumConnect';
 interface MultiVenueSelectorProps {
   agentId: string;
   agentName: string;
+  agentDescription: string | null;
   onClose: () => void;
   onComplete: () => void;
   userAgentAddresses?: {
@@ -18,6 +19,7 @@ interface MultiVenueSelectorProps {
 export function MultiVenueSelector({
   agentId,
   agentName,
+  agentDescription,
   onClose,
   onComplete,
   userAgentAddresses,
@@ -177,6 +179,7 @@ export function MultiVenueSelector({
           <div className="border-b border-[var(--border)] p-4 flex items-center justify-between flex-shrink-0">
             <div>
               <h2 className="font-display text-xl">{agentName}</h2>
+              {agentDescription && <p className="text-xs text-[var(--text-secondary)] pb-2">{agentDescription}</p>}
               <p className="text-xs text-[var(--text-muted)] mt-1">Select a venue to join</p>
             </div>
             <button

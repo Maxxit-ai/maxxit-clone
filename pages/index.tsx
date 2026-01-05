@@ -29,7 +29,7 @@ export default function Home() {
   const [hyperliquidAgentName, setHyperliquidAgentName] = useState<string>('');
   const [hyperliquidAgentVenue, setHyperliquidAgentVenue] = useState<string>('');
   const [multiVenueSelectorOpen, setMultiVenueSelectorOpen] = useState(false);
-  const [multiVenueAgent, setMultiVenueAgent] = useState<{ id: string; name: string } | null>(null);
+  const [multiVenueAgent, setMultiVenueAgent] = useState<{ id: string; name: string; description: string | null } | null>(null);
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
   const [userAgentAddresses, setUserAgentAddresses] = useState<{
     hyperliquid?: string | null;
@@ -108,7 +108,7 @@ export default function Home() {
 
   const handleAgentClick = useCallback((agent: AgentSummary) => {
     if (agent.venue === 'MULTI') {
-      setMultiVenueAgent({ id: agent.id, name: agent.name });
+      setMultiVenueAgent({ id: agent.id, name: agent.name, description: agent.description });
       setMultiVenueSelectorOpen(true);
     } else {
       setSelectedAgent(agent);
@@ -117,7 +117,7 @@ export default function Home() {
 
   const handleDeployClick = useCallback((agent: AgentSummary) => {
     if (agent.venue === 'MULTI') {
-      setMultiVenueAgent({ id: agent.id, name: agent.name });
+      setMultiVenueAgent({ id: agent.id, name: agent.name, description: agent.description });
       setMultiVenueSelectorOpen(true);
       return;
     }
@@ -178,6 +178,7 @@ export default function Home() {
         <MultiVenueSelector
           agentId={multiVenueAgent.id}
           agentName={multiVenueAgent.name}
+          agentDescription={multiVenueAgent.description}
           onClose={() => {
             setMultiVenueSelectorOpen(false);
             setMultiVenueAgent(null);

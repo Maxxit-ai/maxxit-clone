@@ -802,51 +802,51 @@ export default function MyTrades() {
                               trade.llmLeverage !== null ||
                               trade.llmShouldTrade !== null) && (
                                 <div className="space-y-4 lg:col-span-1">
-                                  <h4 className="font-display text-sm mb-3">
+                                  <h4 className="font-display text-base font-bold mb-4 uppercase tracking-tight">
                                     AGENT DECISION
                                   </h4>
-                                  <div className="border border-[var(--border)] p-4 space-y-3 bg-[var(--bg-surface)]">
+                                  <div className="border border-[var(--border)] p-5 space-y-4 bg-[var(--bg-surface)]">
                                     {trade.llmDecision && (
                                       <div>
-                                        <p className="data-label mb-1">
+                                        <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">
                                           DECISION SUMMARY
                                         </p>
-                                        <p className="text-xs text-[var(--text-secondary)]">
+                                        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
                                           {trade.llmDecision}
                                         </p>
                                       </div>
                                     )}
 
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[var(--border)]">
                                       {trade.llmFundAllocation !== null && (
-                                        <div className="border border-[var(--border)] p-2">
-                                          <p className="data-label mb-1">
+                                        <div className="border border-[var(--border)] p-3 bg-[var(--bg-deep)]">
+                                          <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
                                             FUND ALLOCATION
                                           </p>
-                                          <p className="text-xs font-mono text-[var(--accent)]">
+                                          <p className="text-sm font-mono font-bold text-[var(--accent)]">
                                             {trade.llmFundAllocation.toFixed(0)}%
                                           </p>
                                         </div>
                                       )}
 
                                       {trade.llmLeverage !== null && (
-                                        <div className="border border-[var(--border)] p-2">
-                                          <p className="data-label mb-1">
+                                        <div className="border border-[var(--border)] p-3 bg-[var(--bg-deep)]">
+                                          <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
                                             LEVERAGE
                                           </p>
-                                          <p className="text-xs font-mono">
+                                          <p className="text-sm font-mono font-bold">
                                             {trade.llmLeverage.toFixed(1)}x
                                           </p>
                                         </div>
                                       )}
 
                                       {trade.llmShouldTrade !== null && (
-                                        <div className="border border-[var(--border)] p-2 col-span-2">
-                                          <p className="data-label mb-1">
+                                        <div className="border border-[var(--border)] p-3 col-span-2 bg-[var(--bg-deep)]">
+                                          <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
                                             SHOULD TRADE
                                           </p>
                                           <p
-                                            className={`text-xs font-bold ${trade.llmShouldTrade
+                                            className={`text-sm font-bold ${trade.llmShouldTrade
                                               ? "text-green-400"
                                               : "text-red-400"
                                               }`}
@@ -864,84 +864,72 @@ export default function MyTrades() {
 
                             {/* Right Column - Signature Data */}
                             <div className="space-y-4 lg:col-span-1">
-                              <h4 className="font-display text-sm mb-3">
+                              <h4 className="font-display text-base font-bold mb-4 uppercase tracking-tight">
                                 EIGENAI SIGNATURE
                               </h4>
 
                               {trade.signatureData ? (
-                                <div className="border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-4 space-y-3">
+                                <div className="border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-5 space-y-4">
                                   {/* Signal Message */}
                                   <div>
-                                    <p className="data-label mb-2">
+                                    <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">
                                       ORIGINAL SIGNAL
                                     </p>
-                                    <p className="text-xs text-[var(--text-secondary)] italic">
-                                      "
-                                      {trade.signatureData.messageText.substring(
-                                        0,
-                                        150
-                                      )}
-                                      {trade.signatureData.messageText.length >
-                                        150
-                                        ? "..."
-                                        : ""}
-                                      "
+                                    <p className="text-sm leading-relaxed text-[var(--text-secondary)] italic">
+                                      "{trade.signatureData.messageText}"
                                     </p>
                                   </div>
 
                                   {/* Telegram User */}
-                                  <div className="flex justify-between items-center py-2 border-t border-[var(--border)]">
-                                    <span className="text-xs text-[var(--text-muted)]">
+                                  <div className="flex justify-between items-center py-2.5 border-t border-[var(--border)]">
+                                    <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
                                       Alpha Trader
                                     </span>
-                                    <span className="text-xs font-mono">
+                                    <span className="text-sm font-mono font-semibold">
                                       @{trade.signatureData.telegramUsername}
                                     </span>
                                   </div>
 
                                   {/* Model Used */}
-                                  <div className="flex justify-between items-center py-2 border-t border-[var(--border)]">
-                                    <span className="text-xs text-[var(--text-muted)]">
+                                  <div className="flex justify-between items-center py-2.5 border-t border-[var(--border)]">
+                                    <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
                                       Model
                                     </span>
-                                    <span className="text-xs font-mono">
+                                    <span className="text-sm font-mono font-semibold">
                                       {trade.signatureData.llmModelUsed}
                                     </span>
                                   </div>
 
                                   {/* Chain ID */}
-                                  <div className="flex justify-between items-center py-2 border-t border-[var(--border)]">
-                                    <span className="text-xs text-[var(--text-muted)]">
+                                  <div className="flex justify-between items-center py-2.5 border-t border-[var(--border)]">
+                                    <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
                                       Chain ID
                                     </span>
-                                    <span className="text-xs font-mono">
+                                    <span className="text-sm font-mono font-semibold">
                                       {trade.signatureData.llmChainId}
                                     </span>
                                   </div>
 
                                   {/* Confidence Score */}
-                                  <div className="flex justify-between items-center py-2 border-t border-[var(--border)]">
-                                    <span className="text-xs text-[var(--text-muted)]">
+                                  <div className="flex justify-between items-center py-2.5 border-t border-[var(--border)]">
+                                    <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
                                       Confidence
                                     </span>
-                                    <span className="text-xs font-bold text-[var(--accent)]">
+                                    <span className="text-base font-bold text-[var(--accent)]">
                                       {(
                                         trade.signatureData.confidenceScore *
                                         100
-                                      ).toFixed(0)}
-                                      %
+                                      ).toFixed(0)}%
                                     </span>
                                   </div>
 
                                   {/* Signature (truncated) */}
-                                  <div className="py-2 border-t border-[var(--border)]">
-                                    <p className="text-xs text-[var(--text-muted)] mb-1">
+                                  <div className="py-3 border-t border-[var(--border)]">
+                                    <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">
                                       Signature
                                     </p>
-                                    <p className="text-xs font-mono break-all text-[var(--accent)]">
-                                      {formatAddress(
-                                        trade.signatureData.llmSignature
-                                      )}
+                                    <p className="text-xs font-mono break-all text-[var(--accent)] leading-relaxed">
+                                      {trade.signatureData.llmSignature}
                                     </p>
                                   </div>
 
@@ -951,18 +939,18 @@ export default function MyTrades() {
                                       e.stopPropagation();
                                       handleVerifySignature(trade);
                                     }}
-                                    className="w-full py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-2 mt-2"
+                                    className="w-full py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-2 mt-2 text-sm"
                                   >
                                     <Shield className="w-4 h-4" />
                                     VERIFY SIGNATURE
                                   </button>
                                 </div>
                               ) : (
-                                <div className="border border-dashed border-[var(--border)] bg-[var(--bg-surface)] p-4 space-y-3 text-sm text-[var(--text-muted)]">
-                                  <p className="font-bold text-[var(--text-secondary)]">
+                                <div className="border border-dashed border-[var(--border)] bg-[var(--bg-surface)] p-5 space-y-3">
+                                  <p className="font-bold text-sm text-[var(--text-secondary)]">
                                     No signature available for this signal yet.
                                   </p>
-                                  <p>
+                                  <p className="text-sm text-[var(--text-muted)]">
                                     You can still track the position details and
                                     status above.
                                   </p>
@@ -1125,34 +1113,6 @@ export default function MyTrades() {
                                     {signal.llmDecision}
                                   </p>
                                 )}
-                                <div className="flex flex-wrap gap-3 text-xs">
-                                  {signal.llmFundAllocation !== null && (
-                                    <span className="border border-[var(--border)] px-2 py-1 font-mono text-[var(--accent)]">
-                                      Allocation:{" "}
-                                      {(signal.llmFundAllocation * 100).toFixed(
-                                        0
-                                      )}
-                                      %
-                                    </span>
-                                  )}
-                                  {signal.llmLeverage !== null && (
-                                    <span className="border border-[var(--border)] px-2 py-1 font-mono">
-                                      Leverage: {signal.llmLeverage.toFixed(1)}x
-                                    </span>
-                                  )}
-                                  {signal.llmShouldTrade !== null && (
-                                    <span
-                                      className={`border border-[var(--border)] px-2 py-1 font-mono ${signal.llmShouldTrade
-                                        ? "text-green-400"
-                                        : "text-red-400"
-                                        }`}
-                                    >
-                                      {signal.llmShouldTrade
-                                        ? "Model: TRADE"
-                                        : "Model: DO NOT TRADE"}
-                                    </span>
-                                  )}
-                                </div>
                               </div>
                             )}
 
@@ -1167,14 +1127,7 @@ export default function MyTrades() {
                                   </p>
                                   <p className="text-xs text-[var(--text-secondary)] italic">
                                     "
-                                    {signal.signatureData.messageText.substring(
-                                      0,
-                                      150
-                                    )}
-                                    {signal.signatureData.messageText.length >
-                                      150
-                                      ? "..."
-                                      : ""}
+                                    {signal.signatureData.messageText}
                                     "
                                   </p>
                                 </div>

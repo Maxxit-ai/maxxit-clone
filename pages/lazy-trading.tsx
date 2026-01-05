@@ -3,9 +3,9 @@
  *
  * A streamlined 4-step flow:
  * 1. Connect Wallet
- * 2. Connect Telegram (as signal source)
+ * 2. Ostium Setup (Delegation + Allowance)
  * 3. Trading Preferences
- * 4. Ostium Setup (Delegation + Allowance)
+ * 4. Connect Telegram (as signal source)
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -57,6 +57,13 @@ export default function LazyTrading() {
   const authenticated = true;
   const simulatedUserWallet = UNIVERSAL_WALLET_ADDRESS;
 
+  // Redirect to external URL when page is accessed directly
+  // useEffect(() => {
+  //   if (typeof window !== 'undefined') {
+  //     window.location.href = 'https://ostium.maxxit.ai/lazy-trading';
+  //   }
+  // }, []);
+
   const [step, setStep] = useState<Step>("wallet");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
@@ -64,6 +71,9 @@ export default function LazyTrading() {
   // Separate loading states for delegation and USDC approval
   const [delegationLoading, setDelegationLoading] = useState(false);
   const [allowanceLoading, setAllowanceLoading] = useState(false);
+  const [checkingOstiumStatus, setCheckingOstiumStatus] = useState(false);
+  const [enablingTrading, setEnablingTrading] = useState(false);
+  const [currentAction, setCurrentAction] = useState<string>("");
 
   // Telegram state
   const [telegramUser, setTelegramUser] = useState<TelegramUser | null>(null);
@@ -272,11 +282,19 @@ export default function LazyTrading() {
 
   const handlePreferencesSave = (prefs: TradingPreferences) => {
     setTradingPreferences(prefs);
-    createAgentAndProceed(prefs);
+    // Move to telegram step after preferences are saved
+    setStep("telegram");
   };
 
-  const createAgentAndProceed = async (prefs: TradingPreferences) => {
-    if (!authenticated || !telegramUser) return;
+  const createAgentAndProceed = async () => {
+    if (!authenticated || !telegramUser || !tradingPreferences) return;
+
+    // Check if agent already exists - prevent duplicate creation
+    if (agentId) {
+      console.log("[LazyTrading] Agent already exists, skipping creation");
+      setStep("complete");
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -295,14 +313,8 @@ export default function LazyTrading() {
       // Use universal Ostium agent address
       setOstiumAgentAddress(UNIVERSAL_OSTIUM_AGENT_ADDRESS);
 
-      // Wait a bit for state to update, then check status
-      setTimeout(() => {
-        checkOstiumStatus();
-      }, 100);
-
-      // Always send user to the Ostium step so they can see and simulate
-      // both delegation and USDC approval in the UI
-      setStep("ostium");
+      // Move to complete step
+      setStep("complete");
     } catch (err: any) {
       setError(err.message || "Failed to create agent");
     } finally {
@@ -335,6 +347,7 @@ export default function LazyTrading() {
       return;
     }
 
+    setCheckingOstiumStatus(true);
     try {
       // Simulate API delay
       await new Promise((resolve) => setTimeout(resolve, 600));
@@ -351,10 +364,12 @@ export default function LazyTrading() {
       console.log("[Ostium] Simulation status check - leaving delegation/allowance unchanged");
     } catch (err) {
       console.error("[Ostium] Error checking Ostium status:", err);
+    } finally {
+      setCheckingOstiumStatus(false);
     }
   };
 
-  const approveDelegation = async () => {
+  const approveDelegation = async (skipLoading = false) => {
     if (!authenticated) {
       setError("Please connect your wallet first");
       return;
@@ -365,7 +380,9 @@ export default function LazyTrading() {
       return;
     }
 
-    setDelegationLoading(true);
+    if (!skipLoading) {
+      setDelegationLoading(true);
+    }
     setError("");
 
     try {
@@ -392,20 +409,27 @@ export default function LazyTrading() {
       console.error("Delegation error:", err);
       if (err.code === 4001) {
         setError("Transaction rejected");
+        throw err; // Re-throw to stop the flow
       } else if (err.code === -32603) {
         setError("Transaction failed. Please check your wallet balance.");
+        throw err;
       } else {
         setError(err.message || "Failed to approve delegation");
+        throw err;
       }
     } finally {
-      setDelegationLoading(false);
+      if (!skipLoading) {
+        setDelegationLoading(false);
+      }
     }
   };
 
-  const approveUsdc = async () => {
+  const approveUsdc = async (skipLoading = false) => {
     if (!authenticated) return;
 
-    setAllowanceLoading(true);
+    if (!skipLoading) {
+      setAllowanceLoading(true);
+    }
     setError("");
 
     try {
@@ -426,19 +450,63 @@ export default function LazyTrading() {
 
       setAllowanceComplete(true);
       setAllowanceTxHash(null);
-
-      // Both complete - move to final step
-      if (delegationComplete) {
-        setStep("complete");
-      }
     } catch (err: any) {
       if (err.code === 4001 || err.message?.includes("rejected")) {
         setError("Transaction rejected");
+        throw err; // Re-throw to stop the flow
       } else {
         setError(err.message || "Failed to approve USDC");
+        throw err;
       }
     } finally {
-      setAllowanceLoading(false);
+      if (!skipLoading) {
+        setAllowanceLoading(false);
+      }
+    }
+  };
+
+  // Combined function to enable 1-click trading
+  const enableOneClickTrading = async () => {
+    if (!authenticated) {
+      setError("Please connect your wallet first");
+      return;
+    }
+
+    if (!ostiumAgentAddress) {
+      setError("Agent address not found. Please refresh the page.");
+      return;
+    }
+
+    setEnablingTrading(true);
+    setError("");
+    setCurrentAction("");
+
+    try {
+      // Perform both steps sequentially without showing intermediate loaders
+      // Step 1: Delegation
+      if (!delegationComplete) {
+        setCurrentAction("Setting delegation...");
+        await approveDelegation(true); // Skip individual loading state
+        // Small delay for state update
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
+      // Step 2: USDC Allowance
+      if (!allowanceComplete) {
+        setCurrentAction("Approving USDC allowance...");
+        await approveUsdc(true); // Skip individual loading state
+        // Small delay for state update
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
+      // Both steps complete
+      setCurrentAction("");
+    } catch (err: any) {
+      // Error is already set in approveDelegation or approveUsdc
+      console.error("Error enabling 1-click trading:", err);
+      setCurrentAction("");
+    } finally {
+      setEnablingTrading(false);
     }
   };
 
@@ -480,18 +548,13 @@ export default function LazyTrading() {
     }
   };
 
-  // Proceed to complete when both delegation and allowance are done
-  useEffect(() => {
-    if (step === "ostium" && delegationComplete && allowanceComplete) {
-      setStep("complete");
-    }
-  }, [step, delegationComplete, allowanceComplete]);
+  // Removed automatic step progression - user must manually click to proceed
 
   const steps = [
     { id: "wallet", label: "WALLET", icon: Wallet },
-    { id: "telegram", label: "TELEGRAM", icon: Send },
-    { id: "preferences", label: "PREFERENCES", icon: Sliders },
     { id: "ostium", label: "OSTIUM", icon: Shield },
+    { id: "preferences", label: "PREFERENCES", icon: Sliders },
+    { id: "telegram", label: "TELEGRAM", icon: Send },
     { id: "complete", label: "COMPLETE", icon: Check },
   ];
 
@@ -520,44 +583,70 @@ export default function LazyTrading() {
 
         {/* Progress Steps */}
         <div className="mb-12">
-          <div className="relative">
-            <div className="absolute top-4 left-4 right-4 h-0.5 bg-[var(--border)]" />
+          <div className="relative px-4">
+            {/* Background line - spans full width between first and last step */}
             <div
-              className="absolute top-4 left-4 h-0.5 bg-[var(--accent)] transition-all duration-500"
+              className="absolute top-6 h-0.5 bg-[var(--border)]"
               style={{
-                width: `calc(${(currentStepIndex / (steps.length - 1)) * 100
-                  }% - 32px)`,
+                left: '48px', // Half of step indicator width (24px)
+                right: '48px',
               }}
             />
-            <div className="relative flex justify-between">
+            {/* Progress line - animates smoothly */}
+            <div
+              className="absolute top-6 h-0.5 bg-[var(--accent)] transition-all duration-700 ease-out"
+              style={{
+                left: '48px',
+                width: currentStepIndex === 0
+                  ? '0px'
+                  : `calc((100% - 96px) * ${currentStepIndex / (steps.length - 1)})`,
+              }}
+            />
+            <div className="relative flex justify-between items-start">
               {steps.map((s, index) => {
                 const Icon = s.icon;
                 const isCompleted = index < currentStepIndex;
                 const isCurrent = s.id === step;
+                const isUpcoming = index > currentStepIndex;
+
                 return (
-                  <div key={s.id} className="flex flex-col items-center">
+                  <div key={s.id} className="flex flex-col items-center flex-1 relative z-10">
+                    {/* Step indicator */}
                     <div
-                      className={`w-8 h-8 flex items-center justify-center transition-all border ${isCompleted
-                        ? "bg-[var(--accent)] border-[var(--accent)] text-[var(--bg-deep)]"
+                      className={`relative w-12 h-12 flex items-center justify-center transition-all duration-300 rounded-full border-2 ${isCompleted
+                        ? "bg-[var(--accent)] border-[var(--accent)] text-[var(--bg-deep)] shadow-lg shadow-[var(--accent)]/30 scale-110"
                         : isCurrent
-                          ? "border-[var(--accent)] text-[var(--accent)]"
-                          : "border-[var(--border)] text-[var(--text-muted)]"
+                          ? "border-[var(--accent)] bg-[var(--bg-surface)] text-[var(--accent)] shadow-md shadow-[var(--accent)]/20 scale-105 ring-2 ring-[var(--accent)]/20"
+                          : "border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] opacity-60"
                         }`}
                     >
                       {isCompleted ? (
-                        <Check className="h-4 w-4" />
+                        <Check className="h-6 w-6 stroke-[2.5]" />
                       ) : (
-                        <Icon className="h-4 w-4" />
+                        <Icon className={`h-6 w-6 ${isCurrent ? "stroke-[2]" : "stroke-[1.5]"}`} />
+                      )}
+                      {/* Pulse animation for current step */}
+                      {isCurrent && (
+                        <div className="absolute inset-0 rounded-full bg-[var(--accent)]/20 animate-ping" />
                       )}
                     </div>
+                    {/* Step label */}
                     <span
-                      className={`mt-2 text-[10px] font-bold hidden sm:block ${isCurrent
+                      className={`mt-3 text-[11px] font-bold text-center max-w-[90px] leading-tight transition-colors duration-300 ${isCurrent
                         ? "text-[var(--accent)]"
-                        : "text-[var(--text-muted)]"
+                        : isCompleted
+                          ? "text-[var(--text-primary)]"
+                          : "text-[var(--text-muted)]"
                         }`}
                     >
                       {s.label}
                     </span>
+                    {/* Step number badge for upcoming steps */}
+                    {isUpcoming && (
+                      <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-[8px] font-bold rounded-full bg-[var(--bg-deep)] border border-[var(--border)] text-[var(--text-muted)]">
+                        {index + 1}
+                      </span>
+                    )}
                   </div>
                 );
               })}
@@ -599,22 +688,11 @@ export default function LazyTrading() {
                     </p>
                   </div>
                   <button
-                    onClick={() => {
-                      setStep("telegram");
-                    }}
+                    onClick={() => setStep("ostium")}
                     className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-2"
                   >
-                    {checkingTelegram ? (
-                      <>
-                        <Activity className="w-5 h-5 animate-pulse" />
-                        CHECKING...
-                      </>
-                    ) : (
-                      <>
-                        CONTINUE
-                        <ChevronRight className="w-5 h-5" />
-                      </>
-                    )}
+                    CONTINUE
+                    <ChevronRight className="w-5 h-5" />
                   </button>
                 </div>
               ) : (
@@ -658,12 +736,27 @@ export default function LazyTrading() {
 
                   <div className="space-y-2">
                     <button
-                      onClick={() => setStep("preferences")}
-                      className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-2"
+                      onClick={createAgentAndProceed}
+                      disabled={loading || !tradingPreferences}
+                      className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      CONTINUE
-                      <ChevronRight className="w-5 h-5" />
+                      {loading ? (
+                        <>
+                          <Activity className="w-5 h-5 animate-pulse" />
+                          CREATING AGENT...
+                        </>
+                      ) : (
+                        <>
+                          COMPLETE SETUP
+                          <ChevronRight className="w-5 h-5" />
+                        </>
+                      )}
                     </button>
+                    {!tradingPreferences && (
+                      <p className="text-xs text-center text-[var(--text-muted)]">
+                        Please configure trading preferences first
+                      </p>
+                    )}
 
                     {/* Manual Refresh Button */}
                     <button
@@ -815,22 +908,25 @@ export default function LazyTrading() {
               <TradingPreferencesForm
                 userWallet={simulatedUserWallet}
                 onClose={() => router.push("/")}
-                onBack={() => setStep("telegram")}
+                onBack={() => setStep("ostium")}
                 localOnly={true}
                 onSaveLocal={handlePreferencesSave}
                 initialPreferences={tradingPreferences || undefined}
-                primaryLabel={loading ? "Creating Agent..." : "Save & Continue"}
+                primaryLabel="Save & Continue to Telegram"
               />
             </div>
           )}
 
-          {/* Step 4: Ostium Setup */}
+          {/* Step 2: Ostium Setup */}
           {step === "ostium" && (
             <div className="space-y-6">
               <div className="text-center">
+                <div className="w-16 h-16 mx-auto border-2 border-[var(--accent)] flex items-center justify-center mb-4">
+                  <Shield className="w-8 h-8 text-[var(--accent)]" />
+                </div>
                 <h2 className="font-display text-2xl mb-2">OSTIUM SETUP</h2>
                 <p className="text-[var(--text-secondary)]">
-                  Authorize your agent to trade on Ostium
+                  Enable 1-click trading authorization
                 </p>
               </div>
 
@@ -846,156 +942,167 @@ export default function LazyTrading() {
                 </div>
               )}
 
-              {/* Step 1: Delegation */}
-              <div
-                className={`border p-4 ${delegationComplete
-                  ? "border-[var(--accent)] bg-[var(--accent)]/5"
-                  : "border-[var(--border)]"
-                  }`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`w-8 h-8 flex items-center justify-center border ${delegationComplete
-                        ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--bg-deep)]"
-                        : "border-[var(--border)]"
-                        }`}
-                    >
-                      {delegationComplete ? <Check className="w-4 h-4" /> : "1"}
-                    </span>
-                    <div>
-                      <p className="font-bold">SET DELEGATION</p>
-                      <p className="text-xs text-[var(--text-secondary)]">
-                        Allow agent to trade on your behalf
-                      </p>
+              {/* Status Check Loader */}
+              {checkingOstiumStatus && (
+                <div className="border border-[var(--accent)]/40 bg-[var(--accent)]/5 p-4 flex items-center gap-3">
+                  <Activity className="w-5 h-5 text-[var(--accent)] animate-pulse flex-shrink-0" />
+                  <p className="text-sm text-[var(--text-secondary)] flex-1">
+                    Checking authorization status...
+                  </p>
+                </div>
+              )}
+
+              {/* Status Display */}
+              {!checkingOstiumStatus && (
+                <div className="space-y-3">
+                  {/* Delegation Status */}
+                  <div
+                    className={`border p-4 rounded ${delegationComplete
+                      ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                      : "border-[var(--border)]"
+                      }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {delegationComplete ? (
+                          <CheckCircle className="w-5 h-5 text-[var(--accent)]" />
+                        ) : (
+                          <div className="w-5 h-5 border-2 border-[var(--border)] rounded-full" />
+                        )}
+                        <div>
+                          <p className="font-bold text-sm">Delegation</p>
+                          <p className="text-xs text-[var(--text-secondary)]">
+                            Allow agent to trade on your behalf
+                          </p>
+                        </div>
+                      </div>
+                      {delegationComplete && (
+                        <span className="text-xs px-2 py-1 bg-[var(--accent)] text-[var(--bg-deep)] font-bold">
+                          DONE
+                        </span>
+                      )}
                     </div>
                   </div>
-                  {delegationComplete && (
-                    <span className="text-xs px-2 py-1 bg-[var(--accent)] text-[var(--bg-deep)] font-bold">
-                      DONE
-                    </span>
-                  )}
-                </div>
 
-                {!delegationComplete && (
-                  <div className="space-y-2">
-                    <button
-                      onClick={approveDelegation}
-                      disabled={delegationLoading || !ostiumAgentAddress}
-                      className="w-full py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {delegationLoading ? (
-                        <>
-                          <Activity className="w-5 h-5 animate-pulse" />
-                          SIGNING...
-                        </>
-                      ) : (
-                        "APPROVE DELEGATION"
+                  {/* Allowance Status */}
+                  <div
+                    className={`border p-4 rounded ${allowanceComplete
+                      ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                      : "border-[var(--border)]"
+                      }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {allowanceComplete ? (
+                          <CheckCircle className="w-5 h-5 text-[var(--accent)]" />
+                        ) : (
+                          <div className="w-5 h-5 border-2 border-[var(--border)] rounded-full" />
+                        )}
+                        <div>
+                          <p className="font-bold text-sm">USDC Allowance</p>
+                          <p className="text-xs text-[var(--text-secondary)]">
+                            Approve USDC spending for trades
+                          </p>
+                        </div>
+                      </div>
+                      {allowanceComplete && (
+                        <span className="text-xs px-2 py-1 bg-[var(--accent)] text-[var(--bg-deep)] font-bold">
+                          DONE
+                        </span>
                       )}
-                    </button>
-                    {ostiumAgentAddress && (
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Main Action Button */}
+              {!checkingOstiumStatus && (
+                <div className="space-y-3">
+                  {delegationComplete && allowanceComplete ? (
+                    <div className="space-y-3">
+                      <div className="border border-[var(--accent)] bg-[var(--accent)]/10 p-4 text-center">
+                        <CheckCircle className="w-8 h-8 text-[var(--accent)] mx-auto mb-2" />
+                        <p className="font-bold text-[var(--accent)] mb-1">
+                          AUTHORIZATION COMPLETE
+                        </p>
+                        <p className="text-xs text-[var(--text-secondary)]">
+                          Both delegation and allowance are set up
+                        </p>
+                      </div>
                       <button
-                        onClick={checkOstiumStatus}
-                        disabled={delegationLoading}
-                        className="w-full py-2 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                        onClick={() => setStep("preferences")}
+                        className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-2"
                       >
-                        Refresh Status
+                        CONTINUE TO PREFERENCES
+                        <ChevronRight className="w-5 h-5" />
                       </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Delegation Transaction Hash */}
-                {delegationTxHash && (
-                  <div className="mt-3 border border-[var(--accent)] bg-[var(--accent)]/5 p-3">
-                    <p className="text-[var(--accent)] text-xs mb-1">
-                      Delegation transaction submitted
-                    </p>
-                    <a
-                      href={`https://arbiscan.io/tx/${delegationTxHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] flex items-center gap-1 font-mono"
-                    >
-                      {delegationTxHash.slice(0, 20)}... <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                )}
-              </div>
-
-              {/* Step 2: USDC Allowance */}
-              <div
-                className={`border p-4 ${allowanceComplete
-                  ? "border-[var(--accent)] bg-[var(--accent)]/5"
-                  : "border-[var(--border)]"
-                  }`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`w-8 h-8 flex items-center justify-center border ${allowanceComplete
-                        ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--bg-deep)]"
-                        : "border-[var(--border)]"
-                        }`}
-                    >
-                      {allowanceComplete ? <Check className="w-4 h-4" /> : "2"}
-                    </span>
-                    <div>
-                      <p className="font-bold">SET ALLOWANCE</p>
-                      <p className="text-xs text-[var(--text-secondary)]">
-                        Approve USDC spending for trades
-                      </p>
                     </div>
-                  </div>
-                  {allowanceComplete && (
-                    <span className="text-xs px-2 py-1 bg-[var(--accent)] text-[var(--bg-deep)] font-bold">
-                      DONE
-                    </span>
+                  ) : (
+                    <div className="space-y-3">
+                      <button
+                        onClick={enableOneClickTrading}
+                        disabled={enablingTrading || delegationLoading || allowanceLoading || !ostiumAgentAddress}
+                        className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {enablingTrading || delegationLoading || allowanceLoading ? (
+                          <>
+                            <Activity className="w-5 h-5 animate-pulse" />
+                            {currentAction || "ENABLING 1-CLICK TRADING..."}
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-5 h-5" />
+                            ENABLE 1-CT
+                          </>
+                        )}
+                      </button>
+                      {ostiumAgentAddress && (
+                        <button
+                          onClick={checkOstiumStatus}
+                          disabled={delegationLoading || allowanceLoading || enablingTrading}
+                          className="w-full py-2 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                        >
+                          Refresh Status
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
+              )}
 
-                {!allowanceComplete && (
-                  <div className="space-y-2">
-                    <button
-                      onClick={approveUsdc}
-                      disabled={allowanceLoading || !delegationComplete}
-                      className="w-full py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {allowanceLoading ? (
-                        <>
-                          <Activity className="w-5 h-5 animate-pulse" />
-                          SIGNING...
-                        </>
-                      ) : (
-                        "APPROVE USDC"
-                      )}
-                    </button>
-                    {!delegationComplete && (
-                      <p className="text-xs text-[var(--text-secondary)] text-center">
-                        Complete delegation first
-                      </p>
-                    )}
-                  </div>
-                )}
+              {/* Delegation Transaction Hash */}
+              {delegationTxHash && (
+                <div className="mt-3 border border-[var(--accent)] bg-[var(--accent)]/5 p-3">
+                  <p className="text-[var(--accent)] text-xs mb-1">
+                    Delegation transaction submitted
+                  </p>
+                  <a
+                    href={`https://arbiscan.io/tx/${delegationTxHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] flex items-center gap-1 font-mono"
+                  >
+                    {delegationTxHash.slice(0, 20)}... <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              )}
 
-                {/* USDC Approval Transaction Hash */}
-                {allowanceTxHash && (
-                  <div className="mt-3 border border-[var(--accent)] bg-[var(--accent)]/5 p-3">
-                    <p className="text-[var(--accent)] text-xs mb-1">
-                      USDC approval transaction submitted
-                    </p>
-                    <a
-                      href={`https://arbiscan.io/tx/${allowanceTxHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] flex items-center gap-1 font-mono"
-                    >
-                      {allowanceTxHash.slice(0, 20)}... <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                )}
-              </div>
-
+              {/* USDC Approval Transaction Hash */}
+              {allowanceTxHash && (
+                <div className="mt-3 border border-[var(--accent)] bg-[var(--accent)]/5 p-3">
+                  <p className="text-[var(--accent)] text-xs mb-1">
+                    USDC approval transaction submitted
+                  </p>
+                  <a
+                    href={`https://arbiscan.io/tx/${allowanceTxHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[var(--text-secondary)] hover:text-[var(--accent)] flex items-center gap-1 font-mono"
+                  >
+                    {allowanceTxHash.slice(0, 20)}... <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              )}
 
               {/* Info Box */}
               <div className="border border-[var(--border)] p-4 text-sm text-[var(--text-secondary)]">
@@ -1203,5 +1310,6 @@ export default function LazyTrading() {
         </div>
       </div>
     </div>
+
   );
 }

@@ -25,13 +25,14 @@ export function OstiumConnect({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [deploymentId, setDeploymentId] = useState<string>('');
-  const [step, setStep] = useState<'connect' | 'preferences' | 'agent' | 'delegate' | 'usdc' | 'complete'>('connect');
+  const [step, setStep] = useState<'connect' | 'preferences' | 'agent' | 'oneclick' | 'complete'>('connect');
   const [joiningAgent, setJoiningAgent] = useState(false);
   const [isWalletConnected, setIsWalletConnected] = useState(false);
   const [delegateApproved, setDelegateApproved] = useState(false);
   const [usdcApproved, setUsdcApproved] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [agentAddress] = useState(UNIVERSAL_OSTIUM_AGENT_ADDRESS);
+  const [currentAction, setCurrentAction] = useState<string>('');
 
   // Trading preferences stored locally until all approvals complete
   const [tradingPreferences, setTradingPreferences] = useState<TradingPreferences | null>(null);
@@ -41,11 +42,11 @@ export function OstiumConnect({
 
 
   const checkSetupStatus = async () => {
-    // Frontend-only: simulate a quick setup check, then move to delegate step
+    // Frontend-only: simulate a quick setup check, then move to oneclick step
     console.log('[OstiumConnect] Skipping backend setup check (frontend simulation)');
     setTimeout(() => {
       setLoading(false);
-      setStep('delegate');
+      setStep('oneclick');
     }, 600);
   };
 
@@ -77,160 +78,6 @@ export function OstiumConnect({
     }, 2000);
   };
 
-  // const approveAgent = async () => {
-  //   setLoading(true);
-  //   setError('');
-
-  //   // Frontend-only simulation of delegate approval
-  //   setTimeout(() => {
-  //     console.log('[OstiumConnect] ✅ Simulated delegate approval, moving to USDC step');
-  //     setDelegateApproved(true);
-  //     setStep('usdc');
-  //     setTxHash('0xSIMULATED_DELEGATE_TX');
-  //     setLoading(false);
-  //   }, 2000);
-  // };
-
-  // const approveUsdc = async () => {
-  //   console.log('[OstiumConnect] approveUsdc called - starting USDC approval flow');
-  //   setLoading(true);
-  //   setError('');
-
-  //   try {
-  //     if (!authenticated || !user?.wallet?.address) {
-  //       throw new Error('Please connect your wallet');
-  //     }
-
-  //     const provider = (window as any).ethereum;
-  //     if (!provider) {
-  //       throw new Error('No wallet provider found.');
-  //     }
-
-  //     const ethersProvider = new ethers.providers.Web3Provider(provider);
-  //     await ethersProvider.send('eth_requestAccounts', []);
-
-  //     const network = await ethersProvider.getNetwork();
-  //     if (network.chainId !== ARBITRUM_CHAIN_ID) {
-  //       throw new Error('Please switch to Arbitrum');
-  //     }
-
-  //     const signer = ethersProvider.getSigner();
-  //     const usdcContract = new ethers.Contract(USDC_TOKEN, USDC_ABI, signer);
-
-  //     const currentAllowanceStorage = await usdcContract.allowance(user.wallet.address, OSTIUM_STORAGE);
-  //     // const currentAllowanceTrading = await usdcContract.allowance(user.wallet.address, OSTIUM_TRADING_CONTRACT);
-  //     const allowanceAmount = ethers.utils.parseUnits('1000000', 6);
-
-  //     const storageAllowance = parseFloat(ethers.utils.formatUnits(currentAllowanceStorage, 6));
-  //     // const tradingAllowance = parseFloat(ethers.utils.formatUnits(currentAllowanceTrading, 6));
-  //     const requiredAmount = parseFloat(ethers.utils.formatUnits(allowanceAmount, 6));
-
-  //     console.log('[OstiumConnect] USDC Approval Check:');
-  //     console.log('  Storage allowance:', storageAllowance, 'USDC');
-  //     // console.log('  Trading allowance:', tradingAllowance, 'USDC');
-  //     console.log('  Required amount:', requiredAmount, 'USDC');
-
-  //     // Use a lower threshold - only skip if user has genuinely high approval
-  //     // This ensures first-time users always go through the approval flow
-  //     const MIN_REQUIRED_APPROVAL = 100; // $100 minimum to skip (not $10)
-  //     const needsStorageApproval = storageAllowance < MIN_REQUIRED_APPROVAL;
-  //     // const needsTradingApproval = tradingAllowance < MIN_REQUIRED_APPROVAL;
-
-  //     console.log('  Needs Storage approval:', needsStorageApproval, `(current: ${storageAllowance}, required: ${MIN_REQUIRED_APPROVAL})`);
-  //     // console.log('  Needs Trading approval:', needsTradingApproval, `(current: ${tradingAllowance}, required: ${MIN_REQUIRED_APPROVAL})`);
-
-  //     if (!needsStorageApproval) {
-  //       console.log('[OstiumConnect] USDC already sufficiently approved, skipping to complete');
-  //       setUsdcApproved(true);
-  //       setStep('complete');
-
-  //       // Call onSuccess but don't auto-close - let user close manually
-  //       if (onSuccess) {
-  //         onSuccess();
-  //       }
-  //       return;
-  //     }
-
-  //     // At least one approval is needed
-  //     console.log('[OstiumConnect] USDC approval needed, proceeding with transaction(s)');
-
-  //     if (needsStorageApproval) {
-  //       const approveData = usdcContract.interface.encodeFunctionData('approve', [OSTIUM_STORAGE, allowanceAmount]);
-  //       const gasEstimate = await ethersProvider.estimateGas({
-  //         to: USDC_TOKEN,
-  //         from: user.wallet.address,
-  //         data: approveData,
-  //       });
-
-  //       // 50% gas buffer for reliability
-  //       const gasWithBuffer = gasEstimate.mul(150).div(100);
-  //       console.log(`[OstiumConnect] USDC Storage approval - Gas estimate: ${gasEstimate.toString()}, with 50% buffer: ${gasWithBuffer.toString()}`);
-
-  //       const txHash = await provider.request({
-  //         method: 'eth_sendTransaction',
-  //         params: [{
-  //           from: user.wallet.address,
-  //           to: USDC_TOKEN,
-  //           data: approveData,
-  //           gas: gasWithBuffer.toHexString(),
-  //         }],
-  //       });
-
-  //       setTxHash(txHash);
-  //       await ethersProvider.waitForTransaction(txHash);
-  //     }
-
-  //     // if (needsTradingApproval) {
-  //     //   const approveDataTrading = usdcContract.interface.encodeFunctionData('approve', [OSTIUM_TRADING_CONTRACT, allowanceAmount]);
-  //     //   const gasEstimateTrading = await ethersProvider.estimateGas({
-  //     //     to: USDC_TOKEN,
-  //     //     from: user.wallet.address,
-  //     //     data: approveDataTrading,
-  //     //   });
-
-  //     //   // 50% gas buffer for reliability
-  //     //   const gasWithBufferTrading = gasEstimateTrading.mul(150).div(100);
-  //     //   console.log(`[OstiumConnect] USDC Trading approval - Gas estimate: ${gasEstimateTrading.toString()}, with 50% buffer: ${gasWithBufferTrading.toString()}`);
-
-  //     //   const txHashTrading = await provider.request({
-  //     //     method: 'eth_sendTransaction',
-  //     //     params: [{
-  //     //       from: user.wallet.address,
-  //     //       to: USDC_TOKEN,
-  //     //       data: approveDataTrading,
-  //     //       gas: gasWithBufferTrading.toHexString(),
-  //     //     }],
-  //     //   });
-
-  //     //   setTxHash(txHashTrading);
-  //     //   await ethersProvider.waitForTransaction(txHashTrading);
-  //     // }
-
-  //     setUsdcApproved(true);
-  //     setStep('complete');
-
-  //     // Don't call onSuccess here - wait until deployment is actually created
-  //     // onSuccess will be called in joinAgent function
-
-  //   } catch (err: any) {
-  //     console.error('USDC approval error:', err);
-
-  //     if (err.code === 4001 || err.message?.includes('rejected')) {
-  //       setError('Transaction rejected');
-  //     } else {
-  //       setError(err.message || 'Failed to approve USDC');
-  //     }
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  // const handleConnect = () => {
-  //   if (!authenticated) {
-  //     login();
-  //   }
-  // };
-
   const approveAgent = async () => {
     // Frontend-only simulation of delegate approval
     console.log('[OstiumConnect] Simulating delegate approval');
@@ -238,23 +85,33 @@ export function OstiumConnect({
     setError('');
     setTimeout(() => {
       setDelegateApproved(true);
-      setStep('usdc');
+      setStep('oneclick');
       setTxHash('0xSIMULATED_DELEGATE_TX');
       setLoading(false);
     }, 1200);
   };
 
-  const approveUsdc = async () => {
-    // Frontend-only simulation of USDC approval
-    console.log('[OstiumConnect] Simulating USDC approval');
+  const enableOneClickTrading = async () => {
+    // Frontend-only simulation: do both delegation and USDC approval
+    console.log('[OstiumConnect] Simulating 1-click trading enablement');
     setLoading(true);
     setError('');
-    setTimeout(() => {
-      setUsdcApproved(true);
-      setStep('complete');
-      setTxHash('0xSIMULATED_USDC_TX');
-      setLoading(false);
-    }, 1200);
+
+    // First, approve delegation if not already done
+    if (!delegateApproved) {
+      setCurrentAction('Approving delegation...');
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      setDelegateApproved(true);
+    }
+
+    // Then, approve USDC
+    setCurrentAction('Approving USDC allowance...');
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    setUsdcApproved(true);
+
+    setStep('complete');
+    setTxHash('0xSIMULATED_ONECLICK_TX');
+    setLoading(false);
   };
 
   const handleConnect = () => {
@@ -288,12 +145,10 @@ export function OstiumConnect({
       setStep('connect');
     } else if (step === 'agent') {
       setStep('preferences');
-    } else if (step === 'delegate') {
-      setStep('preferences');
-    } else if (step === 'usdc') {
-      setStep('delegate');
+    } else if (step === 'oneclick') {
+      setStep('agent');
     } else if (step === 'complete') {
-      setStep('usdc');
+      setStep('oneclick');
     }
   };
 
@@ -377,7 +232,7 @@ export function OstiumConnect({
 
               <li className="flex items-start gap-3">
                 <span
-                  className={`flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-bold ${step === 'delegate'
+                  className={`flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-bold ${step === 'agent'
                     ? 'border-[var(--accent)] text-[var(--accent)]'
                     : 'border-[var(--border)] text-[var(--text-muted)]'
                     }`}
@@ -392,7 +247,7 @@ export function OstiumConnect({
 
               <li className="flex items-start gap-3">
                 <span
-                  className={`flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-bold ${step === 'usdc'
+                  className={`flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-bold ${step === 'oneclick'
                     ? 'border-[var(--accent)] text-[var(--accent)]'
                     : 'border-[var(--border)] text-[var(--text-muted)]'
                     }`}
@@ -400,8 +255,8 @@ export function OstiumConnect({
                   4
                 </span>
                 <div>
-                  <p className="font-semibold">Provide funds (non-custodial)</p>
-                  <p className="text-[10px] text-[var(--text-muted)]">Funds stay in your wallet, only routed to Ostium.</p>
+                  <p className="font-semibold">Enable 1-Click Trading</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Delegate signatures and set allowance.</p>
                 </div>
               </li>
 
@@ -461,7 +316,7 @@ export function OstiumConnect({
                   </div>
                   <div className="border border-[var(--border)] p-4 text-sm text-[var(--text-secondary)] rounded">
                     <p className="font-semibold text-[var(--text-primary)] mb-1">Ready to start</p>
-                    <p>We’ll keep your wallet connected while you finish the steps.</p>
+                    <p>We'll keep your wallet connected while you finish the steps.</p>
                   </div>
                   <button
                     onClick={() => setStep('preferences')}
@@ -471,7 +326,6 @@ export function OstiumConnect({
                   </button>
                 </div>
               ) : (
-                // Show connect button if not authenticated
                 <div className="text-center space-y-6 py-4">
                   <div className="w-16 h-16 mx-auto border border-[var(--accent)] flex items-center justify-center">
                     <Wallet className="w-8 h-8 text-[var(--accent)]" />
@@ -535,173 +389,98 @@ export function OstiumConnect({
                   </p>
                 </div>
               </div>
-            ) : step === 'delegate' ? (
+            ) : step === 'oneclick' ? (
               <>
-                <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-4 space-y-2 rounded">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-[var(--accent)] font-semibold">Step 3 · Assign Agent to Trade for You</p>
-                    {delegateApproved && (
-                      <span className="text-[10px] px-2 py-1 border border-[var(--accent)] text-[var(--accent)] font-bold rounded">
-                        Completed
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    This assigns your Alpha Club's trading wallet to execute trades on your behalf. The agent can open and close positions, but <strong className="text-[var(--accent)]">cannot withdraw your funds</strong>.
-                  </p>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-3 text-xs">
-                  <div className="border border-[var(--border)] p-3 rounded">
-                    <p className="font-semibold text-[var(--text-primary)]">Trading wallet assigned</p>
-                    <p className="font-mono break-all text-[var(--text-secondary)] mt-1">{agentAddress}</p>
-                  </div>
-                  <div className="border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-3 rounded">
-                    <p className="font-semibold text-[var(--accent)]">🔒 Your funds stay safe</p>
-                    <p className="text-[var(--text-secondary)] mt-1">
-                      Agent can only trade. It cannot withdraw, transfer, or access any other tokens. Revoke anytime.
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="font-display text-xl mb-2">Enable 1-Click Trading</h3>
+                    <p className="text-sm text-[var(--text-secondary)]">
+                      Make the most of Ostium. Enable gasless transactions and 1-click trading.
                     </p>
                   </div>
-                </div>
 
-                {txHash && (
-                  <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-3">
-                    <p className="text-[var(--accent)] text-sm mb-2">✓ Transaction confirmed</p>
-                    <a
-                      href={`https://sepolia.arbiscan.io/tx/${txHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1"
-                    >
-                      View on Arbiscan <ExternalLink className="w-3 h-3" />
-                    </a>
+                  <div>
+                    <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3">STEPS</p>
+                    <p className="text-sm text-[var(--text-secondary)] mb-4">Sign the following wallet requests.</p>
                   </div>
-                )}
 
-                <div className="flex gap-3">
-                  <button
-                    onClick={goBack}
-                    className="w-32 py-3 border border-[var(--accent)]/60 text-[var(--text-primary)] font-semibold hover:border-[var(--accent)] transition-colors"
-                    type="button"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={approveAgent}
-                    disabled={loading || delegateApproved}
-                    className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {loading ? (
-                      <>
-                        <Activity className="w-5 h-5 animate-pulse" />
-                        SIGNING...
-                      </>
-                    ) : delegateApproved ? (
-                      <>
-                        <CheckCircle className="w-5 h-5" />
-                        DELEGATE APPROVED
-                      </>
-                    ) : (
-                      'APPROVE AGENT ACCESS →'
-                    )}
-                  </button>
-                  {delegateApproved && (
+                  {/* Step 1: Enable Account Delegation */}
+                  <div className={`border p-4 rounded ${delegateApproved ? 'border-[var(--accent)] bg-[var(--accent)]/5' : 'border-[var(--border)]'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 flex items-center justify-center border ${delegateApproved ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--bg-deep)]' : 'border-[var(--border)]'}`}>
+                        {delegateApproved ? <CheckCircle className="w-5 h-5" /> : <div className="w-4 h-4 border-2 border-[var(--border)] rounded-full" />}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-sm">ENABLE ACCOUNT DELEGATION</p>
+                        <p className="text-xs text-[var(--text-secondary)]">Delegate signatures to a smart wallet.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Set Allowance */}
+                  <div className={`border p-4 rounded ${usdcApproved ? 'border-[var(--accent)] bg-[var(--accent)]/5' : 'border-[var(--border)]'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 flex items-center justify-center border ${usdcApproved ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--bg-deep)]' : 'border-[var(--border)]'}`}>
+                        {usdcApproved ? <CheckCircle className="w-5 h-5" /> : <span className="text-xs font-bold">2</span>}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-sm">SET ALLOWANCE</p>
+                        <p className="text-xs text-[var(--text-secondary)]">Set the maximum allowance. It's advisable to set this high.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {txHash && (
+                    <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-3">
+                      <p className="text-[var(--accent)] text-sm mb-2">✓ Transaction confirmed</p>
+                      <a
+                        href={`https://sepolia.arbiscan.io/tx/${txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1"
+                      >
+                        View on Arbiscan <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
                     <button
-                      onClick={() => setStep('usdc')}
-                      className="w-40 py-3 border border-[var(--accent)] text-[var(--accent)] font-semibold hover:bg-[var(--accent)]/10 transition-colors"
+                      onClick={goBack}
+                      className="w-32 py-3 border border-[var(--accent)]/60 text-[var(--text-primary)] font-semibold hover:border-[var(--accent)] transition-colors"
                       type="button"
                     >
-                      Next: USDC
+                      Back
                     </button>
-                  )}
-                </div>
-              </>
-            ) : step === 'usdc' ? (
-              <>
-                <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-4 space-y-3 text-sm rounded">
-                  <div className="flex items-center justify-between">
-                    <p className="font-bold text-[var(--accent)]">STEP 4: PROVIDE FUNDS TO AGENT (NON-CUSTODIAL)</p>
-                    {!usdcApproved && (
-                      <span className="text-[10px] px-2 py-1 border border-[var(--accent)] text-[var(--accent)] font-bold rounded">
-                        Required
-                      </span>
-                    )}
-                    {usdcApproved && (
-                      <span className="text-[10px] px-2 py-1 border border-[var(--accent)] text-[var(--accent)] font-bold rounded">
-                        Completed
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[var(--text-secondary)]">
-                    You're allowing the agent to use your USDC for trading on Ostium. This is <strong className="text-[var(--accent)]">100% non-custodial</strong>: your funds never leave your wallet — they're only routed to Ostium for position management.
-                  </p>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-3 text-xs">
-                  <div className="border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-3 rounded">
-                    <p className="font-semibold text-[var(--accent)]">🔒 Non-custodial guarantee</p>
-                    <p className="text-[var(--text-secondary)] mt-1">
-                      Funds stay in YOUR wallet. Agent can only route USDC to Ostium for trades — cannot withdraw or transfer elsewhere.
-                    </p>
-                  </div>
-                  <div className="border border-[var(--border)] p-3 rounded">
-                    <p className="font-semibold text-[var(--text-primary)]">Full control</p>
-                    <p className="text-[var(--text-secondary)] mt-1">
-                      Revoke or reduce this allowance anytime from your wallet. Agent cannot access other tokens.
-                    </p>
-                  </div>
-                </div>
-
-                {txHash && (
-                  <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-3">
-                    <p className="text-[var(--accent)] text-sm mb-2">✓ Transaction confirmed</p>
-                    <a
-                      href={`https://sepolia.arbiscan.io/tx/${txHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1"
-                    >
-                      View on Arbiscan <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                )}
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={goBack}
-                    className="w-32 py-3 border border-[var(--accent)]/60 text-[var(--text-primary)] font-semibold hover:border-[var(--accent)] transition-colors"
-                    type="button"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={approveUsdc}
-                    disabled={loading || usdcApproved}
-                    className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {loading ? (
-                      <>
-                        <Activity className="w-5 h-5 animate-pulse" />
-                        SIGNING...
-                      </>
-                    ) : usdcApproved ? (
-                      <>
-                        <CheckCircle className="w-5 h-5" />
-                        USDC APPROVED
-                      </>
-                    ) : (
-                      'APPROVE USDC →'
-                    )}
-                  </button>
-                  {usdcApproved && (
                     <button
-                      onClick={() => setStep('complete')}
-                      className="w-40 py-3 border border-[var(--accent)] text-[var(--accent)] font-semibold hover:bg-[var(--accent)]/10 transition-colors"
-                      type="button"
+                      onClick={enableOneClickTrading}
+                      disabled={loading || (delegateApproved && usdcApproved)}
+                      className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      Next: Finish
+                      {loading ? (
+                        <>
+                          <Activity className="w-5 h-5 animate-pulse" />
+                          {currentAction || 'ENABLING 1-CLICK TRADING...'}
+                        </>
+                      ) : (delegateApproved && usdcApproved) ? (
+                        <>
+                          <CheckCircle className="w-5 h-5" />
+                          ENABLED
+                        </>
+                      ) : (
+                        'ENABLE 1-CLICK TRADING'
+                      )}
                     </button>
-                  )}
+                    {(delegateApproved && usdcApproved) && (
+                      <button
+                        onClick={() => setStep('complete')}
+                        className="w-40 py-3 border border-[var(--accent)] text-[var(--accent)] font-semibold hover:bg-[var(--accent)]/10 transition-colors"
+                        type="button"
+                      >
+                        Next: Join
+                      </button>
+                    )}
+                  </div>
                 </div>
               </>
             ) : deploymentId ? (
@@ -764,62 +543,175 @@ export function OstiumConnect({
                 </div>
               </div>
             ) : (
-              <div className="text-center space-y-6 py-4">
-                <div className="w-16 h-16 mx-auto border border-[var(--accent)] flex items-center justify-center">
-                  <Zap className="w-10 h-10 text-[var(--accent)]" />
-                </div>
-                <div>
-                  <h3 className="font-display text-xl mb-2">AGENT LIVE</h3>
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    All approvals complete. Ready to deploy the agent.
-                  </p>
-                </div>
+              <>
+                {error && (
+                  <div className="flex items-start gap-3 p-4 border border-[var(--danger)] bg-[var(--danger)]/10">
+                    <AlertCircle className="w-5 h-5 text-[var(--danger)] flex-shrink-0 mt-0.5" />
+                    <span className="text-sm text-[var(--danger)]">{error}</span>
+                  </div>
+                )}
 
-                <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-4 space-y-2 text-sm text-left">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
-                    <span>Agent whitelisted</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
-                    <span>USDC approved</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border border-[var(--accent)] rounded-full flex items-center justify-center">
-                      <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-pulse" />
+                {deploymentId ? (
+                  <div className="text-center space-y-6 py-4">
+                    <div className="w-16 h-16 mx-auto border border-[var(--accent)] bg-[var(--accent)] flex items-center justify-center">
+                      <CheckCircle className="w-10 h-10 text-[var(--bg-deep)]" />
                     </div>
-                    <span>Ready to deploy agent</span>
-                  </div>
-                </div>
+                    <div>
+                      <h3 className="font-display text-xl mb-2">AGENT DEPLOYED</h3>
+                      <p className="text-sm text-[var(--text-secondary)]">
+                        Agent is now live and ready to trade on Ostium
+                      </p>
+                    </div>
 
-                <div className="flex gap-3 justify-center">
-                  <button
-                    onClick={goBack}
-                    className="px-4 py-3 border border-[var(--accent)]/60 text-[var(--text-primary)] font-semibold hover:border-[var(--accent)] transition-colors"
-                    type="button"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={joinAgent}
-                    disabled={joiningAgent}
-                    className="px-6 py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center gap-2"
-                    type="button"
-                  >
-                    {joiningAgent ? (
-                      <>
-                        <Activity className="w-5 h-5 animate-spin" />
-                        JOINING AGENT...
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="w-5 h-5" />
-                        JOIN AGENT
-                      </>
+                    {txHash && (
+                      <a
+                        href={`https://sepolia.arbiscan.io/tx/${txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-[var(--accent)] hover:underline flex items-center justify-center gap-1"
+                      >
+                        View transaction <ExternalLink className="w-3 h-3" />
+                      </a>
                     )}
-                  </button>
-                </div>
-              </div>
+
+                    <div className="border border-[var(--accent)] bg-[var(--accent)]/5 p-4 space-y-2 text-sm text-left">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
+                        <span>Agent whitelisted</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
+                        <span>USDC approved</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
+                        <span>Agent deployed and active</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-[var(--accent)]" />
+                        <span>Ready to execute signals</span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 justify-center">
+                      <button
+                        onClick={goBack}
+                        className="px-4 py-3 border border-[var(--accent)]/60 text-[var(--text-primary)] font-semibold hover:border-[var(--accent)] transition-colors"
+                        type="button"
+                      >
+                        Back
+                      </button>
+                      <button
+                        onClick={onClose}
+                        className="px-4 py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors"
+                        type="button"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6 py-4">
+                    {/* AGENT LIVE Header */}
+                    <div className="text-center">
+                      <div className="w-20 h-20 mx-auto border-2 border-[var(--accent)] bg-[var(--accent)] flex items-center justify-center mb-4">
+                        <Zap className="w-10 h-10 text-[var(--bg-deep)]" />
+                      </div>
+                      <h3 className="font-display text-2xl mb-2">AGENT LIVE</h3>
+                      <p className="text-sm text-[var(--text-secondary)]">
+                        All approvals complete. Ready to deploy the agent.
+                      </p>
+                    </div>
+
+                    {/* SETUP COMPLETE Section */}
+                    <div className="border border-[var(--border)] bg-[var(--bg-surface)] p-5">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h4 className="font-display text-lg text-[var(--accent)] mb-3">SETUP COMPLETE</h4>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-[var(--accent)] rounded-full" />
+                              <span className="text-sm">Agent whitelisted & assigned</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-[var(--accent)] rounded-full" />
+                              <span className="text-sm">USDC approved (Non-custodial)</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-5 h-5 text-[var(--accent)]" />
+                          <span className="text-xs text-[var(--text-muted)] font-bold">READY TO ACTIVATE</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* CREDIT SUMMARY Section */}
+                    <div className="border border-[var(--border)] bg-[var(--bg-surface)] p-5 space-y-3">
+                      <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">CREDIT SUMMARY</h4>
+
+                      {/* Alpha Access */}
+                      <div className="flex items-center justify-between py-2 border-b border-dashed border-[var(--border)]">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">Alpha Access:</span>
+                          <span className="text-sm font-mono">abhidavinci</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] px-2 py-0.5 bg-[var(--accent)] text-[var(--bg-deep)] font-bold">PAID ACCESS</span>
+                          <span className="text-sm font-bold">500 CREDS</span>
+                        </div>
+                      </div>
+
+                      {/* Platform Fee */}
+                      <div className="flex items-center justify-between py-2 border-b border-dashed border-[var(--border)]">
+                        <span className="text-sm text-[var(--text-secondary)]">Platform Fee (10%)</span>
+                        <span className="text-sm font-bold">50 CREDS</span>
+                      </div>
+
+                      {/* Cost to Join */}
+                      <div className="flex items-center justify-between pt-2">
+                        <span className="text-sm font-bold">COST TO JOIN</span>
+                        <span className="text-xl font-bold">550 CREDS</span>
+                      </div>
+
+                      {/* Your Balance */}
+                      <div className="flex items-center justify-between pt-3 border-t border-[var(--border)]">
+                        <span className="text-xs text-[var(--text-muted)] uppercase tracking-wider">YOUR BALANCE</span>
+                        <span className="text-xl font-bold">0 CREDS</span>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3">
+                      <button
+                        onClick={goBack}
+                        className="px-6 py-3 border border-[var(--border)] text-[var(--text-primary)] font-bold hover:bg-[var(--bg-elevated)] transition-colors"
+                        type="button"
+                      >
+                        Back
+                      </button>
+                      <button
+                        onClick={joinAgent}
+                        disabled={joiningAgent}
+                        className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        type="button"
+                      >
+                        {joiningAgent ? (
+                          <>
+                            <Activity className="w-5 h-5 animate-spin" />
+                            JOINING AGENT...
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-5 h-5" />
+                            JOIN AGENT (550 CREDS)
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

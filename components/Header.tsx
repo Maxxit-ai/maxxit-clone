@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { Home, Wallet, User, Plus, TrendingUp, Menu, BookOpen, ChevronDown } from 'lucide-react';
+import { Home, Wallet, User, Plus, TrendingUp, Menu, BookOpen, ChevronDown, Activity, Sparkles, Coins } from 'lucide-react';
 import { Bot, BarChart3, FileText, Copy, Check, LogOut, X, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import { UNIVERSAL_WALLET_ADDRESS } from '../json/addresses';
@@ -54,6 +54,7 @@ export function Header() {
   ];
 
   const portfolioItems = [
+    { href: '/dashboard', label: 'Dashboard', icon: Activity, testId: 'nav-dashboard' },
     { href: '/my-deployments', label: 'My Clubs', icon: Wallet, testId: 'nav-deployments' },
     { href: '/my-trades', label: 'My Trades', icon: TrendingUp, testId: 'nav-my-trades' },
   ];
@@ -66,11 +67,12 @@ export function Header() {
   const resourcesItems = [
     { href: '/blog', label: 'Blog', icon: BookOpen, testId: 'nav-blog' },
     { href: '/docs', label: 'Docs', icon: FileText, testId: 'nav-docs' },
+    { href: '/pricing', label: 'Pricing', icon: Sparkles, testId: 'nav-pricing' },
   ];
 
-  const isPortfolioActive = router.pathname === '/my-deployments' || router.pathname === '/my-trades';
+  const isPortfolioActive = router.pathname === '/dashboard' || router.pathname === '/my-deployments' || router.pathname === '/my-trades';
   const isTradingActive = router.pathname === '/lazy-trading' || router.pathname === '/creator';
-  const isResourcesActive = router.pathname === '/blog' || router.pathname === '/docs';
+  const isResourcesActive = router.pathname === '/blog' || router.pathname === '/docs' || router.pathname === '/pricing';
 
   // Close popup when clicking outside
   useEffect(() => {
@@ -340,6 +342,19 @@ export function Header() {
                 >
                   <Plus className="h-4 w-4" />
                   <span className="hidden sm:inline">Join</span>
+                </button>
+              </Link>
+
+              <Link href="/credit-history">
+                <button
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 ml-2 border border-[var(--accent)]/50 bg-[var(--accent)]/10 text-[var(--accent)] text-sm font-bold hover:bg-[var(--accent)]/20 hover:border-[var(--accent)] transition-all group"
+                  data-testid="nav-credits"
+                >
+                  <Coins className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                  <span className="hidden sm:inline font-mono min-w-[2ch]">
+                    5600
+                  </span>
+                  <span className="hidden sm:inline text-[10px] text-[var(--accent)]/70 uppercase tracking-wider">Credits</span>
                 </button>
               </Link>
 

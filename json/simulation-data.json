@@ -7,7 +7,10 @@
       "apr30d": 24.3,
       "apr90d": 52.1,
       "aprSi": 87.5,
-      "sharpe30d": 1.42
+      "sharpe30d": 1.42,
+      "description": "A momentum-driven trading agent that identifies and capitalizes on short-term price movements across multiple venues. Uses technical indicators and social sentiment to execute high-probability trades.",
+      "credits": "550 credits per deployment",
+      "totalCost": 550
     },
     {
       "id": "agent-2",
@@ -16,7 +19,10 @@
       "apr30d": 12.8,
       "apr90d": 34.9,
       "aprSi": 60.3,
-      "sharpe30d": 1.12
+      "sharpe30d": 1.12,
+      "description": "Professional market-making strategy that provides liquidity and captures spreads. Optimized for consistent returns with lower volatility through sophisticated order book analysis.",
+      "credits": "550 credits per deployment",
+      "totalCost": 550
     },
     {
       "id": "agent-3",
@@ -25,7 +31,10 @@
       "apr30d": 31.6,
       "apr90d": 70.4,
       "aprSi": 102.7,
-      "sharpe30d": 1.67
+      "sharpe30d": 1.67,
+      "description": "Advanced arbitrage agent that exploits price discrepancies across different trading venues. Monitors multiple exchanges simultaneously to identify and execute profitable arbitrage opportunities with minimal risk.",
+      "credits": "550 credits per deployment",
+      "totalCost": 550
     }
   ],
   "ostiumStatus": {
@@ -138,7 +147,9 @@
       "apr30d": 18.4,
       "apr90d": 36.2,
       "aprSi": 58.0,
-      "sharpe30d": 1.1
+      "sharpe30d": 1.1,
+      "description": "Simplified trading agent designed for casual traders. Automatically executes trades based on Telegram signals with customizable risk parameters. Perfect for users who want automated trading without complex configuration.",
+      "credits": "100 credits per deployment"
     }
   },
   "positions": {

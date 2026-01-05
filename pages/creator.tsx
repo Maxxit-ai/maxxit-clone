@@ -686,6 +686,7 @@ export default function Creator() {
         <MultiVenueSelector
           agentId={deployingAgent.id}
           agentName={deployingAgent.name}
+          agentDescription={deployingAgent.description || null}
           onClose={() => {
             setShowDeploymentModal(false);
             setDeployingAgent(null);
