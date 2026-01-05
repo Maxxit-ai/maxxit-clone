@@ -56,23 +56,13 @@ export class AgentService {
 
     // 2. Link CT accounts (agent_accounts table)
     if (linkingData.ctAccountIds && linkingData.ctAccountIds.length > 0) {
-      // Use createMany if supported and safe, but separate creates are fine for small sets
-      for (const ctAccountId of linkingData.ctAccountIds) {
-        // @ts-ignore
-        await db.agent_accounts.upsert({
-          where: {
-            agent_id_ct_account_id: {
-              agent_id: agentId,
-              ct_account_id: ctAccountId,
-            },
-          },
-          update: {}, // No updates if exists
-          create: {
-            agent_id: agentId,
-            ct_account_id: ctAccountId,
-          },
-        });
-      }
+      await db.agent_accounts.createMany({
+        data: linkingData.ctAccountIds.map((ctAccountId: string) => ({
+          agent_id: agentId,
+          ct_account_id: ctAccountId,
+        })),
+        skipDuplicates: true,
+      });
     }
 
     // 3. Link Research Institutes (agent_research_institutes table)
@@ -80,22 +70,13 @@ export class AgentService {
       linkingData.researchInstituteIds &&
       linkingData.researchInstituteIds.length > 0
     ) {
-      for (const instituteId of linkingData.researchInstituteIds) {
-        // @ts-ignore
-        await db.agent_research_institutes.upsert({
-          where: {
-            agent_id_institute_id: {
-              agent_id: agentId,
-              institute_id: instituteId,
-            },
-          },
-          update: {},
-          create: {
-            agent_id: agentId,
-            institute_id: instituteId,
-          },
-        });
-      }
+      await db.agent_research_institutes.createMany({
+        data: linkingData.researchInstituteIds.map((instituteId: string) => ({
+          agent_id: agentId,
+          institute_id: instituteId,
+        })),
+        skipDuplicates: true,
+      });
     }
 
     // 4. Link Telegram Alpha Users (agent_telegram_users table)
@@ -103,42 +84,25 @@ export class AgentService {
       linkingData.telegramAlphaUserIds &&
       linkingData.telegramAlphaUserIds.length > 0
     ) {
-      for (const telegramAlphaUserId of linkingData.telegramAlphaUserIds) {
-        // @ts-ignore
-        await db.agent_telegram_users.upsert({
-          where: {
-            agent_id_telegram_alpha_user_id: {
-              agent_id: agentId,
-              telegram_alpha_user_id: telegramAlphaUserId,
-            },
-          },
-          update: {},
-          create: {
-            agent_id: agentId,
-            telegram_alpha_user_id: telegramAlphaUserId,
-          },
-        });
-      }
+      await db.agent_telegram_users.createMany({
+        data: linkingData.telegramAlphaUserIds.map((telegramAlphaUserId: string) => ({
+          agent_id: agentId,
+          telegram_alpha_user_id: telegramAlphaUserId,
+        })),
+        skipDuplicates: true,
+      });
     }
 
     // 5. Link Top Traders (agent_top_traders table)
     if (linkingData.topTraderIds && linkingData.topTraderIds.length > 0) {
-      for (const topTraderId of linkingData.topTraderIds) {
-        // @ts-ignore
-        await db.agent_top_traders.upsert({
-          where: {
-            agent_id_top_trader_id: {
-              agent_id: agentId,
-              top_trader_id: topTraderId,
-            },
-          },
-          update: {},
-          create: {
-            agent_id: agentId,
-            top_trader_id: topTraderId,
-          },
-        });
-      }
+      await db.agent_top_traders.createMany({
+        data: linkingData.topTraderIds.map((topTraderId: string) => ({
+          agent_id: agentId,
+          top_trader_id: topTraderId,
+          is_active: true,
+        })),
+        skipDuplicates: true,
+      });
     }
 
     return agent;

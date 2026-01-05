@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { insertAgentSchema, VenueEnum, InsertAgent } from '@shared/schema';
 import { db } from '../client/src/lib/db';
 import { useRouter } from 'next/router';
-import { Check, User, Building2, Sliders, Wallet, Eye, Rocket, Twitter, Search, Plus as PlusIcon, X, Shield, Send, Activity } from 'lucide-react';
+import { Check, User, Building2, Sliders, Wallet, Eye, Rocket, Twitter, Search, Plus as PlusIcon, X, Shield, Send, Activity, TrendingUp } from 'lucide-react';
 import { Header } from '@components/Header';
 import { usePrivy } from '@privy-io/react-auth';
 import { createProofOfIntentWithMetaMask } from '@lib/proof-of-intent';
@@ -15,6 +15,7 @@ import { OstiumApproval } from '@components/OstiumApproval';
 import { ResearchInstituteSelector } from '@components/ResearchInstituteSelector';
 import { TelegramAlphaUserSelector } from '@components/TelegramAlphaUserSelector';
 import { CtAccountSelector } from '@components/CtAccountSelector';
+import { TopTradersSelector } from '@components/TopTradersSelector';
 import { FaXTwitter } from 'react-icons/fa6';
 import dynamic from 'next/dynamic';
 import { STATUS } from 'react-joyride';
@@ -56,6 +57,7 @@ export default function CreateAgent() {
   const [selectedCtAccounts, setSelectedCtAccounts] = useState<Set<string>>(new Set());
   const [selectedResearchInstitutes, setSelectedResearchInstitutes] = useState<string[]>([]);
   const [selectedTelegramUsers, setSelectedTelegramUsers] = useState<Set<string>>(new Set());
+  const [selectedTopTraders, setSelectedTopTraders] = useState<string[]>([]);
 
   const Joyride = dynamic(() => import('react-joyride'), { ssr: false });
 
@@ -64,10 +66,12 @@ export default function CreateAgent() {
     researchInstitutes: Array<{ id: string; name: string; description: string | null; x_handle: string | null }>;
     ctAccounts: Array<{ id: string; xUsername: string; displayName: string | null; followersCount: number | null }>;
     telegramUsers: Array<{ id: string; telegram_username: string | null; first_name: string | null; last_name: string | null; credit_price?: string }>;
+    topTraders: Array<{ id: string; walletAddress: string; impactFactor: number; totalPnl: string; totalTrades: number }>;
   }>({
     researchInstitutes: [],
     ctAccounts: [],
     telegramUsers: [],
+    topTraders: [],
   });
 
   const {
@@ -173,23 +177,23 @@ export default function CreateAgent() {
     if (!isValid) {
       if (errors.name) setStep(1);
       else if (errors.venue) setStep(2);
-      else if (errors.creatorWallet) setStep(5);
+      else if (errors.creatorWallet) setStep(7);
       setError('Please fix the validation errors');
       return;
     }
     if (selectedResearchInstitutes.length === 0) {
       setError('Please select at least one research institute');
-      setStep(3);
+      setStep(4);
       return;
     }
     if (selectedCtAccounts.size === 0) {
       setError('Please select at least one CT account');
-      setStep(4);
+      setStep(5);
       return;
     }
     if (!proofOfIntent) {
       setError('Please create a proof of intent');
-      setStep(7);
+      setStep(8);
       return;
     }
     if (!authenticated) {
@@ -217,6 +221,7 @@ export default function CreateAgent() {
           ctAccountIds: Array.from(selectedCtAccounts),
           researchInstituteIds: selectedResearchInstitutes,
           telegramAlphaUserIds: Array.from(selectedTelegramUsers),
+          topTraderIds: selectedTopTraders,
         }
       };
 
@@ -299,25 +304,28 @@ export default function CreateAgent() {
     if (step === 1) isValid = await trigger('name');
     else if (step === 2) isValid = await trigger('venue');
     else if (step === 3) {
+      // Top traders is optional, so always valid
+      isValid = true;
+    } else if (step === 4) {
       if (selectedResearchInstitutes.length === 0) {
         setError('Please select at least one research institute');
         return;
       }
       isValid = true;
-    } else if (step === 4) {
+    } else if (step === 5) {
       if (selectedCtAccounts.size === 0) {
         setError('Please select at least one CT account');
         return;
       }
       isValid = true;
-    } else if (step === 5) isValid = true;
-    else if (step === 6) {
+    } else if (step === 6) isValid = true;
+    else if (step === 7) {
       const validWallet = await trigger('creatorWallet');
       const validProfit = await trigger('profitReceiverAddress');
       isValid = validWallet && validProfit;
-    } else if (step === 7) isValid = !!proofOfIntent;
+    } else if (step === 8) isValid = !!proofOfIntent;
 
-    if (isValid && step < 8) {
+    if (isValid && step < 9) {
       setStep(step + 1);
       setError(null);
     }
@@ -330,12 +338,13 @@ export default function CreateAgent() {
   const steps = [
     { number: 1, label: 'BASIC', icon: User },
     { number: 2, label: 'VENUE', icon: Building2 },
-    { number: 3, label: 'STRATEGY', icon: Sliders },
-    { number: 4, label: 'CT', icon: FaXTwitter },
-    { number: 5, label: 'TELEGRAM', icon: Send },
-    { number: 6, label: 'WALLET', icon: Wallet },
-    { number: 7, label: 'PROOF', icon: Shield },
-    { number: 8, label: 'REVIEW', icon: Eye },
+    { number: 3, label: 'TOP TRADERS', icon: TrendingUp },
+    { number: 4, label: 'STRATEGY', icon: Sliders },
+    { number: 5, label: 'CT', icon: FaXTwitter },
+    { number: 6, label: 'TELEGRAM', icon: Send },
+    { number: 7, label: 'WALLET', icon: Wallet },
+    { number: 8, label: 'PROOF', icon: Shield },
+    { number: 9, label: 'REVIEW', icon: Eye },
   ];
 
   const joyrideSteps: JoyrideStep[] = [
@@ -353,36 +362,42 @@ export default function CreateAgent() {
     },
     {
       target: '[data-tour="step-3"]',
-      content: 'Select research institutes whose signals your agent will follow with a fixed allocation.',
+      content: 'Select top traders to follow. These traders will act as signal providers for your agent.',
       disableBeacon: true,
       placement: 'top',
     },
     {
       target: '[data-tour="step-4"]',
-      content: 'Pick CT accounts to mirror. Your agent will react when these accounts post signals.',
+      content: 'Select research institutes whose signals your agent will follow with a fixed allocation.',
       disableBeacon: true,
       placement: 'top',
     },
     {
       target: '[data-tour="step-5"]',
-      content: 'Connect Telegram alpha sources whose DM signals your agent should execute.',
+      content: 'Pick CT accounts to mirror. Your agent will react when these accounts post signals.',
       disableBeacon: true,
       placement: 'top',
     },
     {
       target: '[data-tour="step-6"]',
-      content: 'Set the owner wallet and profit receiver for this agent.',
+      content: 'Connect Telegram alpha sources whose DM signals your agent should execute.',
       disableBeacon: true,
       placement: 'top',
     },
     {
       target: '[data-tour="step-7"]',
-      content: 'Sign a message proving you are the legitimate creator of this agent.',
+      content: 'Set the owner wallet and profit receiver for this agent.',
       disableBeacon: true,
       placement: 'top',
     },
     {
       target: '[data-tour="step-8"]',
+      content: 'Sign a message proving you are the legitimate creator of this agent.',
+      disableBeacon: true,
+      placement: 'top',
+    },
+    {
+      target: '[data-tour="step-9"]',
       content: 'Review every choice before creating your agent. Use Edit to jump back and adjust.',
       disableBeacon: true,
       placement: 'top',
@@ -392,17 +407,18 @@ export default function CreateAgent() {
   const stepDescriptions: Record<number, string> = {
     1: 'Name your agent and optionally describe its trading style.',
     2: 'Choose where your agent will execute trades.',
-    3: 'Select research institutes whose signals will drive your agent.',
-    4: 'Pick CT accounts your agent should mirror.',
-    5: 'Connect Telegram alpha sources your agent will listen to.',
-    6: 'Configure the wallet that owns the agent and receives profits.',
-    7: 'Sign a message to prove you are the legitimate creator.',
-    8: 'Review all settings before creating your agent.',
+    3: 'Select top traders to follow as signal providers.',
+    4: 'Select research institutes whose signals will drive your agent.',
+    5: 'Pick CT accounts your agent should mirror.',
+    6: 'Connect Telegram alpha sources your agent will listen to.',
+    7: 'Configure the wallet that owns the agent and receives profits.',
+    8: 'Sign a message to prove you are the legitimate creator.',
+    9: 'Review all settings before creating your agent.',
   };
 
   // When user reaches the final step, refresh review data (but don't change tour visibility)
   useEffect(() => {
-    if (step === 8) {
+    if (step === 9) {
       fetchReviewData();
     }
   }, [step]);
@@ -452,10 +468,17 @@ export default function CreateAgent() {
       const selectedTelegramData =
         telegramJson.alphaUsers?.filter((u: any) => selectedTelegramUsers.has(u.id)) || [];
 
+      // Top traders
+      const topTradersResponse = await fetch('/api/top-traders?limit=100');
+      const topTradersJson = await topTradersResponse.json();
+      const selectedTopTradersData =
+        topTradersJson.topTraders?.filter((trader: any) => selectedTopTraders.includes(trader.id)) || [];
+
       setReviewData({
         researchInstitutes: selectedInstitutes,
         ctAccounts: selectedCtAccountsData,
         telegramUsers: selectedTelegramData,
+        topTraders: selectedTopTradersData,
       });
     } catch (err) {
       console.error('Failed to fetch review data', err);
@@ -686,9 +709,22 @@ export default function CreateAgent() {
             </div>
           )}
 
-          {/* Step 3: Research Institutes */}
+          {/* Step 3: Top Traders */}
           {step === 3 && (
             <div className="space-y-6" data-tour="step-3">
+              <h2 className="font-display text-2xl mb-2">TOP TRADERS</h2>
+              <p className="text-[var(--text-secondary)] text-sm mb-6">Select top traders to follow. These traders will act as signal providers for your agent.</p>
+              <TopTradersSelector selectedIds={selectedTopTraders} onChange={setSelectedTopTraders} />
+              <div className="flex gap-4">
+                <button type="button" onClick={prevStep} className="flex-1 py-4 border border-[var(--border)] font-bold hover:border-[var(--text-primary)] transition-colors">BACK</button>
+                <button type="button" onClick={nextStep} className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors">NEXT →</button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Research Institutes */}
+          {step === 4 && (
+            <div className="space-y-6" data-tour="step-4">
               <h2 className="font-display text-2xl mb-2">RESEARCH INSTITUTES</h2>
               <p className="text-[var(--text-secondary)] text-sm mb-6">Choose which institutes your agent should follow for signals.</p>
               <ResearchInstituteSelector selectedIds={selectedResearchInstitutes} onChange={setSelectedResearchInstitutes} />
@@ -702,9 +738,9 @@ export default function CreateAgent() {
             </div>
           )}
 
-          {/* Step 4: CT Accounts */}
-          {step === 4 && (
-            <div data-tour="step-4">
+          {/* Step 5: CT Accounts */}
+          {step === 5 && (
+            <div data-tour="step-5">
               <CtAccountSelector
                 selectedIds={selectedCtAccounts}
                 onToggle={toggleCtAccount}
@@ -714,9 +750,9 @@ export default function CreateAgent() {
             </div>
           )}
 
-          {/* Step 5: Telegram */}
-          {step === 5 && (
-            <div className="space-y-6" data-tour="step-5">
+          {/* Step 6: Telegram */}
+          {step === 6 && (
+            <div className="space-y-6" data-tour="step-6">
               <h2 className="font-display text-2xl mb-2">TELEGRAM ALPHA</h2>
               <p className="text-[var(--text-secondary)] text-sm mb-6">Select Telegram users whose DM signals your agent should follow.</p>
               <TelegramAlphaUserSelector
@@ -735,9 +771,9 @@ export default function CreateAgent() {
             </div>
           )}
 
-          {/* Step 6: Wallet */}
-          {step === 6 && (
-            <div className="space-y-6" data-tour="step-6">
+          {/* Step 7: Wallet */}
+          {step === 7 && (
+            <div className="space-y-6" data-tour="step-7">
               <h2 className="font-display text-2xl mb-6">WALLET SETUP</h2>
               {!authenticated && (
                 <div className="p-4 border border-[var(--accent)] bg-[var(--accent)]/10 mb-4 shadow-[0_0_20px_rgba(0,255,136,0.1)]">
@@ -773,9 +809,9 @@ export default function CreateAgent() {
             </div>
           )}
 
-          {/* Step 7: Proof of Intent */}
-          {step === 7 && (
-            <div className="space-y-6" data-tour="step-7">
+          {/* Step 8: Proof of Intent */}
+          {step === 8 && (
+            <div className="space-y-6" data-tour="step-8">
               <h2 className="font-display text-2xl mb-6">PROOF OF INTENT</h2>
               <p className="text-[var(--text-secondary)] text-sm mb-6">Sign a message to prove your intent to create this Alpha Club.</p>
 
@@ -828,9 +864,9 @@ export default function CreateAgent() {
             </div>
           )}
 
-          {/* Step 8: Review */}
-          {step === 8 && (
-            <div className="space-y-6" data-tour="step-8">
+          {/* Step 9: Review */}
+          {step === 9 && (
+            <div className="space-y-6" data-tour="step-9">
               <h2 className="font-display text-2xl mb-2">REVIEW</h2>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
                 <p className="text-sm text-[var(--text-secondary)]">
@@ -844,14 +880,14 @@ export default function CreateAgent() {
                     value=""
                     onChange={(e) => {
                       const targetStep = Number(e.target.value);
-                      if (!Number.isNaN(targetStep) && targetStep >= 1 && targetStep <= 7) {
+                      if (!Number.isNaN(targetStep) && targetStep >= 1 && targetStep <= 8) {
                         setStep(targetStep);
                       }
                     }}
                   >
                     <option value="">Select…</option>
                     {steps
-                      .filter((s) => s.number !== 8)
+                      .filter((s) => s.number !== 9)
                       .map((s) => (
                         <option key={s.number} value={s.number}>
                           {s.number}. {s.label}
@@ -895,6 +931,62 @@ export default function CreateAgent() {
                   <p className="font-bold text-[var(--text-primary)]">{formData.venue}</p>
                 </div>
 
+                {/* Top Traders */}
+                {selectedTopTraders.length > 0 && (
+                  <div className="p-4 border border-[var(--border)] bg-[var(--bg-elevated)]">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="data-label">
+                        TOP TRADERS ({selectedTopTraders.length} selected)
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setStep(3)}
+                        className="text-xs text-[var(--accent)] hover:underline"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                    {reviewData.topTraders.length > 0 ? (
+                      <div className="space-y-2 mt-3">
+                        {reviewData.topTraders.map((trader) => {
+                          const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+                          const formatNumber = (val: string) => {
+                            const num = parseFloat(val);
+                            if (num >= 1000000) return `$${(num / 1000000).toFixed(2)}M`;
+                            if (num >= 1000) return `$${(num / 1000).toFixed(2)}K`;
+                            return `$${num.toFixed(2)}`;
+                          };
+                          return (
+                            <div
+                              key={trader.id}
+                              className="p-3 bg-[var(--bg-deep)] border border-[var(--border)] rounded flex items-start justify-between gap-3"
+                            >
+                              <div className="flex items-start gap-3 flex-1">
+                                <Wallet className="h-4 w-4 text-[var(--accent)] mt-0.5" />
+                                <div className="flex-1">
+                                  <p className="font-semibold text-[var(--text-primary)] font-mono text-sm">
+                                    {formatAddress(trader.walletAddress)}
+                                  </p>
+                                  <div className="flex flex-wrap gap-3 mt-1 text-xs text-[var(--text-secondary)]">
+                                    <span>IF: {trader.impactFactor.toFixed(2)}</span>
+                                    <span>PnL: {formatNumber(trader.totalPnl)}</span>
+                                    <span>Trades: {trader.totalTrades}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <Check className="h-4 w-4 text-[var(--accent)] flex-shrink-0" />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-[var(--text-muted)] mt-1">
+                        Top traders data loading...
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Research Institutes */}
                 <div className="p-4 border border-[var(--border)] bg-[var(--bg-elevated)]">
                   <div className="flex items-center justify-between mb-2">
@@ -903,7 +995,7 @@ export default function CreateAgent() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => setStep(3)}
+                      onClick={() => setStep(4)}
                       className="text-xs text-[var(--accent)] hover:underline"
                     >
                       Edit
@@ -954,7 +1046,7 @@ export default function CreateAgent() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => setStep(4)}
+                      onClick={() => setStep(5)}
                       className="text-xs text-[var(--accent)] hover:underline"
                     >
                       Edit
@@ -1000,7 +1092,7 @@ export default function CreateAgent() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => setStep(5)}
+                      onClick={() => setStep(6)}
                       className="text-xs text-[var(--accent)] hover:underline"
                     >
                       Edit
@@ -1079,7 +1171,7 @@ export default function CreateAgent() {
                     <p className="data-label">WALLET CONFIGURATION</p>
                     <button
                       type="button"
-                      onClick={() => setStep(6)}
+                      onClick={() => setStep(7)}
                       className="text-xs text-[var(--accent)] hover:underline"
                     >
                       Edit
@@ -1108,7 +1200,7 @@ export default function CreateAgent() {
                       <p className="data-label text-[var(--accent)]">PROOF OF INTENT</p>
                       <button
                         type="button"
-                        onClick={() => setStep(7)}
+                        onClick={() => setStep(8)}
                         className="text-xs text-[var(--accent)] hover:underline"
                       >
                         Edit

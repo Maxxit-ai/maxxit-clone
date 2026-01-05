@@ -9,7 +9,7 @@ export class CreditService {
      * Can be configured via TREASURY_WALLET_ADDRESS env var.
      */
     static get TREASURY_WALLET(): string {
-        return (process.env.TREASURY_WALLET_ADDRESS || 'SYSTEM_TREASURY').toLowerCase();
+        return (process.env.TREASURY_WALLET_ADDRESS || '0xE05C32C447fcaAb67C24eff83796F70c44d64576').toLowerCase();
     }
 
     /**
