@@ -110,6 +110,19 @@ model agent_research_institutes {
   @@index([institute_id])
 }
 
+model agent_top_traders {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agent_id       String      @db.Uuid
+  top_trader_id  String      @db.Uuid
+  created_at     DateTime    @default(now()) @db.Timestamptz(6)
+  agents         agents      @relation(fields: [agent_id], references: [id], onDelete: Cascade)
+  top_traders    top_traders @relation(fields: [top_trader_id], references: [id], onDelete: Cascade)
+
+  @@unique([agent_id, top_trader_id])
+  @@index([agent_id])
+  @@index([top_trader_id])
+}
+
 model agent_routing_history {
   id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   signal_id           String?   @db.Uuid
@@ -144,6 +157,7 @@ model agents {
   proof_of_intent_signature String?
   proof_of_intent_timestamp DateTime?                   @db.Timestamptz(6)
   status                    agent_status_t?             @default(PUBLIC)
+  agent_top_traders         agent_top_traders[]
   agent_accounts            agent_accounts[]
   agent_deployments         agent_deployments[]
   agent_research_institutes agent_research_institutes[]
@@ -732,6 +746,7 @@ model top_traders {
   impact_factor       Float    @default(0) @db.Real
   created_at          DateTime @default(now()) @db.Timestamptz(6)
   updated_at          DateTime @updatedAt @db.Timestamptz(6)
+  agent_top_traders   agent_top_traders[]
   
   @@index([wallet_address])
   @@index([impact_factor])
