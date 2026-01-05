@@ -224,6 +224,7 @@ def get_available_markets(refresh=False):
             'XRP': {'index': 39, 'name': 'XRP/USD', 'available': True},
             'LINK': {'index': 42, 'name': 'LINK/USD', 'available': True},
             'ADA': {'index': 43, 'name': 'ADA/USD', 'available': True},
+            'TRX': {'index': 40, 'name': 'TRX/USD', 'available': True},
         }
         available_markets_cache['markets'] = fallback
         available_markets_cache['last_updated'] = time.time()

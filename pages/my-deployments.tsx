@@ -193,12 +193,9 @@ export default function MyDeployments() {
           : null;
 
       const [agentsData, addressesData, deploymentsData] = await Promise.all([
-        db.get("agents", {
-          status: "eq.PUBLIC",
-          order: "apr30d.desc",
-          limit: "20",
-          select: "id,name,description,venue,apr30d,apr90d,aprSi,sharpe30d",
-        }),
+        fetch("/api/agents?status=PUBLIC&order=apr30d.desc&limit=20").then(
+          (res) => res.json()
+        ),
         userWallet
           ? db
             .get("user_agent_addresses", {

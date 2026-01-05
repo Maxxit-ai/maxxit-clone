@@ -27,7 +27,7 @@ export class CreditService {
         referenceId?: string,
         metadata?: any
     ) {
-        const normalizedWallet = userWallet.toLowerCase();
+        const normalizedWallet = userWallet.toLowerCase().trim();
         const creditAmount = new Decimal(amount);
 
         return await withTransaction(async (tx) => {
@@ -94,14 +94,19 @@ export class CreditService {
         purpose: string,
         metadata?: any
     ) {
-        const normalizedWallet = userWallet.toLowerCase();
+        const normalizedWallet = userWallet.toLowerCase().trim();
         const spendAmount = new Decimal(amount);
 
         return await withTransaction(async (tx) => {
             // 1. Check balance
             // @ts-ignore
-            const balanceRecord = await tx.user_credit_balance.findUnique({
-                where: { user_wallet: normalizedWallet }
+            const balanceRecord = await tx.user_credit_balance.findFirst({
+                where: {
+                    user_wallet: {
+                        equals: normalizedWallet,
+                        mode: 'insensitive'
+                    }
+                }
             });
 
             if (!balanceRecord || balanceRecord.balance.lt(spendAmount)) {
@@ -152,16 +157,25 @@ export class CreditService {
     }
 
     static async getBalance(userWallet: string) {
-        const normalizedWallet = userWallet.toLowerCase();
+        const normalizedWallet = userWallet.toLowerCase().trim();
+        // Try strict first (fastest)
         // @ts-ignore
-        const record = await prisma.user_credit_balance.findFirst({
-            where: {
-                user_wallet: {
-                    equals: normalizedWallet,
-                    mode: 'insensitive'
-                }
-            }
+        let record = await prisma.user_credit_balance.findUnique({
+            where: { user_wallet: normalizedWallet }
         });
+
+        if (!record) {
+            // Fallback for non-normalized addresses
+            // @ts-ignore
+            record = await prisma.user_credit_balance.findFirst({
+                where: {
+                    user_wallet: {
+                        equals: normalizedWallet,
+                        mode: 'insensitive'
+                    }
+                }
+            });
+        }
         return record ? record.balance.toString() : '0';
     }
 
@@ -191,7 +205,7 @@ export class CreditService {
         referenceId: string
     ) {
         const db = tx || prisma;
-        const normalizedPayer = payerWallet.toLowerCase();
+        const normalizedPayer = payerWallet.toLowerCase().trim();
 
         let subtotal = new Decimal(0);
         for (const alpha of alphaInfos) {
@@ -204,8 +218,13 @@ export class CreditService {
 
         // 1. Check payer balance
         // @ts-ignore
-        const balanceRecord = await db.user_credit_balance.findUnique({
-            where: { user_wallet: normalizedPayer }
+        const balanceRecord = await db.user_credit_balance.findFirst({
+            where: {
+                user_wallet: {
+                    equals: normalizedPayer,
+                    mode: 'insensitive'
+                }
+            }
         });
 
         if (!balanceRecord || balanceRecord.balance.lt(grandTotal)) {
