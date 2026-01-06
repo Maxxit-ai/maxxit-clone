@@ -162,3 +162,10 @@ export function getSignalDeploymentLockKey(signalId: string, deploymentId: strin
 export function getPositionMonitorLockKey(positionId: string): string {
   return `position-monitor:${positionId}`;
 }
+
+/**
+ * Generate a lock key for telegram message classification
+ */
+export function getMessageClassificationLockKey(messageId: string): string {
+  return `message-classification:${messageId}`;
+}
