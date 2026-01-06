@@ -60,7 +60,7 @@ export default function Creator() {
       // Fetch agents created by this wallet and user agent addresses in parallel
       const [agentsData, addressesData] = await Promise.all([
         db.get("agents", {
-          creatorWallet: `eq.${user.wallet.address}`,
+          creatorWallet: `eq.${user.wallet.address.toLowerCase()}`,
           order: "apr30d.desc.nullslast",
           select: "*",
         }),

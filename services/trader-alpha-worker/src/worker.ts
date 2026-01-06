@@ -55,15 +55,18 @@ const server = app.listen(PORT, () => {
 interface SubgraphTrade {
     id: string;
     trader: string;
-    pairIndex: string;
     index: string;
-    long: boolean;
+    isBuy: boolean;
     collateral: string;
     leverage: string;
     openPrice: string;
     timestamp: string;
-    pair?: {
-        symbol: string;
+    takeProfitPrice?: string;
+    stopLossPrice?: string;
+    pair: {
+        id: string;
+        from: string;
+        to: string;
     };
 }
 
@@ -102,16 +105,19 @@ async function fetchRecentTrades(
       ) {
         id
         trader
-        pairIndex
         index
-        long
+        isBuy
         collateral
         leverage
         openPrice
         timestamp
         pair {
-          symbol
+          id
+          from
+          to
         }
+        takeProfitPrice
+        stopLossPrice
       }
     }
   `;
@@ -172,7 +178,7 @@ async function processTrackedTraders() {
         const copyTradeAgents = await prisma.agents.findMany({
             where: {
                 is_copy_trade_club: true,
-                status: "PUBLIC",
+                status: { in: ["PUBLIC", "PRIVATE"] },
                 agent_top_traders: {
                     some: {
                         is_active: true,
@@ -244,14 +250,10 @@ async function processTrackedTraders() {
             }
 
             // Get symbol from pair
-            let symbol = trade.pair?.symbol;
-            if (!symbol) {
-                const pairIndex = parseInt(trade.pairIndex);
-                symbol = await getSymbolFromPairIndex(pairIndex);
-            }
+            const symbol = trade.pair?.from;
 
             if (!symbol) {
-                console.log(`  ⚠️ Could not determine symbol for trade ${trade.id}, pairIndex=${trade.pairIndex}`);
+                console.log(`  ⚠️ Could not determine symbol for trade ${trade.id}`);
                 continue;
             }
 
@@ -284,23 +286,32 @@ async function processTrackedTraders() {
 
                 // Store the trade
                 try {
+                    const takeProfitPrice = (trade as any).takeProfitPrice
+                        ? Number((trade as any).takeProfitPrice) / 1e18
+                        : null;
+                    const stopLossPrice = (trade as any).stopLossPrice
+                        ? Number((trade as any).stopLossPrice) / 1e18
+                        : null;
+
                     await prisma.trader_trades.create({
                         data: {
                             source_trade_id: sourceTradeId,
                             trader_wallet: trade.trader,
                             agent_id: tracker.agent_id,
                             token_symbol: normalizedSymbol,
-                            side: trade.long ? "LONG" : "SHORT",
-                            collateral: (Number(trade.collateral) / 1e6).toString(), // Assuming 6 decimals
-                            leverage: parseFloat(trade.leverage) / 1e10, // Ostium stores leverage with 10 decimals
-                            entry_price: (Number(trade.openPrice) / 1e10).toString(), // Ostium stores price with 10 decimals
+                            side: trade.isBuy ? "LONG" : "SHORT",
+                            collateral: (Number(trade.collateral) / 1e6).toString(), // Ostium uses 6 decimals for USDC
+                            leverage: parseFloat(trade.leverage) / 100, // Ostium stores leverage as integer (e.g., 1000 = 10x)
+                            entry_price: (Number(trade.openPrice) / 1e18).toString(), // Ostium uses 18 decimals for price
+                            take_profit_price: takeProfitPrice?.toString() || null,
+                            stop_loss_price: stopLossPrice?.toString() || null,
                             is_open: true,
                             processed_for_signals: false,
                             trade_timestamp: new Date(parseInt(trade.timestamp) * 1000),
                         },
                     });
                     newTradesStored++;
-                    console.log(`  ✅ Stored trade: ${trade.long ? "LONG" : "SHORT"} ${normalizedSymbol} from ${trade.trader.slice(0, 10)}...`);
+                    console.log(`  ✅ Stored trade: ${trade.isBuy ? "LONG" : "SHORT"} ${normalizedSymbol} from ${trade.trader.slice(0, 10)}... (TP: ${takeProfitPrice?.toFixed(2) || 'N/A'}, SL: ${stopLossPrice?.toFixed(2) || 'N/A'})`);
                 } catch (err: any) {
                     if (err.code === "P2002") {
                         duplicatesSkipped++;

@@ -827,6 +827,8 @@ model trader_trades {
   collateral            Decimal  @db.Decimal(20, 8)
   leverage              Float    @db.Real
   entry_price           Decimal  @db.Decimal(20, 8)
+  take_profit_price     Decimal? @db.Decimal(20, 8)
+  stop_loss_price       Decimal? @db.Decimal(20, 8)
   is_open               Boolean  @default(true)
   processed_for_signals Boolean  @default(false)
   trade_timestamp       DateTime @db.Timestamptz(6)

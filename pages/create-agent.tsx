@@ -216,6 +216,7 @@ export default function CreateAgent() {
           proofOfIntentMessage: proofOfIntent?.message,
           proofOfIntentSignature: proofOfIntent?.signature,
           proofOfIntentTimestamp: proofOfIntent?.timestamp.toISOString(),
+          isCopyTradeClub: selectedTopTraders.length > 0,
         },
         linkingData: {
           ctAccountIds: Array.from(selectedCtAccounts),
@@ -469,7 +470,7 @@ export default function CreateAgent() {
         telegramJson.alphaUsers?.filter((u: any) => selectedTelegramUsers.has(u.id)) || [];
 
       // Top traders
-      const topTradersResponse = await fetch('/api/top-traders?limit=100');
+      const topTradersResponse = await fetch('/api/top-traders?limit=10');
       const topTradersJson = await topTradersResponse.json();
       const selectedTopTradersData =
         topTradersJson.topTraders?.filter((trader: any) => selectedTopTraders.includes(trader.id)) || [];
