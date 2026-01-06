@@ -13,6 +13,7 @@ export enum QueueName {
   SIGNAL_GENERATION = 'signal-generation',
   POSITION_MONITOR = 'position-monitor',
   TELEGRAM_NOTIFICATION = 'telegram-notification',
+  TELEGRAM_ALPHA_CLASSIFICATION = 'telegram-alpha-classification',
 }
 
 /**
@@ -111,6 +112,18 @@ export interface SendNotificationJobData extends BaseJobData {
 export type TelegramNotificationJobData = SendNotificationJobData;
 
 // ============================================
+// Telegram Alpha Classification Queue Jobs
+// ============================================
+
+export interface ClassifyMessageJobData extends BaseJobData {
+  type: 'CLASSIFY_MESSAGE';
+  /** telegram_posts.id */
+  messageId: string;
+}
+
+export type TelegramAlphaJobData = ClassifyMessageJobData;
+
+// ============================================
 // Job Result Types
 // ============================================
 
@@ -184,5 +197,14 @@ export const DEFAULT_JOB_OPTIONS: Record<QueueName, JobOptions> = {
     },
     removeOnComplete: 200,
     removeOnFail: 100,
+  },
+  [QueueName.TELEGRAM_ALPHA_CLASSIFICATION]: {
+    attempts: 3,
+    backoff: {
+      type: 'exponential',
+      delay: 3000,
+    },
+    removeOnComplete: 100,
+    removeOnFail: 50,
   },
 };

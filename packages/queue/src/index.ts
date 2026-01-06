@@ -68,6 +68,9 @@ export {
   // Telegram Notification types
   type TelegramNotificationJobData,
   type SendNotificationJobData,
+  // Telegram Alpha Classification types
+  type TelegramAlphaJobData,
+  type ClassifyMessageJobData,
 } from './types';
 
 // Queue factory
@@ -107,6 +110,7 @@ export {
   waitForLock,
   getSignalDeploymentLockKey,
   getPositionMonitorLockKey,
+  getMessageClassificationLockKey,
 } from './distributed-lock';
 
 // Scheduler
