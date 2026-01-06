@@ -33,7 +33,7 @@ const NETWORKS = {
 };
 
 const ACTIVE_NETWORK = IS_TESTNET ? NETWORKS.TESTNET : NETWORKS.MAINNET;
-const TREASURY_WALLET = process.env.TREASURY_WALLET_ADDRESS;
+const TREASURY_WALLET = process.env.NEXT_PUBLIC_TREASURY_WALLET_ADDRESS;
 const USDC_ABI = [
     'function transfer(address to, uint256 amount) external returns (bool)',
 ];
