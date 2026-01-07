@@ -135,10 +135,10 @@ model agents {
   description               String?
   venue                     venue_t
   weights                   Int[]                       @db.SmallInt
-  apr_30d                   Float?                      @db.Real
-  apr_90d                   Float?                      @db.Real
-  apr_si                    Float?                      @db.Real
-  sharpe_30d                Float?                      @db.Real
+  apr_30d                   Float?                      @default(0) @db.Real
+  apr_90d                   Float?                      @default(0) @db.Real
+  apr_si                    Float?                      @default(0) @db.Real
+  sharpe_30d                Float?                      @default(0) @db.Real
   profit_receiver_address   String
   proof_of_intent_message   String?
   proof_of_intent_signature String?
