@@ -128,7 +128,10 @@ export function OstiumConnect({
     console.log('[OstiumConnect] Trading preferences set:', preferences);
     tradingPreferencesRef.current = preferences;
     setTradingPreferences(preferences);
+    // Don't auto-advance - user will click "Next" button
+  };
 
+  const handlePreferencesNext = () => {
     // After preferences are set, proceed to check setup status with fresh prefs
     setLoading(true);
     checkSetupStatus();

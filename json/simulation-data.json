@@ -1343,5 +1343,70 @@
     "telegram_username": "lazy_trader",
     "first_name": "Lazy",
     "last_name": "Trader"
-  }
+  },
+  "topTraders": [
+    {
+      "id": "tt-1",
+      "walletAddress": "0xTRADER0000000000000000000000000000000001",
+      "totalVolume": "1250000.00",
+      "totalClosedVolume": "980000.00",
+      "totalPnl": "152340.25",
+      "totalProfitTrades": 230,
+      "totalLossTrades": 112,
+      "totalTrades": 342,
+      "lastActiveAt": "2024-01-15T10:00:00Z",
+      "edgeScore": 0.82,
+      "consistencyScore": 0.79,
+      "stakeScore": 0.91,
+      "freshnessScore": 0.88,
+      "impactFactor": 1.82,
+      "createdAt": "2023-10-01T00:00:00Z",
+      "updatedAt": "2024-01-15T10:05:00Z",
+      "_count": {
+        "agents": 3
+      }
+    },
+    {
+      "id": "tt-2",
+      "walletAddress": "0xTRADER0000000000000000000000000000000002",
+      "totalVolume": "840000.00",
+      "totalClosedVolume": "650000.00",
+      "totalPnl": "98340.12",
+      "totalProfitTrades": 170,
+      "totalLossTrades": 111,
+      "totalTrades": 281,
+      "lastActiveAt": "2024-01-14T16:30:00Z",
+      "edgeScore": 0.74,
+      "consistencyScore": 0.72,
+      "stakeScore": 0.85,
+      "freshnessScore": 0.81,
+      "impactFactor": 1.37,
+      "createdAt": "2023-09-15T00:00:00Z",
+      "updatedAt": "2024-01-14T16:35:00Z",
+      "_count": {
+        "agents": 2
+      }
+    },
+    {
+      "id": "tt-3",
+      "walletAddress": "0xTRADER0000000000000000000000000000000003",
+      "totalVolume": "1630000.00",
+      "totalClosedVolume": "1200000.00",
+      "totalPnl": "203450.89",
+      "totalProfitTrades": 290,
+      "totalLossTrades": 127,
+      "totalTrades": 417,
+      "lastActiveAt": "2024-01-15T11:45:00Z",
+      "edgeScore": 0.89,
+      "consistencyScore": 0.84,
+      "stakeScore": 0.93,
+      "freshnessScore": 0.9,
+      "impactFactor": 2.04,
+      "createdAt": "2023-08-20T00:00:00Z",
+      "updatedAt": "2024-01-15T11:50:00Z",
+      "_count": {
+        "agents": 4
+      }
+    }
+  ]
 }

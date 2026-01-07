@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { Home, Wallet, User, Plus, TrendingUp, Menu, BookOpen, ChevronDown, Activity, Sparkles, Coins } from 'lucide-react';
+import { Home, Wallet, User, Plus, TrendingUp, Menu, BookOpen, ChevronDown, Activity, Sparkles, Coins, BookMarked } from 'lucide-react';
 import { Bot, BarChart3, FileText, Copy, Check, LogOut, X, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import { UNIVERSAL_WALLET_ADDRESS } from '../json/addresses';
@@ -67,12 +67,13 @@ export function Header() {
   const resourcesItems = [
     { href: '/blog', label: 'Blog', icon: BookOpen, testId: 'nav-blog' },
     { href: '/docs', label: 'Docs', icon: FileText, testId: 'nav-docs' },
+    { href: '/user-manual', label: 'User Manual', icon: BookMarked, testId: 'nav-user-manual' },
     { href: '/pricing', label: 'Pricing', icon: Sparkles, testId: 'nav-pricing' },
   ];
 
   const isPortfolioActive = router.pathname === '/dashboard' || router.pathname === '/my-deployments' || router.pathname === '/my-trades';
   const isTradingActive = router.pathname === '/lazy-trading' || router.pathname === '/creator';
-  const isResourcesActive = router.pathname === '/blog' || router.pathname === '/docs' || router.pathname === '/pricing';
+  const isResourcesActive = router.pathname === '/blog' || router.pathname === '/docs' || router.pathname === '/user-manual' || router.pathname === '/pricing';
 
   // Close popup when clicking outside
   useEffect(() => {

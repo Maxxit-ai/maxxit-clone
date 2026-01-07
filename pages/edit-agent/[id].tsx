@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { Check, User, Sliders, Activity, Eye, Settings as SettingsIcon } from 'lucide-react';
+import { Check, User, Sliders, Activity, Eye, Settings as SettingsIcon, TrendingUp, Wallet } from 'lucide-react';
 import { Header } from '@components/Header';
 import { ResearchInstituteSelector } from '@components/ResearchInstituteSelector';
 import { TelegramAlphaUserSelector } from '@components/TelegramAlphaUserSelector';
 import { CtAccountSelector } from '@components/CtAccountSelector';
+import { TopTradersSelector } from '@components/TopTradersSelector';
 import { FaXTwitter } from 'react-icons/fa6';
 import { Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -34,15 +35,18 @@ export default function EditAgent() {
   const [selectedResearchInstitutes, setSelectedResearchInstitutes] = useState<string[]>([]);
   const [selectedCtAccounts, setSelectedCtAccounts] = useState<Set<string>>(new Set());
   const [selectedTelegramUsers, setSelectedTelegramUsers] = useState<Set<string>>(new Set());
+  const [selectedTopTraders, setSelectedTopTraders] = useState<string[]>([]);
 
   const [reviewData, setReviewData] = useState<{
     researchInstitutes: Array<{ id: string; name: string; description: string | null; x_handle: string | null }>;
     ctAccounts: Array<{ id: string; xUsername: string; displayName: string | null; followersCount: number | null }>;
     telegramUsers: Array<{ id: string; telegram_username: string | null; first_name: string | null; last_name: string | null }>;
+    topTraders: Array<{ id: string; walletAddress: string; impactFactor: number; totalPnl: string; totalTrades: number }>;
   }>({
     researchInstitutes: [],
     ctAccounts: [],
     telegramUsers: [],
+    topTraders: [],
   });
 
   useEffect(() => {
@@ -52,7 +56,7 @@ export default function EditAgent() {
   }, [id, authenticated]);
 
   useEffect(() => {
-    if (step === 5) {
+    if (step === 6) {
       fetchReviewData();
     }
   }, [step]);
@@ -67,7 +71,7 @@ export default function EditAgent() {
       // Simulate network delay
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      const { editAgent } = simulationDataJson as any;
+      const { editAgent, topTraders } = simulationDataJson as any;
       const agents: any[] = editAgent?.agents || [];
       const researchInstitutes: any[] = editAgent?.researchInstitutes || [];
       const ctAccounts: any[] = editAgent?.ctAccounts || [];
@@ -102,6 +106,7 @@ export default function EditAgent() {
         researchInstitutes: selectedInstitutes,
         ctAccounts: selectedCtAccountsData,
         telegramUsers: selectedTelegramData,
+        topTraders: [],
       });
 
     } catch (err: any) {
@@ -186,7 +191,7 @@ export default function EditAgent() {
         await new Promise((resolve) => setTimeout(resolve, 300));
       }
 
-      const { editAgent } = simulationDataJson as any;
+      const { editAgent, topTraders } = simulationDataJson as any;
       const researchInstitutes: any[] = editAgent?.researchInstitutes || [];
       const ctAccounts: any[] = editAgent?.ctAccounts || [];
       const telegramUsers: any[] = editAgent?.telegramUsers || [];
@@ -202,10 +207,16 @@ export default function EditAgent() {
       const selectedTelegramData =
         telegramUsers.filter((u) => selectedTelegramUsers.has(u.id)) || [];
 
+      const selectedTopTradersData =
+        (topTraders || []).filter((trader: any) =>
+          selectedTopTraders.includes(trader.id)
+        ) || [];
+
       setReviewData({
         researchInstitutes: selectedInstitutes,
         ctAccounts: selectedCtAccountsData,
         telegramUsers: selectedTelegramData,
+        topTraders: selectedTopTradersData,
       });
     } catch (err) {
       console.error('Failed to load review data (simulation)', err);
@@ -214,18 +225,20 @@ export default function EditAgent() {
 
   const steps = [
     { number: 1, label: 'BASIC', icon: User },
-    { number: 2, label: 'RESEARCH', icon: Sliders },
-    { number: 3, label: 'CT', icon: FaXTwitter },
-    { number: 4, label: 'TELEGRAM', icon: Send },
-    { number: 5, label: 'REVIEW', icon: Eye },
+    { number: 2, label: 'TOP TRADERS', icon: TrendingUp },
+    { number: 3, label: 'RESEARCH', icon: Sliders },
+    { number: 4, label: 'CT', icon: FaXTwitter },
+    { number: 5, label: 'TELEGRAM', icon: Send },
+    { number: 6, label: 'REVIEW', icon: Eye },
   ];
 
   const stepDescriptions: Record<number, string> = {
     1: 'Update your agent name and visibility settings.',
-    2: 'Manage research institutes your agent follows.',
-    3: 'Manage CT accounts your agent mirrors.',
-    4: 'Manage Telegram alpha users your agent follows.',
-    5: 'Review all settings before saving changes.',
+    2: 'Manage top traders to copy trade from.',
+    3: 'Manage research institutes your agent follows.',
+    4: 'Manage CT accounts your agent mirrors.',
+    5: 'Manage Telegram alpha users your agent follows.',
+    6: 'Review all settings before saving changes.',
   };
 
   if (!authenticated) {
@@ -401,8 +414,21 @@ export default function EditAgent() {
             </div>
           )}
 
-          {/* Step 2: Research Institutes */}
+          {/* Step 2: Top Traders */}
           {step === 2 && (
+            <div className="space-y-6">
+              <h2 className="font-display text-2xl mb-2">TOP TRADERS</h2>
+              <p className="text-[var(--text-secondary)] text-sm mb-6">Select top traders to copy trade from. Their wallet addresses will be used as signal providers.</p>
+              <TopTradersSelector selectedIds={selectedTopTraders} onChange={setSelectedTopTraders} />
+              <div className="flex gap-4">
+                <button type="button" onClick={prevStep} className="flex-1 py-4 border border-[var(--border)] font-bold hover:border-[var(--text-primary)] transition-colors">BACK</button>
+                <button type="button" onClick={nextStep} className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors">NEXT →</button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Research Institutes */}
+          {step === 3 && (
             <div className="space-y-6">
               <h2 className="font-display text-2xl mb-2">RESEARCH INSTITUTES</h2>
               <p className="text-[var(--text-secondary)] text-sm mb-6">Choose which institutes your agent should follow for signals.</p>
@@ -417,8 +443,8 @@ export default function EditAgent() {
             </div>
           )}
 
-          {/* Step 3: CT Accounts */}
-          {step === 3 && (
+          {/* Step 4: CT Accounts */}
+          {step === 4 && (
             <div className="space-y-6">
               <h2 className="font-display text-2xl mb-2">CT ACCOUNTS</h2>
               <p className="text-[var(--text-secondary)] text-sm mb-6">Select CT accounts your agent should mirror.</p>
@@ -434,8 +460,8 @@ export default function EditAgent() {
             </div>
           )}
 
-          {/* Step 4: Telegram */}
-          {step === 4 && (
+          {/* Step 5: Telegram */}
+          {step === 5 && (
             <div className="space-y-6">
               <h2 className="font-display text-2xl mb-2">TELEGRAM ALPHA</h2>
               <p className="text-[var(--text-secondary)] text-sm mb-6">Select Telegram users whose DM signals your agent should follow.</p>
@@ -455,8 +481,8 @@ export default function EditAgent() {
             </div>
           )}
 
-          {/* Step 5: Review */}
-          {step === 5 && (
+          {/* Step 6: Review */}
+          {step === 6 && (
             <div className="space-y-6">
               <h2 className="font-display text-2xl mb-2">REVIEW CHANGES</h2>
               <p className="text-[var(--text-secondary)] text-sm mb-6">Review your changes before saving.</p>
@@ -478,6 +504,60 @@ export default function EditAgent() {
                   <p className="text-sm text-[var(--text-secondary)]">Status: <span className="font-semibold">{formData.status}</span></p>
                 </div>
 
+                {/* Top Traders */}
+                {selectedTopTraders.length > 0 && (
+                  <div className="p-4 border border-[var(--border)] bg-[var(--bg-elevated)]">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="data-label">
+                        TOP TRADERS ({selectedTopTraders.length} selected)
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setStep(2)}
+                        className="text-xs text-[var(--accent)] hover:underline"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                    {reviewData.topTraders.length > 0 ? (
+                      <div className="space-y-2 mt-3">
+                        {reviewData.topTraders.map((trader) => {
+                          const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+                          const formatNumber = (val: string) => {
+                            const num = parseFloat(val);
+                            if (num >= 1000000) return `$${(num / 1000000).toFixed(2)}M`;
+                            if (num >= 1000) return `$${(num / 1000).toFixed(2)}K`;
+                            return `$${num.toFixed(2)}`;
+                          };
+                          return (
+                            <div
+                              key={trader.id}
+                              className="p-3 bg-[var(--bg-deep)] border border-[var(--border)] rounded flex items-start justify-between gap-3"
+                            >
+                              <div className="flex items-start gap-3 flex-1">
+                                <Wallet className="h-4 w-4 text-[var(--accent)] mt-0.5" />
+                                <div className="flex-1">
+                                  <p className="font-semibold text-[var(--text-primary)] font-mono text-sm">
+                                    {formatAddress(trader.walletAddress)}
+                                  </p>
+                                  <div className="flex flex-wrap gap-3 mt-1 text-xs text-[var(--text-secondary)]">
+                                    <span>IF: {trader.impactFactor.toFixed(2)}</span>
+                                    <span>PnL: {formatNumber(trader.totalPnl)}</span>
+                                    <span>Trades: {trader.totalTrades}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <Check className="h-4 w-4 text-[var(--accent)] flex-shrink-0" />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-[var(--text-muted)] mt-1">Loading...</p>
+                    )}
+                  </div>
+                )}
+
                 {/* Research Institutes */}
                 <div className="p-4 border border-[var(--border)] bg-[var(--bg-elevated)]">
                   <div className="flex items-center justify-between mb-2">
@@ -486,7 +566,7 @@ export default function EditAgent() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => setStep(2)}
+                      onClick={() => setStep(3)}
                       className="text-xs text-[var(--accent)] hover:underline"
                     >
                       Edit
@@ -522,7 +602,7 @@ export default function EditAgent() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => setStep(3)}
+                      onClick={() => setStep(4)}
                       className="text-xs text-[var(--accent)] hover:underline"
                     >
                       Edit
@@ -561,7 +641,7 @@ export default function EditAgent() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => setStep(4)}
+                      onClick={() => setStep(5)}
                       className="text-xs text-[var(--accent)] hover:underline"
                     >
                       Edit

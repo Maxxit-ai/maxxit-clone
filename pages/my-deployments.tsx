@@ -29,7 +29,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { FaPlus } from "react-icons/fa6";
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/router";
 
 interface Deployment {
   id: string;
@@ -72,8 +72,12 @@ export default function MyDeployments() {
   const [botUsername, setBotUsername] = useState<string>("");
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const router = useRouter();
+  const { tab } = router.query;
+
+  // Initialize activeTab from query string, default to "deployments"
   const [activeTab, setActiveTab] = useState<"deployments" | "agents">(
-    "deployments"
+    (tab === "agents" ? "agents" : "deployments") as "deployments" | "agents"
   );
 
   const [agents, setAgents] = useState<AgentSummary[]>([]);
@@ -113,7 +117,6 @@ export default function MyDeployments() {
   const [deploymentStatusesLoading, setDeploymentStatusesLoading] = useState<
     Record<string, boolean>
   >({});
-  const router = useRouter();
 
   useEffect(() => {
     if (authenticated) {
@@ -207,6 +210,28 @@ export default function MyDeployments() {
     } finally {
       setAgentsLoading(false);
     }
+  };
+
+  // Sync activeTab with query string
+  useEffect(() => {
+    if (tab === "agents" && activeTab !== "agents") {
+      setActiveTab("agents");
+    } else if (tab !== "agents" && activeTab !== "deployments") {
+      setActiveTab("deployments");
+    }
+  }, [tab]);
+
+  // Update query string when tab changes
+  const handleTabChange = (newTab: "deployments" | "agents") => {
+    setActiveTab(newTab);
+    router.push(
+      {
+        pathname: router.pathname,
+        query: { ...router.query, tab: newTab },
+      },
+      undefined,
+      { shallow: true }
+    );
   };
 
   useEffect(() => {
@@ -319,17 +344,6 @@ export default function MyDeployments() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (deploymentsLoading) {
-    return (
-      <div className="min-h-screen bg-[var(--bg-deep)] border border-[var(--border)]">
-        <Header />
-        <div className="flex flex-col gap-4 items-center justify-center h-96">
-          <Activity className="w-8 h-8 animate-pulse text-[var(--accent)]" />
-          <p className="text-[var(--text-muted)]">Loading deployments...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[var(--bg-deep)] border border-[var(--border)]">
@@ -352,7 +366,7 @@ export default function MyDeployments() {
         <div className="flex mb-10 justify-between items-center">
           <div className="flex gap-3">
             <button
-              onClick={() => setActiveTab("deployments")}
+              onClick={() => handleTabChange("deployments")}
               className={`px-5 py-2 text-sm font-bold border ${activeTab === "deployments"
                 ? "bg-[var(--accent)] text-[var(--bg-deep)] border-[var(--accent)]"
                 : "border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--accent)]"
@@ -361,7 +375,7 @@ export default function MyDeployments() {
               MY DEPLOYMENTS
             </button>
             <button
-              onClick={() => setActiveTab("agents")}
+              onClick={() => handleTabChange("agents")}
               className={`px-5 py-2 text-sm font-bold border ${activeTab === "agents"
                 ? "bg-[var(--accent)] text-[var(--bg-deep)] border-[var(--accent)]"
                 : "border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--accent)]"
@@ -411,6 +425,13 @@ export default function MyDeployments() {
               >
                 CONNECT WALLET
               </button>
+            </div>
+          </div>
+        ) : deploymentsLoading ? (
+          <div className="border border-[var(--border)] bg-[var(--bg-surface)]">
+            <div className="flex flex-col items-center justify-center py-16 px-4">
+              <Activity className="w-8 h-8 animate-pulse text-[var(--accent)]" />
+              <p className="text-[var(--text-muted)] mt-4">Loading deployments...</p>
             </div>
           </div>
         ) : deployments.length === 0 ? (
