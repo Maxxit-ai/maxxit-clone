@@ -189,7 +189,6 @@ const HeroSection = memo(
               </span>
             </button>
             <Link href="/lazy-trading"
-              target="_blank"
               className="group px-4 sm:px-6 md:px-8 py-3 sm:py-4 border-2 border-accent text-accent font-bold text-sm sm:text-base md:text-lg hover:bg-accent hover:text-[var(--bg-deep)] transition-all w-full sm:w-auto text-center"
             >
               LAZY TRADING
