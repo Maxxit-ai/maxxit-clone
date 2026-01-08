@@ -214,11 +214,6 @@ export function TopTradersSelector({
                         <span className="font-mono text-base font-semibold text-[var(--text-primary)] truncate">
                           {formatAddress(trader.walletAddress)}
                         </span>
-                        {trader._count?.agents > 0 && (
-                          <span className="text-xs px-2 py-1 bg-[var(--accent)]/10 text-[var(--accent)] rounded flex-shrink-0 font-semibold">
-                            {trader._count.agents}
-                          </span>
-                        )}
                       </div>
 
                       {/* Impact Factor */}
