@@ -117,6 +117,7 @@ export default function MyDeployments() {
   const [deploymentStatusesLoading, setDeploymentStatusesLoading] = useState<
     Record<string, boolean>
   >({});
+  const [creditBalance, setCreditBalance] = useState<number>(0);
 
   useEffect(() => {
     if (authenticated) {
@@ -247,7 +248,8 @@ export default function MyDeployments() {
     }
 
     try {
-      const { ostiumStatus } = simulationDataJson as any;
+      const { ostiumStatus, totalCreditBalance } = simulationDataJson as any;
+      setCreditBalance(totalCreditBalance);
       if (ostiumStatus) {
         // Set delegation status
         if (ostiumStatus.delegationStatus) {
@@ -407,6 +409,8 @@ export default function MyDeployments() {
               ostiumDelegationStatus={ostiumDelegationStatus}
               ostiumUsdcAllowance={ostiumUsdcAllowance}
               fromHome={false}
+              creditBalance={creditBalance}
+              userWallet={UNIVERSAL_WALLET_ADDRESS}
             />
           </div>
         ) : !authenticated ? (

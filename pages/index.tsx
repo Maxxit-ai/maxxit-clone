@@ -45,11 +45,13 @@ export default function Home() {
     usdcAllowance: number;
     hasApproval: boolean;
   } | null>(null);
+  const [creditBalance, setCreditBalance] = useState<number>(0);
 
   useEffect(() => {
     // Use local JSON data instead of backend/db and API calls
     try {
-      const { agents: staticAgents, ostiumStatus } = simulationDataJson as any;
+      const { agents: staticAgents, ostiumStatus, totalCreditBalance } = simulationDataJson as any;
+      setCreditBalance(totalCreditBalance);
       setAgents(staticAgents || []);
 
       // Use universal addresses for the demo user
@@ -151,6 +153,8 @@ export default function Home() {
         agentDeployments={agentDeployments}
         ostiumDelegationStatus={ostiumDelegationStatus}
         ostiumUsdcAllowance={ostiumUsdcAllowance}
+        creditBalance={creditBalance}
+        userWallet={UNIVERSAL_WALLET_ADDRESS}
       />
       <CTASection />
       <FooterSection />

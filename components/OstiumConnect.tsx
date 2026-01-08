@@ -5,6 +5,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Wallet, CheckCircle, AlertCircle, Zap, Activity, ExternalLink } from 'lucide-react';
 import { TradingPreferencesForm, TradingPreferences } from './TradingPreferencesModal';
+import { UNIVERSAL_WALLET_ADDRESS, UNIVERSAL_OSTIUM_AGENT_ADDRESS } from '../json/addresses';
+import simulationDataJson from '../json/simulation-data.json';
 
 interface OstiumConnectProps {
   agentId: string;
@@ -12,8 +14,6 @@ interface OstiumConnectProps {
   onClose: () => void;
   onSuccess?: () => void;
 }
-
-import { UNIVERSAL_WALLET_ADDRESS, UNIVERSAL_OSTIUM_AGENT_ADDRESS } from '../json/addresses';
 
 export function OstiumConnect({
   agentId,
@@ -40,6 +40,112 @@ export function OstiumConnect({
   const [firstDeploymentPreferences, setFirstDeploymentPreferences] = useState<TradingPreferences | null>(null);
   const [loadingFirstDeploymentPreferences, setLoadingFirstDeploymentPreferences] = useState(false);
 
+  // Guard refs to prevent duplicate API calls
+  const isCheckingRef = useRef(false);
+  const isAssigningRef = useRef(false);
+  const [hasInitialized, setHasInitialized] = useState(false); // Persists in state, not ref
+
+  // Payment & Cost State
+  const [agentData, setAgentData] = useState<any>(null);
+  const [creditBalance, setCreditBalance] = useState<number>(0);
+  const [totalCost, setTotalCost] = useState<number>(0);
+  const [isWeb3ModalOpen, setIsWeb3ModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedTier, setSelectedTier] = useState<any>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [showTopUpUI, setShowTopUpUI] = useState(false);
+  const [isCreator, setIsCreator] = useState(false); // Track if current user is the club creator
+
+  useEffect(() => {
+    // Load agent data and credit balance from simulation data
+    loadAgentData();
+    loadCreditBalance();
+  }, []);
+
+  useEffect(() => {
+    // If component mounts, go to preferences step first
+    if (step === 'connect' && !hasInitialized) {
+      setHasInitialized(true);
+      // Load agent data and credit balance
+      loadAgentData();
+      loadCreditBalance();
+      // Load first deployment preferences if they exist
+      setLoadingFirstDeploymentPreferences(true);
+      loadFirstDeploymentPreferences().then((prefs) => {
+        if (prefs) {
+          setFirstDeploymentPreferences(prefs);
+          console.log('[OstiumConnect] Set first deployment preferences:', prefs);
+        }
+        setLoadingFirstDeploymentPreferences(false);
+      });
+      // Always show preferences as first step for new deployments
+      setStep('preferences');
+    }
+  }, [step, hasInitialized]);
+
+  const loadAgentData = async () => {
+    try {
+      // Load agent data from simulation data
+      const simulationData = simulationDataJson as any;
+      const agentDetails = simulationData.agentDetails?.[agentId];
+      const agentFromList = simulationData.agents?.find((a: any) => a.id === agentId);
+
+      if (agentDetails || agentFromList) {
+        // Construct agent data similar to API response
+        const data = {
+          id: agentId,
+          name: agentDetails?.name || agentFromList?.name || agentName,
+          creator_wallet: agentDetails?.creatorWallet || '0xCREATOR00000000000000000000000000000001',
+          totalCost: agentFromList?.totalCost || 550,
+          // Mock agent_telegram_users structure for cost calculation
+          agent_telegram_users: agentFromList?.totalCost ? [{
+            telegram_alpha_users: {
+              credit_price: (agentFromList.totalCost / 1.1).toString(), // Remove platform fee to get base price
+              telegram_username: 'abhidavinci'
+            }
+          }] : []
+        };
+        setAgentData(data);
+
+        // Check if current user is the club creator
+        const userWallet = UNIVERSAL_WALLET_ADDRESS.toLowerCase();
+        const creatorWallet = (data.creator_wallet || '').toLowerCase();
+        const creatorFlag = userWallet && creatorWallet && userWallet === creatorWallet;
+        setIsCreator(creatorFlag);
+        console.log('[OstiumConnect] Creator check:', { userWallet, creatorWallet, isCreator: creatorFlag });
+
+        // Calculate total cost
+        let subtotal = 0;
+        if (data.agent_telegram_users && data.agent_telegram_users.length > 0) {
+          data.agent_telegram_users.forEach((au: any) => {
+            if (au.telegram_alpha_users?.credit_price) {
+              subtotal += parseFloat(au.telegram_alpha_users.credit_price);
+            }
+          });
+        } else {
+          // Fallback to agent's totalCost if no telegram users
+          subtotal = data.totalCost / 1.1; // Remove platform fee
+        }
+        const platformFee = subtotal * 0.1;
+        setTotalCost(subtotal + platformFee);
+        console.log('[OstiumConnect] Agent cost calculated:', { subtotal, platformFee, total: subtotal + platformFee });
+      }
+    } catch (err) {
+      console.error('[OstiumConnect] Error loading agent data:', err);
+    }
+  };
+
+  const loadCreditBalance = async () => {
+    try {
+      // Load credit balance from simulation data
+      const simulationData = simulationDataJson as any;
+      const balance = simulationData.totalCreditBalance || 0;
+      setCreditBalance(balance);
+      console.log('[OstiumConnect] User credit balance:', balance);
+    } catch (err) {
+      console.error('[OstiumConnect] Error loading credit balance:', err);
+    }
+  };
 
   const checkSetupStatus = async () => {
     // Frontend-only: simulate a quick setup check, then move to oneclick step
@@ -61,6 +167,13 @@ export function OstiumConnect({
   };
 
   const joinAgent = async () => {
+    // 1. Check if user has enough credits (skip for creators - they join for free)
+    if (!isCreator && totalCost > 0 && creditBalance < totalCost) {
+      console.log('[OstiumConnect] Insufficient credits to join, showing top-up UI');
+      setShowTopUpUI(true);
+      return;
+    }
+
     setJoiningAgent(true);
     setError('');
 
@@ -138,8 +251,27 @@ export function OstiumConnect({
   };
 
   const loadFirstDeploymentPreferences = async () => {
-    // Frontend-only: no previous deployments to load in this simulation
-    console.log('[OstiumConnect] loadFirstDeploymentPreferences (simulation, returning null)');
+    // Frontend-only: load from simulation data if available
+    try {
+      const simulationData = simulationDataJson as any;
+      const deployments = simulationData.deployments || [];
+      const deploymentStatuses = simulationData.deploymentStatuses || {};
+
+      // Find first deployment and its status
+      const firstDeployment = deployments[0];
+      if (firstDeployment && deploymentStatuses[firstDeployment.id]) {
+        const status = deploymentStatuses[firstDeployment.id];
+        return {
+          risk_tolerance: status.riskTolerance || 50,
+          trade_frequency: status.tradeFrequency || 50,
+          social_sentiment_weight: status.socialSentimentWeight || 50,
+          price_momentum_focus: status.priceMomentumFocus || 50,
+          market_rank_priority: status.marketRankPriority || 50,
+        } as TradingPreferences;
+      }
+    } catch (err) {
+      console.error('[OstiumConnect] Error loading first deployment preferences:', err);
+    }
     return null;
   };
 
@@ -647,42 +779,88 @@ export function OstiumConnect({
                           <span className="text-xs text-[var(--text-muted)] font-bold">READY TO ACTIVATE</span>
                         </div>
                       </div>
-                    </div>
 
-                    {/* CREDIT SUMMARY Section */}
-                    <div className="border border-[var(--border)] bg-[var(--bg-surface)] p-5 space-y-3">
-                      <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">CREDIT SUMMARY</h4>
-
-                      {/* Alpha Access */}
-                      <div className="flex items-center justify-between py-2 border-b border-dashed border-[var(--border)]">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm">Alpha Access:</span>
-                          <span className="text-sm font-mono">abhidavinci</span>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 py-1">
+                          <div className="w-1.5 h-1.5 bg-[var(--accent)] rounded-full" />
+                          <span className="text-xs text-[var(--text-secondary)]">Agent whitelisted & assigned</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] px-2 py-0.5 bg-[var(--accent)] text-[var(--bg-deep)] font-bold">PAID ACCESS</span>
-                          <span className="text-sm font-bold">500 CREDS</span>
+                        <div className="flex items-center gap-2 py-1">
+                          <div className="w-1.5 h-1.5 bg-[var(--accent)] rounded-full" />
+                          <span className="text-xs text-[var(--text-secondary)]">USDC approved (Non-custodial)</span>
                         </div>
                       </div>
 
-                      {/* Platform Fee */}
-                      <div className="flex items-center justify-between py-2 border-b border-dashed border-[var(--border)]">
-                        <span className="text-sm text-[var(--text-secondary)]">Platform Fee (10%)</span>
-                        <span className="text-sm font-bold">50 CREDS</span>
-                      </div>
+                      {totalCost > 0 && (
+                        <div className="mt-4 pt-4 border-t border-[var(--border)]">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">Credit Summary</p>
+                            <span className={`text-[10px] px-2 py-0.5 border font-bold rounded ${isCreator ? 'border-green-500/30 text-green-500' : 'border-[var(--accent)]/30 text-[var(--accent)]'}`}>
+                              {isCreator ? 'CREATOR - FREE ACCESS' : 'PAID ACCESS'}
+                            </span>
+                          </div>
 
-                      {/* Cost to Join */}
-                      <div className="flex items-center justify-between pt-2">
-                        <span className="text-sm font-bold">COST TO JOIN</span>
-                        <span className="text-xl font-bold">550 CREDS</span>
-                      </div>
+                          {!isCreator && (
+                            <div className="mb-4 space-y-1">
+                              {agentData?.agent_telegram_users?.map((au: any, idx: number) => {
+                                if (au.telegram_alpha_users?.credit_price && parseFloat(au.telegram_alpha_users.credit_price) > 0) {
+                                  return (
+                                    <div key={idx} className="flex justify-between text-[10px]">
+                                      <span className="text-[var(--text-secondary)] italic">Alpha Access: {au.telegram_alpha_users.telegram_username || 'Provider'}</span>
+                                      <span className="text-[var(--text-primary)]">{parseFloat(au.telegram_alpha_users.credit_price).toFixed(0)} CREDS</span>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })}
+                              <div className="flex justify-between text-[10px] pt-1 border-t border-[var(--border)] border-dashed">
+                                <span className="text-[var(--text-muted)]">Platform Fee (10%)</span>
+                                <span className="text-[var(--text-primary)]">{(totalCost * (10 / 110)).toFixed(0)} CREDS</span>
+                              </div>
+                            </div>
+                          )}
 
-                      {/* Your Balance */}
-                      <div className="flex items-center justify-between pt-3 border-t border-[var(--border)]">
-                        <span className="text-xs text-[var(--text-muted)] uppercase tracking-wider">YOUR BALANCE</span>
-                        <span className="text-xl font-bold">0 CREDS</span>
-                      </div>
+                          {isCreator ? (
+                            <div className="bg-green-500/5 p-3 border border-green-500/20 rounded">
+                              <p className="text-[11px] text-green-500 font-bold text-center">
+                                ✓ AS THE CREATOR, YOU JOIN FOR FREE
+                              </p>
+                              <p className="text-[9px] text-[var(--text-muted)] text-center mt-1">
+                                You already paid when creating this club
+                              </p>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                  <p className="text-[10px] text-[var(--text-muted)] uppercase">Cost to Join</p>
+                                  <p className="text-xl font-display text-[var(--text-primary)]">{totalCost.toFixed(0)} <span className="text-[10px] text-[var(--text-secondary)]">CREDS</span></p>
+                                </div>
+                                <div className="space-y-1 text-right">
+                                  <p className="text-[10px] text-[var(--text-muted)] uppercase">Your Balance</p>
+                                  <p className={`text-xl font-display ${creditBalance < totalCost ? 'text-red-500' : 'text-[var(--text-primary)]'}`}>{creditBalance.toFixed(0)} <span className="text-[10px] text-[var(--text-secondary)]">CREDS</span></p>
+                                </div>
+                              </div>
+
+                              {creditBalance >= totalCost ? (
+                                <div className="mt-3 bg-[var(--accent)]/5 p-2 border border-[var(--accent)]/10">
+                                  <p className="text-[10px] text-[var(--accent)] font-bold text-center">
+                                    NEW BALANCE AFTER JOIN: {(creditBalance - totalCost).toFixed(0)} CREDS
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="mt-3 bg-red-500/5 p-2 border border-red-500/20">
+                                  <p className="text-[10px] text-red-500 font-bold text-center">
+                                    ⚠ INSUFFICIENT CREDITS - NEED {(totalCost - creditBalance).toFixed(0)} MORE
+                                  </p>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
+
 
                     {/* Action Buttons */}
                     <div className="flex gap-3">
@@ -695,8 +873,8 @@ export function OstiumConnect({
                       </button>
                       <button
                         onClick={joinAgent}
-                        disabled={joiningAgent}
-                        className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        disabled={joiningAgent || (!isCreator && totalCost > 0 && creditBalance < totalCost)}
+                        className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         type="button"
                       >
                         {joiningAgent ? (
@@ -704,10 +882,15 @@ export function OstiumConnect({
                             <Activity className="w-5 h-5 animate-spin" />
                             JOINING AGENT...
                           </>
+                        ) : !isCreator && totalCost > 0 && creditBalance < totalCost ? (
+                          <>
+                            <AlertCircle className="w-5 h-5" />
+                            INSUFFICIENT CREDITS
+                          </>
                         ) : (
                           <>
                             <Zap className="w-5 h-5" />
-                            JOIN AGENT (550 CREDS)
+                            {isCreator ? 'JOIN AGENT (FREE - CREATOR)' : totalCost > 0 ? `JOIN AGENT (${totalCost.toFixed(0)} CREDS)` : 'JOIN AGENT (FREE)'}
                           </>
                         )}
                       </button>

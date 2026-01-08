@@ -27,9 +27,11 @@ interface AgentsSectionProps {
     hasApproval: boolean;
   } | null;
   fromHome?: boolean;
+  creditBalance?: number;
+  userWallet?: string;
 }
 
-const AgentsSection = ({ agents, loading, error, onCardClick, onDeployClick, userAgentAddresses, agentDeployments = {}, ostiumDelegationStatus, ostiumUsdcAllowance, fromHome = true }: AgentsSectionProps) => {
+const AgentsSection = ({ agents, loading, error, onCardClick, onDeployClick, userAgentAddresses, agentDeployments = {}, ostiumDelegationStatus, ostiumUsdcAllowance, fromHome = true, creditBalance, userWallet }: AgentsSectionProps) => {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
