@@ -181,14 +181,20 @@ export default function CreateAgent() {
       setError('Please fix the validation errors');
       return;
     }
-    if (selectedResearchInstitutes.length === 0) {
-      setError('Please select at least one research institute');
-      setStep(4);
-      return;
-    }
-    if (selectedCtAccounts.size === 0) {
-      setError('Please select at least one CT account');
-      setStep(5);
+    // Check if at least one signal provider is selected from any category
+    const totalSignalProviders =
+      selectedResearchInstitutes.length +
+      selectedCtAccounts.size +
+      selectedTelegramUsers.size +
+      selectedTopTraders.length;
+
+    if (totalSignalProviders === 0) {
+      setError('Please select at least one signal provider from any category');
+      // Navigate to the first signal provider step
+      if (selectedTopTraders.length === 0) setStep(3);
+      else if (selectedResearchInstitutes.length === 0) setStep(4);
+      else if (selectedCtAccounts.size === 0) setStep(5);
+      else setStep(6);
       return;
     }
     if (!proofOfIntent) {
@@ -309,23 +315,44 @@ export default function CreateAgent() {
       // Top traders is optional, so always valid
       isValid = true;
     } else if (step === 4) {
-      if (selectedResearchInstitutes.length === 0) {
-        setError('Please select at least one research institute');
-        return;
-      }
+      // Research institutes are optional, so always valid
       isValid = true;
     } else if (step === 5) {
-      if (selectedCtAccounts.size === 0) {
-        setError('Please select at least one CT account');
+      // CT accounts are optional, so always valid
+      isValid = true;
+    } else if (step === 6) {
+      // Before moving to Wallet step, check if at least one signal provider is selected
+      const totalSignalProviders =
+        selectedResearchInstitutes.length +
+        selectedCtAccounts.size +
+        selectedTelegramUsers.size +
+        selectedTopTraders.length;
+
+      if (totalSignalProviders === 0) {
+        setError('Please select at least one signal provider from top traders, research institutes, ct accounts, or telegram users before proceeding');
         return;
       }
       isValid = true;
-    } else if (step === 6) isValid = true;
-    else if (step === 7) {
+    } else if (step === 7) {
       const validWallet = await trigger('creatorWallet');
       const validProfit = await trigger('profitReceiverAddress');
       isValid = validWallet && validProfit;
-    } else if (step === 8) isValid = !!proofOfIntent;
+    } else if (step === 8) {
+      // Before moving to Review step, check if at least one signal provider is selected
+      const totalSignalProviders =
+        selectedResearchInstitutes.length +
+        selectedCtAccounts.size +
+        selectedTelegramUsers.size +
+        selectedTopTraders.length;
+
+      if (totalSignalProviders === 0) {
+        setError('Please select at least one signal provider from any category before proceeding');
+        // Navigate back to the first signal provider step
+        setStep(3);
+        return;
+      }
+      isValid = !!proofOfIntent;
+    }
 
     if (isValid && step < 9) {
       setStep(step + 1);
@@ -364,25 +391,25 @@ export default function CreateAgent() {
     },
     {
       target: '[data-tour="step-3"]',
-      content: 'Select top traders to follow. These traders will act as signal providers for your agent.',
+      content: 'Select top traders to follow. These traders will act as signal providers for your agent. (Optional)',
       disableBeacon: true,
       placement: 'top',
     },
     {
       target: '[data-tour="step-4"]',
-      content: 'Select research institutes whose signals your agent will follow with a fixed allocation.',
+      content: 'Select research institutes whose signals your agent will follow with a fixed allocation. (Optional)',
       disableBeacon: true,
       placement: 'top',
     },
     {
       target: '[data-tour="step-5"]',
-      content: 'Pick CT accounts to mirror. Your agent will react when these accounts post signals.',
+      content: 'Pick CT accounts to mirror. Your agent will react when these accounts post signals. (Optional)',
       disableBeacon: true,
       placement: 'top',
     },
     {
       target: '[data-tour="step-6"]',
-      content: 'Connect Telegram alpha sources whose DM signals your agent should execute.',
+      content: 'Connect Telegram alpha sources whose DM signals your agent should execute. (Optional)',
       disableBeacon: true,
       placement: 'top',
     },
@@ -409,10 +436,10 @@ export default function CreateAgent() {
   const stepDescriptions: Record<number, string> = {
     1: 'Name your agent and optionally describe its trading style.',
     2: 'Choose where your agent will execute trades.',
-    3: 'Select top traders to follow as signal providers.',
-    4: 'Select research institutes whose signals will drive your agent.',
-    5: 'Pick CT accounts your agent should mirror.',
-    6: 'Connect Telegram alpha sources your agent will listen to.',
+    3: 'Select top traders to follow as signal providers. (Optional)',
+    4: 'Select research institutes whose signals will drive your agent. (Optional)',
+    5: 'Pick CT accounts your agent should mirror. (Optional)',
+    6: 'Connect Telegram alpha sources your agent will listen to. (Optional)',
     7: 'Configure the wallet that owns the agent and receives profits.',
     8: 'Sign a message to prove you are the legitimate creator.',
     9: 'Review all settings before creating your agent.',
@@ -715,7 +742,7 @@ export default function CreateAgent() {
           {step === 3 && (
             <div className="space-y-6" data-tour="step-3">
               <h2 className="font-display text-2xl mb-2">TOP TRADERS</h2>
-              <p className="text-[var(--text-secondary)] text-sm mb-6">Select top traders to follow. These traders will act as signal providers for your agent.</p>
+              <p className="text-[var(--text-secondary)] text-sm mb-6">Select top traders to follow. These traders will act as signal providers for your agent. (Optional)</p>
               <TopTradersSelector selectedIds={selectedTopTraders} onChange={setSelectedTopTraders} />
               <div className="flex gap-4">
                 <button type="button" onClick={prevStep} className="flex-1 py-4 border border-[var(--border)] font-bold hover:border-[var(--text-primary)] transition-colors">BACK</button>
@@ -728,11 +755,8 @@ export default function CreateAgent() {
           {step === 4 && (
             <div className="space-y-6" data-tour="step-4">
               <h2 className="font-display text-2xl mb-2">RESEARCH INSTITUTES</h2>
-              <p className="text-[var(--text-secondary)] text-sm mb-6">Choose which institutes your agent should follow for signals.</p>
+              <p className="text-[var(--text-secondary)] text-sm mb-6">Choose which institutes your agent should follow for signals. (Optional)</p>
               <ResearchInstituteSelector selectedIds={selectedResearchInstitutes} onChange={setSelectedResearchInstitutes} />
-              {selectedResearchInstitutes.length === 0 && (
-                <p className="text-sm text-[var(--accent)]">⚠️ Select at least one institute</p>
-              )}
               <div className="flex gap-4">
                 <button type="button" onClick={prevStep} className="flex-1 py-4 border border-[var(--border)] font-bold hover:border-[var(--text-primary)] transition-colors">BACK</button>
                 <button type="button" onClick={nextStep} className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors">NEXT →</button>
@@ -756,7 +780,7 @@ export default function CreateAgent() {
           {step === 6 && (
             <div className="space-y-6" data-tour="step-6">
               <h2 className="font-display text-2xl mb-2">TELEGRAM ALPHA</h2>
-              <p className="text-[var(--text-secondary)] text-sm mb-6">Select Telegram users whose alpha signals your agent should follow.</p>
+              <p className="text-[var(--text-secondary)] text-sm mb-6">Select Telegram users whose alpha signals your agent should follow. (Optional)</p>
               <TelegramAlphaUserSelector
                 selectedIds={selectedTelegramUsers}
                 onToggle={(id) => {

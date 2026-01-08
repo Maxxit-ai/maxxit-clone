@@ -360,7 +360,7 @@ export default function EditAgent() {
     return (
       <div className="min-h-screen bg-[var(--bg-deep)]">
         <Header />
-        <div className="max-w-4xl mx-auto px-6 py-12 text-center">
+        <div className="flex flex-col items-center justify-center min-h-screen max-w-4xl mx-auto px-6 py-12 text-center">
           <Activity className="h-12 w-12 animate-pulse text-[var(--accent)] mx-auto mb-4" />
           <p className="text-[var(--text-secondary)]">Loading agent data...</p>
         </div>
