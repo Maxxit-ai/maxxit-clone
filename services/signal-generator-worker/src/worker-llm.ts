@@ -548,6 +548,7 @@ async function generateAllSignals() {
           take_profit_price: takeProfitPrice,
           stop_loss_price: stopLossPrice,
           timeline_window: null,
+          sourceTradeId: traderTrade.source_trade_id,
         };
 
         // Generate signals for each deployment
@@ -1213,6 +1214,7 @@ async function generateSignalForAgentAndToken(
               type: "balance-percentage",
               value: tradeDecision.fundAllocation,
               impactFactor: 0,
+              sourceTradeId: post.sourceTradeId || null,
             },
             risk_model: {
               stopLoss: post.stop_loss || 0.05,
@@ -1276,6 +1278,7 @@ async function generateSignalForAgentAndToken(
             type: "balance-percentage",
             value: tradeDecision.fundAllocation, // From LLM decision
             impactFactor: 0,
+            sourceTradeId: post.sourceTradeId || null,
           },
           risk_model: {
             stopLoss: post.stop_loss || 0.05,
