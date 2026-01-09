@@ -41,16 +41,16 @@ app.get("/health", async (req, res) => {
     checkDatabaseHealth(),
     isRedisHealthy(),
   ]);
-  
+
   let queueStats = { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 };
   try {
     queueStats = await getQueueStats(QueueName.TRADE_EXECUTION);
   } catch {
     // Queue might not be initialized yet
   }
-  
+
   const isHealthy = dbHealthy && redisHealthy;
-  
+
   res.status(isHealthy ? 200 : 503).json({
     status: isHealthy ? "ok" : "degraded",
     service: "trade-executor-worker",
@@ -76,22 +76,22 @@ async function processTradeExecutionJob(
   job: Job<TradeExecutionJobData>
 ): Promise<JobResult> {
   const { data } = job;
-  
+
   if (data.type !== "EXECUTE_SIGNAL") {
     return {
       success: false,
       error: `Unknown job type: ${(data as any).type}`,
     };
   }
-  
+
   const { signalId, deploymentId } = data as ExecuteSignalJobData;
   const lockKey = getSignalDeploymentLockKey(signalId, deploymentId);
-  
+
   // Use distributed lock to prevent duplicate executions
   const result = await withLock(lockKey, async () => {
     return await executeSignal(signalId, deploymentId);
   });
-  
+
   if (result === undefined) {
     // Lock could not be acquired, another worker is processing this
     return {
@@ -99,7 +99,7 @@ async function processTradeExecutionJob(
       message: "Job skipped - another worker is processing this signal",
     };
   }
-  
+
   return result;
 }
 
@@ -168,7 +168,7 @@ async function executeSignal(signalId: string, deploymentId: string): Promise<Jo
       const collateral = result.collateral || 0;
       const rawTradeIndex =
         result.ostiumTradeIndex !== undefined &&
-        result.ostiumTradeIndex !== null
+          result.ostiumTradeIndex !== null
           ? parseInt(String(result.ostiumTradeIndex), 10)
           : undefined;
       const ostiumTradeIndex =
@@ -215,6 +215,29 @@ async function executeSignal(signalId: string, deploymentId: string): Promise<Jo
         console.log(`[TradeExecutor]    Entry Price: $${entryPrice || "pending"}`);
         console.log(`[TradeExecutor]    Collateral: $${collateral || "N/A"}`);
 
+        // Mark signal as successfully executed
+        await prisma.signals.update({
+          where: { id: signalId },
+          data: { trade_executed: "SUCCESS" },
+        });
+
+        // Add notification job for successful trade
+        await addJob(
+          QueueName.TELEGRAM_NOTIFICATION,
+          "send-notification",
+          {
+            type: "SEND_NOTIFICATION" as const,
+            signalId: signalId,
+            userWallet: deployment.user_wallet.toLowerCase(),
+            notificationType: "SIGNAL_EXECUTED" as const,
+            timestamp: Date.now(),
+          },
+          {
+            jobId: `notify-${signalId}-${deployment.user_wallet.toLowerCase()}`,
+          }
+        );
+        console.log(`[TradeExecutor] 📤 Queued notification job`);
+
         return {
           success: true,
           message: "Trade executed successfully",
@@ -241,11 +264,11 @@ async function executeSignal(signalId: string, deploymentId: string): Promise<Jo
       const isRetryable = isRetryableError(errorMessage);
 
       if (isRetryable) {
-        await handleRetryableError(signalId, errorMessage);
+        await handleRetryableError(signalId, deploymentId, errorMessage);
         // Throw to trigger BullMQ retry
         throw new Error(`Retryable: ${errorMessage}`);
       } else {
-        await markSignalAsFailed(signalId, errorMessage);
+        await markSignalAsFailed(signalId, deploymentId, errorMessage);
         return {
           success: false,
           error: errorMessage,
@@ -258,10 +281,10 @@ async function executeSignal(signalId: string, deploymentId: string): Promise<Jo
     const isRetryable = isRetryableError(error.message);
 
     if (isRetryable) {
-      await handleRetryableError(signalId, error.message);
+      await handleRetryableError(signalId, deploymentId, error.message);
       throw error; // Re-throw to trigger BullMQ retry
     } else {
-      await markSignalAsFailed(signalId, `Execution error: ${error.message}`);
+      await markSignalAsFailed(signalId, deploymentId, `Execution error: ${error.message}`);
       return {
         success: false,
         error: error.message,
@@ -273,7 +296,7 @@ async function executeSignal(signalId: string, deploymentId: string): Promise<Jo
 /**
  * Handle retryable error by updating signal status
  */
-async function handleRetryableError(signalId: string, errorMessage: string): Promise<void> {
+async function handleRetryableError(signalId: string, deploymentId: string, errorMessage: string): Promise<void> {
   try {
     const signal = await prisma.signals.findUnique({
       where: { id: signalId },
@@ -284,7 +307,7 @@ async function handleRetryableError(signalId: string, errorMessage: string): Pro
     const MAX_RETRY_AGE = 24 * 60 * 60 * 1000; // 24 hours
 
     if (signalAge > MAX_RETRY_AGE) {
-      await markSignalAsFailed(signalId, `Retry timeout (signal older than 24h): ${errorMessage}`);
+      await markSignalAsFailed(signalId, deploymentId, `Retry timeout (signal older than 24h): ${errorMessage}`);
     } else {
       const existingError = signal?.executor_agreement_error || "";
       const retryCount = (existingError.match(/RETRY #/g)?.length || 0) + 1;
@@ -310,16 +333,42 @@ async function handleRetryableError(signalId: string, errorMessage: string): Pro
 /**
  * Mark a signal as permanently failed
  */
-async function markSignalAsFailed(signalId: string, errorMessage: string): Promise<void> {
+async function markSignalAsFailed(signalId: string, deploymentId: string, errorMessage: string): Promise<void> {
   try {
+    // Get deployment for user wallet
+    const deployment = await prisma.agent_deployments.findUnique({
+      where: { id: deploymentId },
+    });
+
     await prisma.signals.update({
       where: { id: signalId },
       data: {
         skipped_reason: errorMessage,
         executor_agreement_error: null,
+        trade_executed: "FAILED",
+        execution_result: errorMessage,
       },
     });
     console.log(`[TradeExecutor] ❌ Signal marked as failed: ${errorMessage}`);
+
+    // Add notification job for failed trade
+    if (deployment) {
+      await addJob(
+        QueueName.TELEGRAM_NOTIFICATION,
+        "send-notification",
+        {
+          type: "SEND_NOTIFICATION" as const,
+          signalId: signalId,
+          userWallet: deployment.user_wallet.toLowerCase(),
+          notificationType: "SIGNAL_NOT_TRADED" as const,
+          timestamp: Date.now(),
+        },
+        {
+          jobId: `notify-${signalId}-${deployment.user_wallet.toLowerCase()}`,
+        }
+      );
+      console.log(`[TradeExecutor] 📤 Queued failure notification job`);
+    }
   } catch (updateError) {
     console.error(`[TradeExecutor] ❌ Failed to update signal:`, updateError);
   }

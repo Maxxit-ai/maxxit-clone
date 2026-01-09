@@ -41,8 +41,8 @@ export interface RetryFailedExecutionJobData extends BaseJobData {
   retryCount: number;
 }
 
-export type TradeExecutionJobData = 
-  | ExecuteSignalJobData 
+export type TradeExecutionJobData =
+  | ExecuteSignalJobData
   | RetryFailedExecutionJobData;
 
 // ============================================
@@ -92,9 +92,9 @@ export interface GenerateTelegramSignalJobData extends BaseJobData {
   influencerImpactFactor: number;
 }
 
-export type SignalGenerationJobData = 
-  | ProcessTweetsJobData 
-  | ProcessTelegramJobData 
+export type SignalGenerationJobData =
+  | ProcessTweetsJobData
+  | ProcessTelegramJobData
   | ProcessResearchJobData
   | GenerateSignalJobData
   | GenerateTelegramSignalJobData;
@@ -114,8 +114,8 @@ export interface CheckStopLossJobData extends BaseJobData {
   positionId: string;
 }
 
-export type PositionMonitorJobData = 
-  | MonitorPositionJobData 
+export type PositionMonitorJobData =
+  | MonitorPositionJobData
   | CheckStopLossJobData;
 
 // ============================================
@@ -124,10 +124,12 @@ export type PositionMonitorJobData =
 
 export interface SendNotificationJobData extends BaseJobData {
   type: 'SEND_NOTIFICATION';
-  userId: string;
-  chatId: string;
-  message: string;
-  notificationType: 'SIGNAL_EXECUTED' | 'POSITION_CLOSED' | 'STOP_LOSS_HIT' | 'TAKE_PROFIT_HIT';
+  /** signals.id */
+  signalId: string;
+  /** User's wallet address (lowercase) */
+  userWallet: string;
+  /** Type of notification to send */
+  notificationType: 'SIGNAL_EXECUTED' | 'SIGNAL_NOT_TRADED' | 'POSITION_CLOSED' | 'STOP_LOSS_HIT' | 'TAKE_PROFIT_HIT';
 }
 
 export type TelegramNotificationJobData = SendNotificationJobData;
