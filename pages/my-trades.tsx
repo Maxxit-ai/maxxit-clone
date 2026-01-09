@@ -616,20 +616,30 @@ export default function MyTrades() {
                     >
                       {/* Trade Header - Always Visible */}
                       <div
-                        className="p-4 sm:p-6 cursor-pointer hover:bg-[var(--bg-elevated)] transition-colors"
+                        className="p-3 sm:p-4 md:p-6 cursor-pointer hover:bg-[var(--bg-elevated)] transition-colors"
                         onClick={() => toggleTradeExpansion(trade.id)}
                       >
-                        <div className="grid grid-cols-1 sm:grid-cols-12 items-start sm:items-center gap-3 sm:gap-4">
-                          {/* Trade Number & Token */}
-                          <div className="col-span-1 sm:col-span-3 flex items-center gap-2 sm:gap-3">
+                        <div className="flex flex-col sm:grid sm:grid-cols-12 gap-3 sm:gap-4">
+                          {/* Trade Number & Token - Mobile: Full width, Desktop: Col 3 */}
+                          <div className="flex items-start sm:items-center gap-2 sm:gap-3 sm:col-span-3">
                             <div className="flex-1 min-w-0">
-                              <span className="text-[var(--accent)] font-mono text-xs">
-                                #{String(index + 1).padStart(2, "0")}
-                              </span>
-                              <h3 className="font-display text-lg sm:text-xl mt-1 flex flex-wrap items-center gap-1.5 sm:gap-2">
-                                {trade.tokenSymbol}
+                              <div className="flex items-center justify-between sm:block">
+                                <span className="text-[var(--accent)] font-mono text-xs">
+                                  #{String(index + 1).padStart(2, "0")}
+                                </span>
+                                {/* Expand Icon - Mobile only */}
+                                <div className="sm:hidden">
+                                  {isExpanded ? (
+                                    <ChevronUp className="w-5 h-5 text-[var(--text-muted)]" />
+                                  ) : (
+                                    <ChevronDown className="w-5 h-5 text-[var(--text-muted)]" />
+                                  )}
+                                </div>
+                              </div>
+                              <h3 className="font-display text-base sm:text-lg md:text-xl mt-1 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                                <span className="text-lg sm:text-xl md:text-2xl">{trade.tokenSymbol}</span>
                                 <span
-                                  className={`text-xs px-1.5 sm:px-2 py-0.5 font-bold ${trade.side === "LONG"
+                                  className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 font-bold ${trade.side === "LONG"
                                     ? "bg-green-500/20 text-green-400"
                                     : "bg-red-500/20 text-red-400"
                                     }`}
@@ -637,7 +647,7 @@ export default function MyTrades() {
                                   {trade.side}
                                 </span>
                                 <span
-                                  className={`text-xs px-1.5 sm:px-2 py-0.5 font-bold border border-[var(--border)] ${trade.status === "OPEN"
+                                  className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 font-bold border border-[var(--border)] ${trade.status === "OPEN"
                                     ? "text-green-300 bg-green-500/10"
                                     : "text-[var(--text-muted)] bg-[var(--bg-surface)]"
                                     }`}
@@ -648,45 +658,48 @@ export default function MyTrades() {
                             </div>
                           </div>
 
-                          {/* Entry Price */}
-                          <div className="col-span-1 sm:col-span-2">
-                            <p className="data-label mb-1 text-xs">ENTRY</p>
-                            <p className="font-mono text-sm sm:text-base">${trade.entryPrice}</p>
+                          {/* Entry Price - Mobile: Full width row, Desktop: Col 2 */}
+                          <div className="sm:col-span-2">
+                            <p className="data-label mb-1 text-[10px] sm:text-xs">ENTRY</p>
+                            <p className="font-mono text-sm sm:text-base font-semibold">${trade.entryPrice}</p>
                           </div>
 
-                          {/* Signal Time */}
-                          <div className="col-span-1 sm:col-span-3">
-                            <p className="data-label mb-1 text-xs">SIGNAL TIME</p>
-                            <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
+                          {/* Signal Time - Mobile: Full width row, Desktop: Col 3 */}
+                          <div className="sm:col-span-3">
+                            <p className="data-label mb-1 text-[10px] sm:text-xs">SIGNAL TIME</p>
+                            <p className="text-[11px] sm:text-xs md:text-sm text-[var(--text-secondary)] break-words">
                               {formatDate(trade.signalCreatedAt)}
                             </p>
                           </div>
 
-                          {/* Venue */}
-                          <div className="col-span-1 sm:col-span-2">
-                            <span className="text-xs border border-[var(--border)] px-2 py-1 inline-block">
-                              {trade.venue}
-                            </span>
-                          </div>
-
-                          {/* Signature Status */}
-                          <div className="col-span-1 flex items-center gap-2">
-                            {trade.hasSignatureData ? (
-                              <>
-                                <Shield className="w-4 h-4 text-[var(--accent)] flex-shrink-0" />
-                                <span className="text-xs font-bold text-[var(--accent)] hidden sm:inline">
-                                  SIGNED
-                                </span>
-                              </>
-                            ) : (
-                              <span className="text-xs text-[var(--text-muted)] font-mono hidden sm:inline">
-                                No signature
+                          {/* Venue & Signature Status - Mobile: Side by side, Desktop: Separate cols */}
+                          <div className="flex items-center justify-between sm:contents gap-2 sm:col-span-2">
+                            <div className="sm:col-span-2">
+                              <p className="data-label mb-1 text-[10px] sm:text-xs hidden sm:block">VENUE</p>
+                              <span className="text-[10px] sm:text-xs border border-[var(--border)] px-2 py-1 inline-block">
+                                {trade.venue}
                               </span>
-                            )}
+                            </div>
+
+                            {/* Signature Status */}
+                            <div className="flex items-center gap-1.5 sm:gap-2 sm:col-span-1">
+                              {trade.hasSignatureData ? (
+                                <>
+                                  <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--accent)] flex-shrink-0" />
+                                  <span className="text-[10px] sm:text-xs font-bold text-[var(--accent)]">
+                                    SIGNED
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-[10px] sm:text-xs text-[var(--text-muted)] font-mono">
+                                  No sig
+                                </span>
+                              )}
+                            </div>
                           </div>
 
-                          {/* Expand Icon */}
-                          <div className="col-span-1 flex justify-end sm:justify-end sm:col-span-1">
+                          {/* Expand Icon - Desktop only */}
+                          <div className="hidden sm:flex sm:col-span-1 sm:justify-end">
                             {isExpanded ? (
                               <ChevronUp className="w-5 h-5 text-[var(--text-muted)]" />
                             ) : (
@@ -698,29 +711,29 @@ export default function MyTrades() {
 
                       {/* Expanded Details */}
                       {isExpanded && (
-                        <div className="border-t border-[var(--border)] p-4 sm:p-6 bg-[var(--bg-elevated)]">
-                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                        <div className="border-t border-[var(--border)] p-3 sm:p-4 bg-[var(--bg-elevated)]">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                             {/* Left Column - Trade Details */}
-                            <div className="space-y-4 lg:col-span-1">
-                              <h4 className="font-display text-sm mb-3">
+                            <div className="space-y-2 sm:space-y-3">
+                              <h4 className="font-display text-xs sm:text-sm mb-1.5 sm:mb-2">
                                 TRADE DETAILS
                               </h4>
 
-                              <div className="grid grid-cols-2 gap-3">
-                                <div className="border border-[var(--border)] p-3">
-                                  <p className="data-label mb-1">QUANTITY</p>
-                                  <p className="font-mono">{trade.qty}</p>
+                              <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+                                <div className="border border-[var(--border)] p-1.5 sm:p-2">
+                                  <p className="data-label mb-0.5 text-[9px] sm:text-[10px]">QUANTITY</p>
+                                  <p className="font-mono text-[11px] sm:text-xs">{trade.qty}</p>
                                 </div>
 
-                                <div className="border border-[var(--border)] p-3">
-                                  <p className="data-label mb-1">AGENT</p>
-                                  <p className="text-sm">{trade.agentName}</p>
+                                <div className="border border-[var(--border)] p-1.5 sm:p-2">
+                                  <p className="data-label mb-0.5 text-[9px] sm:text-[10px]">AGENT</p>
+                                  <p className="text-[11px] sm:text-xs truncate">{trade.agentName}</p>
                                 </div>
 
-                                <div className="border border-[var(--border)] p-3">
-                                  <p className="data-label mb-1">STATUS</p>
+                                <div className="border border-[var(--border)] p-1.5 sm:p-2">
+                                  <p className="data-label mb-0.5 text-[9px] sm:text-[10px]">STATUS</p>
                                   <p
-                                    className={`text-sm font-bold ${trade.status === "OPEN"
+                                    className={`text-[11px] sm:text-xs font-bold ${trade.status === "OPEN"
                                       ? "text-green-400"
                                       : "text-[var(--text-muted)]"
                                       }`}
@@ -734,23 +747,23 @@ export default function MyTrades() {
                                   trade.exitPrice !== null) && (
                                     <>
                                       {trade.exitPrice && (
-                                        <div className="border border-[var(--border)] p-3">
-                                          <p className="data-label mb-1">
+                                        <div className="border border-[var(--border)] p-1.5 sm:p-2">
+                                          <p className="data-label mb-0.5 text-[9px] sm:text-[10px]">
                                             EXIT PRICE
                                           </p>
-                                          <p className="font-mono">
+                                          <p className="font-mono text-[11px] sm:text-xs">
                                             ${trade.exitPrice}
                                           </p>
                                         </div>
                                       )}
 
                                       {trade.pnl && (
-                                        <div className="border border-[var(--border)] p-3">
-                                          <p className="data-label mb-1">
+                                        <div className="border border-[var(--border)] p-1.5 sm:p-2">
+                                          <p className="data-label mb-0.5 text-[9px] sm:text-[10px]">
                                             REALIZED PNL
                                           </p>
                                           <p
-                                            className={`font-mono text-sm font-bold ${parseFloat(trade.pnl) >= 0
+                                            className={`font-mono text-[11px] sm:text-xs font-bold ${parseFloat(trade.pnl) >= 0
                                               ? "text-green-400"
                                               : "text-red-400"
                                               }`}
@@ -765,180 +778,168 @@ export default function MyTrades() {
                                     </>
                                   )}
 
-                                <div className="border border-[var(--border)] p-3">
-                                  <p className="data-label mb-1">STOP LOSS</p>
-                                  <p className="font-mono">
+                                <div className="border border-[var(--border)] p-1.5 sm:p-2">
+                                  <p className="data-label mb-0.5 text-[9px] sm:text-[10px]">STOP LOSS</p>
+                                  <p className="font-mono text-[11px] sm:text-xs">
                                     {trade.stopLoss || "N/A"}
                                   </p>
                                 </div>
 
-                                <div className="border border-[var(--border)] p-3">
-                                  <p className="data-label mb-1">TAKE PROFIT</p>
-                                  <p className="font-mono">
+                                <div className="border border-[var(--border)] p-1.5 sm:p-2">
+                                  <p className="data-label mb-0.5 text-[9px] sm:text-[10px]">TAKE PROFIT</p>
+                                  <p className="font-mono text-[11px] sm:text-xs">
                                     {trade.takeProfit || "N/A"}
                                   </p>
                                 </div>
 
-                                <div className="border border-[var(--border)] p-3 col-span-2">
-                                  <p className="data-label mb-1">OPENED AT</p>
-                                  <p className="text-sm">
+                                <div className="border border-[var(--border)] p-1.5 sm:p-2 col-span-2">
+                                  <p className="data-label mb-0.5 text-[9px] sm:text-[10px]">OPENED AT</p>
+                                  <p className="text-[10px] sm:text-[11px] break-words">
                                     {formatDate(trade.openedAt)}
                                   </p>
                                 </div>
 
-                                <div className="border border-[var(--border)] p-3 col-span-2">
-                                  <p className="data-label mb-1">
+                                <div className="border border-[var(--border)] p-1.5 sm:p-2 col-span-2">
+                                  <p className="data-label mb-0.5 text-[9px] sm:text-[10px]">
                                     SIGNAL CREATED AT
                                   </p>
-                                  <p className="text-sm">
+                                  <p className="text-[10px] sm:text-[11px] break-words">
                                     {formatDate(trade.signalCreatedAt)}
                                   </p>
                                 </div>
                               </div>
                             </div>
 
-                            {/* Middle Column - LLM Decision (if available) */}
-                            {(trade.llmDecision !== null ||
-                              trade.llmFundAllocation !== null ||
-                              trade.llmLeverage !== null ||
-                              trade.llmShouldTrade !== null) && (
-                                <div className="space-y-4 lg:col-span-1">
-                                  <h4 className="font-display text-sm mb-3">
-                                    AGENT DECISION
-                                  </h4>
-                                  <div className="border border-[var(--border)] p-4 space-y-3 bg-[var(--bg-surface)]">
-                                    {trade.llmDecision && (
-                                      <div>
-                                        <p className="data-label mb-1">
-                                          DECISION SUMMARY
-                                        </p>
-                                        <p className="text-xs text-[var(--text-secondary)]">
-                                          {trade.llmDecision}
-                                        </p>
+                            {/* Right Column - Agent Decision + Signature Data */}
+                            <div className="space-y-2 sm:space-y-3">
+                              {/* LLM Decision (if available) - Combined with Signature */}
+                              {(trade.llmDecision !== null ||
+                                trade.llmFundAllocation !== null ||
+                                trade.llmLeverage !== null ||
+                                trade.llmShouldTrade !== null) && (
+                                  <div className="space-y-1.5 sm:space-y-2">
+                                    <h4 className="font-display text-xs sm:text-sm mb-1 sm:mb-1.5">
+                                      AGENT DECISION
+                                    </h4>
+                                    <div className="border border-[var(--border)] p-2 sm:p-3 space-y-1.5 sm:space-y-2 bg-[var(--bg-surface)]">
+                                      {trade.llmDecision && (
+                                        <div>
+                                          <p className="data-label mb-0.5 text-[9px] sm:text-[10px]">
+                                            DECISION SUMMARY
+                                          </p>
+                                          <p className="text-[10px] sm:text-[11px] text-[var(--text-secondary)] break-words line-clamp-2">
+                                            {trade.llmDecision}
+                                          </p>
+                                        </div>
+                                      )}
+
+                                      <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                                        {trade.llmFundAllocation !== null && (
+                                          <div className="border border-[var(--border)] p-1.5">
+                                            <p className="data-label mb-0.5 text-[9px] sm:text-[10px]">
+                                              FUND
+                                            </p>
+                                            <p className="text-[10px] sm:text-[11px] font-mono text-[var(--accent)]">
+                                              {trade.llmFundAllocation.toFixed(0)}%
+                                            </p>
+                                          </div>
+                                        )}
+
+                                        {trade.llmLeverage !== null && (
+                                          <div className="border border-[var(--border)] p-1.5">
+                                            <p className="data-label mb-0.5 text-[9px] sm:text-[10px]">
+                                              LEV
+                                            </p>
+                                            <p className="text-[10px] sm:text-[11px] font-mono">
+                                              {trade.llmLeverage.toFixed(1)}x
+                                            </p>
+                                          </div>
+                                        )}
+
+                                        {trade.llmShouldTrade !== null && (
+                                          <div className="border border-[var(--border)] p-1.5">
+                                            <p className="data-label mb-0.5 text-[9px] sm:text-[10px]">
+                                              TRADE
+                                            </p>
+                                            <p
+                                              className={`text-[10px] sm:text-[11px] font-bold ${trade.llmShouldTrade
+                                                ? "text-green-400"
+                                                : "text-red-400"
+                                                }`}
+                                            >
+                                              {trade.llmShouldTrade ? "YES" : "NO"}
+                                            </p>
+                                          </div>
+                                        )}
                                       </div>
-                                    )}
-
-                                    <div className="grid grid-cols-2 gap-3">
-                                      {trade.llmFundAllocation !== null && (
-                                        <div className="border border-[var(--border)] p-2">
-                                          <p className="data-label mb-1">
-                                            FUND ALLOCATION
-                                          </p>
-                                          <p className="text-xs font-mono text-[var(--accent)]">
-                                            {trade.llmFundAllocation.toFixed(0)}%
-                                          </p>
-                                        </div>
-                                      )}
-
-                                      {trade.llmLeverage !== null && (
-                                        <div className="border border-[var(--border)] p-2">
-                                          <p className="data-label mb-1">
-                                            LEVERAGE
-                                          </p>
-                                          <p className="text-xs font-mono">
-                                            {trade.llmLeverage.toFixed(1)}x
-                                          </p>
-                                        </div>
-                                      )}
-
-                                      {trade.llmShouldTrade !== null && (
-                                        <div className="border border-[var(--border)] p-2 col-span-2">
-                                          <p className="data-label mb-1">
-                                            SHOULD TRADE
-                                          </p>
-                                          <p
-                                            className={`text-xs font-bold ${trade.llmShouldTrade
-                                              ? "text-green-400"
-                                              : "text-red-400"
-                                              }`}
-                                          >
-                                            {trade.llmShouldTrade
-                                              ? "YES - EXECUTE TRADE"
-                                              : "NO - DO NOT TRADE"}
-                                          </p>
-                                        </div>
-                                      )}
                                     </div>
                                   </div>
-                                </div>
-                              )}
+                                )}
 
-                            {/* Right Column - Signature Data */}
-                            <div className="space-y-4 lg:col-span-1">
-                              <h4 className="font-display text-base font-bold mb-4 uppercase tracking-tight">
+                              {/* Signature Data */}
+                              <div>
+                              <h4 className="font-display text-xs sm:text-sm font-bold mb-1.5 sm:mb-2 uppercase tracking-tight">
                                 EIGENAI SIGNATURE
                               </h4>
 
                               {trade.signatureData ? (
-                                <div className="border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-5 space-y-4">
+                                <div className="border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-2 sm:p-3 space-y-2 sm:space-y-2.5">
                                   {/* Signal Message */}
                                   <div>
-                                    <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">
+                                    <p className="text-[9px] sm:text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-0.5 sm:mb-1">
                                       ORIGINAL SIGNAL
                                     </p>
-                                    <p className="text-xs text-[var(--text-secondary)] italic">
+                                    <p className="text-[10px] sm:text-[11px] text-[var(--text-secondary)] italic break-words line-clamp-2">
                                       "
                                       {trade.signatureData.messageText.substring(
                                         0,
-                                        150
+                                        100
                                       )}
                                       {trade.signatureData.messageText.length >
-                                        150
+                                        100
                                         ? "..."
                                         : ""}
                                       "
                                     </p>
                                   </div>
 
-                                  {/* Telegram User */}
-                                  <div className="flex justify-between items-center py-2.5 border-t border-[var(--border)]">
-                                    <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                                      Alpha Trader
-                                    </span>
-                                    <span className="text-sm font-mono font-semibold">
-                                      @{trade.signatureData.telegramUsername}
-                                    </span>
-                                  </div>
-
-                                  {/* Model Used */}
-                                  <div className="flex justify-between items-center py-2.5 border-t border-[var(--border)]">
-                                    <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                                      Model
-                                    </span>
-                                    <span className="text-sm font-mono font-semibold">
-                                      {trade.signatureData.llmModelUsed}
-                                    </span>
-                                  </div>
-
-                                  {/* Chain ID */}
-                                  <div className="flex justify-between items-center py-2.5 border-t border-[var(--border)]">
-                                    <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                                      Chain ID
-                                    </span>
-                                    <span className="text-sm font-mono font-semibold">
-                                      {trade.signatureData.llmChainId}
-                                    </span>
-                                  </div>
-
-                                  {/* Confidence Score */}
-                                  <div className="flex justify-between items-center py-2.5 border-t border-[var(--border)]">
-                                    <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                                      Confidence
-                                    </span>
-                                    <span className="text-base font-bold text-[var(--accent)]">
-                                      {(
-                                        trade.signatureData.confidenceScore *
-                                        100
-                                      ).toFixed(0)}%
-                                    </span>
+                                  {/* Compact Info Grid */}
+                                  <div className="grid grid-cols-2 gap-1.5 sm:gap-2 border-t border-[var(--border)] pt-2">
+                                    <div>
+                                      <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Alpha Trader</p>
+                                      <p className="text-[10px] sm:text-[11px] font-mono truncate">
+                                        @{trade.signatureData.telegramUsername}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Model</p>
+                                      <p className="text-[10px] sm:text-[11px] font-mono truncate">
+                                        {trade.signatureData.llmModelUsed}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Chain ID</p>
+                                      <p className="text-[10px] sm:text-[11px] font-mono">
+                                        {trade.signatureData.llmChainId}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Confidence</p>
+                                      <p className="text-[11px] sm:text-xs font-bold text-[var(--accent)]">
+                                        {(
+                                          trade.signatureData.confidenceScore *
+                                          100
+                                        ).toFixed(0)}%
+                                      </p>
+                                    </div>
                                   </div>
 
                                   {/* Signature (truncated) */}
-                                  <div className="py-3 border-t border-[var(--border)]">
-                                    <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">
+                                  <div className="py-1.5 sm:py-2 border-t border-[var(--border)]">
+                                    <p className="text-[9px] sm:text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-0.5 sm:mb-1">
                                       Signature
                                     </p>
-                                    <p className="text-xs font-mono break-all text-[var(--accent)] leading-relaxed">
+                                    <p className="text-[9px] sm:text-[10px] font-mono break-all text-[var(--accent)] leading-tight line-clamp-2">
                                       {trade.signatureData.llmSignature}
                                     </p>
                                   </div>
@@ -949,23 +950,24 @@ export default function MyTrades() {
                                       e.stopPropagation();
                                       handleVerifySignature(trade);
                                     }}
-                                    className="w-full py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-2 mt-2 text-sm"
+                                    className="w-full py-1.5 sm:py-2 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-1.5 mt-1.5 text-[10px] sm:text-xs"
                                   >
-                                    <Shield className="w-4 h-4" />
+                                    <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                     VERIFY SIGNATURE
                                   </button>
                                 </div>
                               ) : (
-                                <div className="border border-dashed border-[var(--border)] bg-[var(--bg-surface)] p-5 space-y-3">
-                                  <p className="font-bold text-sm text-[var(--text-secondary)]">
+                                <div className="border border-dashed border-[var(--border)] bg-[var(--bg-surface)] p-2 sm:p-3 space-y-1.5">
+                                  <p className="font-bold text-[11px] sm:text-xs text-[var(--text-secondary)]">
                                     No signature available for this signal yet.
                                   </p>
-                                  <p className="text-sm text-[var(--text-muted)]">
+                                  <p className="text-[10px] sm:text-[11px] text-[var(--text-muted)]">
                                     You can still track the position details and
                                     status above.
                                   </p>
                                 </div>
                               )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -975,21 +977,21 @@ export default function MyTrades() {
                 })}
 
                 {/* Pagination */}
-                <div className="flex items-center justify-between pt-4 gap-2">
+                <div className="flex items-center justify-between pt-3 sm:pt-4 gap-2">
                   <button
                     disabled={page === 1}
                     onClick={(e) => {
                       e.stopPropagation();
                       setPage((p) => Math.max(1, p - 1));
                     }}
-                    className={`px-3 sm:px-4 py-1.5 sm:py-2 border border-[var(--border)] text-xs sm:text-sm ${page === 1
-                      ? "text-[var(--text-muted)] cursor-not-allowed"
+                    className={`px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 border border-[var(--border)] text-[11px] sm:text-xs md:text-sm ${page === 1
+                      ? "text-[var(--text-muted)] cursor-not-allowed opacity-50"
                       : "hover:border-[var(--accent)]"
-                      }`}
+                      } transition-colors`}
                   >
                     Previous
                   </button>
-                  <div className="text-xs text-[var(--text-muted)] font-mono">
+                  <div className="text-[10px] sm:text-xs text-[var(--text-muted)] font-mono px-2">
                     Page {page} / {Math.max(1, Math.ceil(total / pageSize))}
                   </div>
                   <button
@@ -998,10 +1000,10 @@ export default function MyTrades() {
                       e.stopPropagation();
                       setPage((p) => p + 1);
                     }}
-                    className={`px-3 sm:px-4 py-1.5 sm:py-2 border border-[var(--border)] text-xs sm:text-sm ${page * pageSize >= total
-                      ? "text-[var(--text-muted)] cursor-not-allowed"
+                    className={`px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 border border-[var(--border)] text-[11px] sm:text-xs md:text-sm ${page * pageSize >= total
+                      ? "text-[var(--text-muted)] cursor-not-allowed opacity-50"
                       : "hover:border-[var(--accent)]"
-                      }`}
+                      } transition-colors`}
                   >
                     Next
                   </button>
@@ -1034,71 +1036,85 @@ export default function MyTrades() {
                     >
                       {/* Header */}
                       <div
-                        className="p-4 sm:p-6 cursor-pointer hover:bg-[var(--bg-elevated)] transition-colors"
+                        className="p-3 sm:p-4 md:p-6 cursor-pointer hover:bg-[var(--bg-elevated)] transition-colors"
                         onClick={() => toggleUntradedExpansion(signal.id)}
                       >
-                        <div className="grid grid-cols-1 sm:grid-cols-12 items-start sm:items-center gap-3 sm:gap-4">
-                          {/* Index + token */}
-                          <div className="col-span-1 sm:col-span-3 flex items-center gap-2 sm:gap-3">
+                        <div className="flex flex-col sm:grid sm:grid-cols-12 gap-3 sm:gap-4">
+                          {/* Index + token - Mobile: Full width, Desktop: Col 3 */}
+                          <div className="flex items-start sm:items-center gap-2 sm:gap-3 sm:col-span-3">
                             <div className="flex-1 min-w-0">
-                              <span className="text-[var(--accent)] font-mono text-xs">
-                                S#{String(index + 1).padStart(2, "0")}
-                              </span>
-                              <h3 className="font-display text-lg sm:text-xl mt-1 flex flex-wrap items-center gap-1.5 sm:gap-2">
-                                {signal.tokenSymbol}
+                              <div className="flex items-center justify-between sm:block">
+                                <span className="text-[var(--accent)] font-mono text-xs">
+                                  S#{String(index + 1).padStart(2, "0")}
+                                </span>
+                                {/* Expand Icon - Mobile only */}
+                                <div className="sm:hidden">
+                                  {isExpanded ? (
+                                    <ChevronUp className="w-5 h-5 text-[var(--text-muted)]" />
+                                  ) : (
+                                    <ChevronDown className="w-5 h-5 text-[var(--text-muted)]" />
+                                  )}
+                                </div>
+                              </div>
+                              <h3 className="font-display text-base sm:text-lg md:text-xl mt-1 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                                <span className="text-lg sm:text-xl md:text-2xl">{signal.tokenSymbol}</span>
                                 <span
-                                  className={`text-xs px-1.5 sm:px-2 py-0.5 font-bold ${signal.side === "LONG"
+                                  className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 font-bold ${signal.side === "LONG"
                                     ? "bg-green-500/20 text-green-400"
                                     : "bg-red-500/20 text-red-400"
                                     }`}
                                 >
                                   {signal.side}
                                 </span>
-                                <span className="text-xs px-1.5 sm:px-2 py-0.5 font-bold border border-[var(--border)] text-yellow-300 bg-yellow-500/10">
+                                <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 font-bold border border-[var(--border)] text-yellow-300 bg-yellow-500/10">
                                   NOT TRADED
                                 </span>
                               </h3>
                             </div>
                           </div>
 
-                          {/* Agent */}
-                          <div className="col-span-1 sm:col-span-3">
-                            <p className="data-label mb-1 text-xs">AGENT</p>
-                            <p className="text-xs sm:text-sm">{signal.agentName}</p>
+                          {/* Agent - Mobile: Full width row, Desktop: Col 3 */}
+                          <div className="sm:col-span-3">
+                            <p className="data-label mb-1 text-[10px] sm:text-xs">AGENT</p>
+                            <p className="text-xs sm:text-sm truncate">{signal.agentName}</p>
                           </div>
 
-                          {/* Signal time */}
-                          <div className="col-span-1 sm:col-span-3">
-                            <p className="data-label mb-1 text-xs">SIGNAL TIME</p>
-                            <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
+                          {/* Signal time - Mobile: Full width row, Desktop: Col 3 */}
+                          <div className="sm:col-span-3">
+                            <p className="data-label mb-1 text-[10px] sm:text-xs">SIGNAL TIME</p>
+                            <p className="text-[11px] sm:text-xs md:text-sm text-[var(--text-secondary)] break-words">
                               {formatDate(signal.createdAt)}
                             </p>
                           </div>
 
-                          {/* Venue */}
-                          <div className="col-span-1 sm:col-span-2">
-                            <p className="data-label mb-1 text-xs">VENUE</p>
-                            <span className="text-xs border border-[var(--border)] px-2 py-1 inline-block">
-                              {signal.venue}
-                            </span>
-                          </div>
+                          {/* Venue & Signature status - Mobile: Side by side, Desktop: Separate cols */}
+                          <div className="flex items-center justify-between sm:contents gap-2 sm:col-span-2">
+                            <div className="sm:col-span-2">
+                              <p className="data-label mb-1 text-[10px] sm:text-xs hidden sm:block">VENUE</p>
+                              <span className="text-[10px] sm:text-xs border border-[var(--border)] px-2 py-1 inline-block">
+                                {signal.venue}
+                              </span>
+                            </div>
 
-                          {/* Signature status + toggle */}
-                          <div className="col-span-1 flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
+                            {/* Signature status + toggle */}
+                            <div className="flex items-center gap-1.5 sm:gap-2 sm:col-span-1">
                               {signal.hasSignatureData ? (
                                 <>
-                                  <Shield className="w-4 h-4 text-[var(--accent)]" />
-                                  <span className="text-xs font-bold text-[var(--accent)]">
+                                  <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--accent)] flex-shrink-0" />
+                                  <span className="text-[10px] sm:text-xs font-bold text-[var(--accent)]">
                                     SIGNED
                                   </span>
                                 </>
                               ) : (
-                                <span className="text-xs text-[var(--text-muted)] font-mono">
-                                  No signature
+                                <span className="text-[10px] sm:text-xs text-[var(--text-muted)] font-mono">
+                                  No sig
                                 </span>
                               )}
                             </div>
+                          </div>
+
+                          {/* Expand Icon - Desktop only */}
+                          <div className="hidden sm:flex sm:col-span-1 sm:justify-end">
                             {isExpanded ? (
                               <ChevronUp className="w-5 h-5 text-[var(--text-muted)]" />
                             ) : (
@@ -1110,82 +1126,107 @@ export default function MyTrades() {
 
                       {/* Expanded details */}
                       {isExpanded && (
-                        <div className="border-t border-[var(--border)] p-4 sm:p-6 bg-[var(--bg-elevated)] space-y-4 sm:space-y-6">
-                          {/* LLM decision summary row */}
-                          {(signal.llmDecision ||
-                            signal.llmFundAllocation !== null ||
-                            signal.llmLeverage !== null ||
-                            signal.llmShouldTrade !== null) && (
-                              <div className="space-y-3">
-                                <p className="data-label mb-2">AGENT DECISION</p>
-                                {signal.llmDecision && (
-                                  <p className="text-xs text-[var(--text-secondary)]">
-                                    {signal.llmDecision}
-                                  </p>
-                                )}
-                              </div>
-                            )}
+                        <div className="border-t border-[var(--border)] p-3 sm:p-4 bg-[var(--bg-elevated)]">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                            {/* Left Column - Agent Decision */}
+                            {(signal.llmDecision ||
+                              signal.llmFundAllocation !== null ||
+                              signal.llmLeverage !== null ||
+                              signal.llmShouldTrade !== null) && (
+                                <div className="space-y-1.5 sm:space-y-2">
+                                  <p className="data-label mb-1 sm:mb-1.5 text-xs sm:text-sm">AGENT DECISION</p>
+                                  <div className="border border-[var(--border)] p-2 sm:p-3 space-y-1.5 sm:space-y-2 bg-[var(--bg-surface)]">
+                                    {signal.llmDecision && (
+                                      <p className="text-[10px] sm:text-[11px] text-[var(--text-secondary)] break-words line-clamp-2">
+                                        {signal.llmDecision}
+                                      </p>
+                                    )}
+                                    <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                                      {signal.llmFundAllocation !== null && (
+                                        <div className="border border-[var(--border)] p-1.5">
+                                          <p className="data-label mb-0.5 text-[9px] sm:text-[10px]">FUND</p>
+                                          <p className="text-[10px] sm:text-[11px] font-mono text-[var(--accent)]">
+                                            {signal.llmFundAllocation.toFixed(0)}%
+                                          </p>
+                                        </div>
+                                      )}
+                                      {signal.llmLeverage !== null && (
+                                        <div className="border border-[var(--border)] p-1.5">
+                                          <p className="data-label mb-0.5 text-[9px] sm:text-[10px]">LEV</p>
+                                          <p className="text-[10px] sm:text-[11px] font-mono">
+                                            {signal.llmLeverage.toFixed(1)}x
+                                          </p>
+                                        </div>
+                                      )}
+                                      {signal.llmShouldTrade !== null && (
+                                        <div className="border border-[var(--border)] p-1.5">
+                                          <p className="data-label mb-0.5 text-[9px] sm:text-[10px]">TRADE</p>
+                                          <p
+                                            className={`text-[10px] sm:text-[11px] font-bold ${signal.llmShouldTrade
+                                              ? "text-green-400"
+                                              : "text-red-400"
+                                              }`}
+                                          >
+                                            {signal.llmShouldTrade ? "YES" : "NO"}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
 
-                          {/* EigenAI Signature for untraded signals */}
-                          <div>
-                            <p className="data-label mb-2">EIGENAI SIGNATURE</p>
+                          {/* Right Column - EigenAI Signature for untraded signals */}
+                          <div className="space-y-1.5 sm:space-y-2">
+                            <p className="data-label mb-1 sm:mb-1.5 text-xs sm:text-sm">EIGENAI SIGNATURE</p>
                             {signal.signatureData ? (
-                              <div className="border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-4 space-y-3">
+                              <div className="border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-2 sm:p-3 space-y-2 sm:space-y-2.5">
                                 <div>
-                                  <p className="data-label mb-2">
+                                  <p className="text-[9px] sm:text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-0.5 sm:mb-1">
                                     ORIGINAL SIGNAL
                                   </p>
-                                  <p className="text-xs text-[var(--text-secondary)] italic">
+                                  <p className="text-[10px] sm:text-[11px] text-[var(--text-secondary)] italic break-words line-clamp-2">
                                     "
                                     {signal.signatureData.messageText}
                                     "
                                   </p>
                                 </div>
 
-                                <div className="flex justify-between items-center py-2 border-t border-[var(--border)]">
-                                  <span className="text-xs text-[var(--text-muted)]">
-                                    Alpha Trader
-                                  </span>
-                                  <span className="text-xs font-mono">
-                                    @{signal.signatureData.telegramUsername}
-                                  </span>
+                                {/* Compact Info Grid */}
+                                <div className="grid grid-cols-2 gap-1.5 sm:gap-2 border-t border-[var(--border)] pt-2">
+                                  <div>
+                                    <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Alpha Trader</p>
+                                    <p className="text-[10px] sm:text-[11px] font-mono truncate">
+                                      @{signal.signatureData.telegramUsername}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Model</p>
+                                    <p className="text-[10px] sm:text-[11px] font-mono truncate">
+                                      {signal.signatureData.llmModelUsed}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Chain ID</p>
+                                    <p className="text-[10px] sm:text-[11px] font-mono">
+                                      {signal.signatureData.llmChainId}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Confidence</p>
+                                    <p className="text-[11px] sm:text-xs font-bold text-[var(--accent)]">
+                                      {(
+                                        signal.signatureData.confidenceScore * 100
+                                      ).toFixed(0)}%
+                                    </p>
+                                  </div>
                                 </div>
 
-                                <div className="flex justify-between items-center py-2 border-t border-[var(--border)]">
-                                  <span className="text-xs text-[var(--text-muted)]">
-                                    Model
-                                  </span>
-                                  <span className="text-xs font-mono">
-                                    {signal.signatureData.llmModelUsed}
-                                  </span>
-                                </div>
-
-                                <div className="flex justify-between items-center py-2 border-t border-[var(--border)]">
-                                  <span className="text-xs text-[var(--text-muted)]">
-                                    Chain ID
-                                  </span>
-                                  <span className="text-xs font-mono">
-                                    {signal.signatureData.llmChainId}
-                                  </span>
-                                </div>
-
-                                <div className="flex justify-between items-center py-2 border-t border-[var(--border)]">
-                                  <span className="text-xs text-[var(--text-muted)]">
-                                    Confidence
-                                  </span>
-                                  <span className="text-xs font-bold text-[var(--accent)]">
-                                    {(
-                                      signal.signatureData.confidenceScore * 100
-                                    ).toFixed(0)}
-                                    %
-                                  </span>
-                                </div>
-
-                                <div className="py-2 border-t border-[var(--border)]">
-                                  <p className="text-xs text-[var(--text-muted)] mb-1">
+                                <div className="py-1.5 sm:py-2 border-t border-[var(--border)]">
+                                  <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5 sm:mb-1">
                                     Signature
                                   </p>
-                                  <p className="text-xs font-mono break-all text-[var(--accent)]">
+                                  <p className="text-[9px] sm:text-[10px] font-mono break-all text-[var(--accent)] leading-tight line-clamp-2">
                                     {formatAddress(
                                       signal.signatureData.llmSignature
                                     )}
@@ -1199,17 +1240,18 @@ export default function MyTrades() {
                                     setVerificationResult(null);
                                     handleVerifySignature(signal);
                                   }}
-                                  className="w-full py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-2 mt-2"
+                                  className="w-full py-1.5 sm:py-2 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-1.5 mt-1.5 text-[10px] sm:text-xs"
                                 >
-                                  <Shield className="w-4 h-4" />
+                                  <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                   VERIFY SIGNATURE
                                 </button>
                               </div>
                             ) : (
-                              <p className="text-xs text-[var(--text-muted)]">
+                              <p className="text-[10px] sm:text-[11px] text-[var(--text-muted)]">
                                 No EigenAI signature available for this signal.
                               </p>
                             )}
+                          </div>
                           </div>
                         </div>
                       )}
@@ -1228,10 +1270,15 @@ export default function MyTrades() {
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-2 sm:p-4 overflow-hidden overscroll-contain"
           onWheel={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setVerificationModalOpen(false);
+            }
+          }}
         >
           <div className="bg-[var(--bg-deep)] border border-[var(--border)] max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
-            <div className="border-b border-[var(--border)] p-4 sm:p-6 sticky top-0 bg-[var(--bg-deep)] z-10">
+            <div className="border-b border-[var(--border)] p-3 sm:p-4 md:p-6 sticky top-0 bg-[var(--bg-deep)] z-10">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                   <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-[var(--accent)] flex-shrink-0" />
@@ -1254,7 +1301,7 @@ export default function MyTrades() {
             </div>
 
             {/* Modal Content */}
-            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+            <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
               {verifying ? (
                 <div className="flex flex-col items-center justify-center py-8 sm:py-16">
                   <Loader2 className="w-8 h-8 sm:w-12 sm:h-12 animate-spin text-[var(--accent)] mb-4" />
@@ -1266,24 +1313,24 @@ export default function MyTrades() {
                 <>
                   {/* Verification Result */}
                   <div
-                    className={`border p-4 sm:p-6 ${verificationResult.isValid
+                    className={`border p-3 sm:p-4 md:p-6 ${verificationResult.isValid
                       ? "border-green-500/50 bg-green-500/10"
                       : "border-red-500/50 bg-red-500/10"
                       }`}
                   >
-                    <div className="flex items-start sm:items-center gap-2 sm:gap-3 mb-3">
+                    <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
                       {verificationResult.isValid ? (
-                        <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-green-400 flex-shrink-0" />
+                        <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-green-400 flex-shrink-0 mt-0.5 sm:mt-0" />
                       ) : (
-                        <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-red-400 flex-shrink-0" />
+                        <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-red-400 flex-shrink-0 mt-0.5 sm:mt-0" />
                       )}
                       <div className="min-w-0 flex-1">
-                        <h3 className="font-display text-base sm:text-lg">
+                        <h3 className="font-display text-sm sm:text-base md:text-lg">
                           {verificationResult.isValid
                             ? "✅ SIGNATURE VERIFIED"
                             : "❌ VERIFICATION FAILED"}
                         </h3>
-                        <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
+                        <p className="text-[11px] sm:text-xs md:text-sm text-[var(--text-secondary)] break-words">
                           {verificationResult.message}
                         </p>
                       </div>
@@ -1292,14 +1339,14 @@ export default function MyTrades() {
 
                   {/* Backend Traces */}
                   <div className="border border-[var(--border)] bg-[var(--bg-surface)]">
-                    <div className="border-b border-[var(--border)] p-3 sm:p-4">
-                      <h4 className="font-display text-xs sm:text-sm">BACKEND TRACES</h4>
+                    <div className="border-b border-[var(--border)] p-2 sm:p-3 md:p-4">
+                      <h4 className="font-display text-[10px] sm:text-xs md:text-sm">BACKEND TRACES</h4>
                     </div>
-                    <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+                    <div className="p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 md:space-y-4">
                       {/* Step 1: Input Data */}
-                      <div className="border border-[var(--border)] p-3 sm:p-4">
-                        <p className="data-label mb-2 sm:mb-3 text-xs">STEP 1: INPUT DATA</p>
-                        <div className="space-y-2 text-xs font-mono">
+                      <div className="border border-[var(--border)] p-2 sm:p-3 md:p-4">
+                        <p className="data-label mb-1 sm:mb-2 md:mb-3 text-[10px] sm:text-xs">STEP 1: INPUT DATA</p>
+                        <div className="space-y-1 sm:space-y-2 text-[11px] sm:text-xs font-mono">
                           <div>
                             <span className="text-[var(--text-muted)]">
                               Chain ID:
@@ -1323,12 +1370,12 @@ export default function MyTrades() {
                       </div>
 
                       {/* Step 2: Prompt Reconstruction */}
-                      <div className="border border-[var(--border)] p-3 sm:p-4">
-                        <p className="data-label mb-2 sm:mb-3 text-xs">
+                      <div className="border border-[var(--border)] p-2 sm:p-3 md:p-4">
+                        <p className="data-label mb-1 sm:mb-2 md:mb-3 text-[10px] sm:text-xs">
                           STEP 2: PROMPT RECONSTRUCTION
                         </p>
-                        <div className="bg-[var(--bg-elevated)] p-2 sm:p-3 text-xs break-all">
-                          <p className="text-[var(--text-muted)] mb-2">
+                        <div className="bg-[var(--bg-elevated)] p-2 sm:p-3 text-[11px] sm:text-xs break-all">
+                          <p className="text-[var(--text-muted)] mb-1 sm:mb-2">
                             Original Message:
                           </p>
                           <p className="text-[var(--text-secondary)] italic break-words">
@@ -1338,15 +1385,15 @@ export default function MyTrades() {
                       </div>
 
                       {/* Step 3: Message Construction */}
-                      <div className="border border-[var(--border)] p-3 sm:p-4">
-                        <p className="data-label mb-2 sm:mb-3 text-xs">
+                      <div className="border border-[var(--border)] p-2 sm:p-3 md:p-4">
+                        <p className="data-label mb-1 sm:mb-2 md:mb-3 text-[10px] sm:text-xs">
                           STEP 3: MESSAGE CONSTRUCTION
                         </p>
-                        <div className="text-xs font-mono">
+                        <div className="text-[11px] sm:text-xs font-mono">
                           <p className="text-[var(--text-muted)]">
                             Format: chainId + modelId + prompt + output
                           </p>
-                          <p className="text-[var(--accent)] mt-2">
+                          <p className="text-[var(--accent)] mt-1 sm:mt-2">
                             ✅ Message constructed:{" "}
                             {verificationResult.details.messageLength}{" "}
                             characters
@@ -1355,16 +1402,16 @@ export default function MyTrades() {
                       </div>
 
                       {/* Step 4: Signature Verification */}
-                      <div className="border border-[var(--border)] p-3 sm:p-4">
-                        <p className="data-label mb-2 sm:mb-3 text-xs">
+                      <div className="border border-[var(--border)] p-2 sm:p-3 md:p-4">
+                        <p className="data-label mb-1 sm:mb-2 md:mb-3 text-[10px] sm:text-xs">
                           STEP 4: SIGNATURE VERIFICATION
                         </p>
-                        <div className="space-y-2 sm:space-y-3 text-xs">
+                        <div className="space-y-2 sm:space-y-3 text-[11px] sm:text-xs">
                           <div>
                             <p className="text-[var(--text-muted)] mb-1">
                               Expected Signer (EigenLabs):
                             </p>
-                            <p className="font-mono bg-[var(--bg-elevated)] p-2 break-all text-[10px] sm:text-xs">
+                            <p className="font-mono bg-[var(--bg-elevated)] p-1.5 sm:p-2 break-all text-[9px] sm:text-[10px] md:text-xs">
                               {verificationResult.expectedAddress}
                             </p>
                           </div>
@@ -1373,7 +1420,7 @@ export default function MyTrades() {
                               Recovered Signer:
                             </p>
                             <p
-                              className={`font-mono bg-[var(--bg-elevated)] p-2 break-all text-[10px] sm:text-xs ${verificationResult.isValid
+                              className={`font-mono bg-[var(--bg-elevated)] p-1.5 sm:p-2 break-all text-[9px] sm:text-[10px] md:text-xs ${verificationResult.isValid
                                 ? "text-green-400"
                                 : "text-red-400"
                                 }`}
@@ -1382,17 +1429,17 @@ export default function MyTrades() {
                             </p>
                           </div>
                           <div
-                            className={`flex items-center gap-2 ${verificationResult.isValid
+                            className={`flex items-center gap-1.5 sm:gap-2 ${verificationResult.isValid
                               ? "text-green-400"
                               : "text-red-400"
                               }`}
                           >
                             {verificationResult.isValid ? (
-                              <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                              <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                             ) : (
-                              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                              <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                             )}
-                            <span className="font-bold text-xs">
+                            <span className="font-bold text-[10px] sm:text-xs">
                               {verificationResult.isValid
                                 ? "ADDRESSES MATCH ✓"
                                 : "ADDRESSES DO NOT MATCH ✗"}
@@ -1402,11 +1449,11 @@ export default function MyTrades() {
                       </div>
 
                       {/* Step 5: LLM Raw Output */}
-                      <div className="border border-[var(--border)] p-3 sm:p-4">
-                        <p className="data-label mb-2 sm:mb-3 text-xs">
+                      <div className="border border-[var(--border)] p-2 sm:p-3 md:p-4">
+                        <p className="data-label mb-1 sm:mb-2 md:mb-3 text-[10px] sm:text-xs">
                           STEP 5: LLM RAW OUTPUT
                         </p>
-                        <div className="bg-[var(--bg-elevated)] p-2 sm:p-3 text-xs font-mono max-h-32 sm:max-h-48 overflow-y-auto break-all">
+                        <div className="bg-[var(--bg-elevated)] p-2 sm:p-3 text-[10px] sm:text-[11px] md:text-xs font-mono max-h-24 sm:max-h-32 md:max-h-48 overflow-y-auto break-all">
                           {selectedTrade.signatureData?.llmRawOutput}
                         </div>
                       </div>
@@ -1428,9 +1475,9 @@ export default function MyTrades() {
                     href="https://docs.eigencloud.xyz/eigenai/howto/verify-signature"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 py-2 sm:py-3 border border-[var(--border)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors text-xs sm:text-sm"
+                    className="flex items-center justify-center gap-2 py-2 sm:py-3 border border-[var(--border)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors text-[11px] sm:text-xs md:text-sm"
                   >
-                    <ExternalLink className="w-4 h-4" />
+                    <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span className="text-center">VIEW EIGENAI DOCUMENTATION</span>
                   </a>
                 </>
