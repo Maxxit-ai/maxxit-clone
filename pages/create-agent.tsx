@@ -1004,10 +1004,10 @@ export default function CreateAgent() {
                           );
                         })}
                       </div>
+                    ) : selectedTopTraders.length > 0 ? (
+                      <p className="text-sm text-[var(--text-muted)] mt-1">Loading...</p>
                     ) : (
-                      <p className="text-sm text-[var(--text-muted)] mt-1">
-                        Top traders data loading...
-                      </p>
+                      <p className="text-sm text-[var(--text-muted)] mt-1">No top traders selected</p>
                     )}
                   </div>
                 )}
@@ -1056,10 +1056,10 @@ export default function CreateAgent() {
                         </div>
                       ))}
                     </div>
+                  ) : selectedResearchInstitutes.length > 0 ? (
+                    <p className="text-sm text-[var(--text-muted)] mt-1">Loading...</p>
                   ) : (
-                    <p className="text-sm text-[var(--text-muted)] mt-1">
-                      No research institutes resolved yet. They will appear here once loaded.
-                    </p>
+                    <p className="text-sm text-[var(--text-muted)] mt-1">No research institutes selected</p>
                   )}
                 </div>
 
@@ -1102,10 +1102,10 @@ export default function CreateAgent() {
                         </div>
                       ))}
                     </div>
+                  ) : selectedCtAccounts.size > 0 ? (
+                    <p className="text-sm text-[var(--text-muted)] mt-1">Loading...</p>
                   ) : (
-                    <p className="text-sm text-[var(--text-muted)] mt-1">
-                      No CT accounts resolved yet. They will appear here once loaded.
-                    </p>
+                    <p className="text-sm text-[var(--text-muted)] mt-1">No CT accounts selected</p>
                   )}
                 </div>
 
