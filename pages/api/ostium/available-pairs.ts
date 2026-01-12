@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { prisma } from '@maxxit/database';
+import { prisma } from '../../../lib/prisma';
 /**
  * GET /api/ostium/available-pairs
  * Returns all available trading pairs from ostium_available_pairs table
