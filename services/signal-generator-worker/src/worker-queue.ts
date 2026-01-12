@@ -127,13 +127,11 @@ async function processSignalGenerationJob(
   // Use distributed lock to prevent duplicate signal generation
   const result = await withLock(lockKey, async () => {
     return await generateSignalForJob(jobData);
-  });
+  }, 120000);
 
   if (result === undefined) {
-    return {
-      success: true,
-      message: "Job skipped - another worker is processing this signal",
-    };
+    // Lock could not be acquired, throw error so BullMQ retries
+    throw new Error(`Lock busy for signal ${postId.substring(0, 8)}-${token} - will retry`);
   }
 
   return result;
@@ -486,7 +484,7 @@ async function checkAndQueuePendingPosts(): Promise<void> {
         processed_for_signals: false,
       },
       orderBy: { message_created_at: "desc" },
-      take: 20,
+      // take: 3,
     });
 
     if (pendingPosts.length === 0) return;

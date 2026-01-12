@@ -108,11 +108,13 @@ export {
   extendLock,
   isLocked,
   withLock,
+  withLockWait,
   waitForLock,
   getSignalDeploymentLockKey,
   getPositionMonitorLockKey,
   getMessageClassificationLockKey,
   getSignalGenerationLockKey,
+  getWalletTradeLockKey,
 } from './distributed-lock';
 
 // Scheduler

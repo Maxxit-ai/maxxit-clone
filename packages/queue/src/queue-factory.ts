@@ -98,6 +98,11 @@ export async function addJob<T extends BaseJobData>(
     queue = createQueue<T>(queueName);
   }
 
+  const knownQueueName = Object.values(QueueName).includes(queueName as QueueName);
+  const defaultOpts = knownQueueName
+    ? DEFAULT_JOB_OPTIONS[queueName as QueueName]
+    : {};
+
   // Add timestamp if not present
   const jobData: T = {
     ...data,
@@ -107,11 +112,11 @@ export async function addJob<T extends BaseJobData>(
   const job = await queue.add(jobName as any, jobData as any, {
     jobId: options?.jobId,
     delay: options?.delay,
-    attempts: options?.attempts,
-    backoff: options?.backoff,
-    removeOnComplete: options?.removeOnComplete,
-    removeOnFail: options?.removeOnFail,
     priority: options?.priority,
+    attempts: options?.attempts || defaultOpts.attempts,
+    backoff: options?.backoff || defaultOpts.backoff,
+    removeOnComplete: options?.removeOnComplete || defaultOpts.removeOnComplete,
+    removeOnFail: options?.removeOnFail || defaultOpts.removeOnFail,
   });
 
   return job.id || '';
