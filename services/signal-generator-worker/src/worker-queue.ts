@@ -253,12 +253,10 @@ async function processSignalGenerationJob(
       return await generateTraderTradeSignalForJob(jobData);
     });
 
-    if (result === undefined) {
-      return {
-        success: true,
-        message: "Job skipped - another worker is processing this signal",
-      };
-    }
+  if (result === undefined) {
+    // Lock could not be acquired, throw error so BullMQ retries
+    throw new Error(`Lock busy for signal ${postId.substring(0, 8)}-${token} - will retry`);
+  }
 
     return result;
   }
@@ -1104,7 +1102,7 @@ async function checkAndQueuePendingPosts(): Promise<void> {
         processed_for_signals: false,
       },
       orderBy: { message_created_at: "desc" },
-      take: 20,
+      // take: 3,
     });
 
     if (pendingPosts.length === 0) {

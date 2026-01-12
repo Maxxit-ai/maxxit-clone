@@ -98,26 +98,25 @@ export async function addJob<T extends BaseJobData>(
     queue = createQueue<T>(queueName);
   }
 
+  const knownQueueName = Object.values(QueueName).includes(queueName as QueueName);
+  const defaultOpts = knownQueueName
+    ? DEFAULT_JOB_OPTIONS[queueName as QueueName]
+    : {};
+
   // Add timestamp if not present
   const jobData: T = {
     ...data,
     timestamp: data.timestamp || Date.now(),
   };
 
-  // Get default options for known queue names
-  const knownQueueName = Object.values(QueueName).includes(queueName as QueueName);
-  const defaultOpts = knownQueueName
-    ? DEFAULT_JOB_OPTIONS[queueName as QueueName]
-    : {};
-
   const job = await queue.add(jobName as any, jobData as any, {
     jobId: options?.jobId,
-    delay: defaultOpts.delay,
-    attempts: defaultOpts.attempts,
-    backoff: defaultOpts.backoff,
-    removeOnComplete: defaultOpts.removeOnComplete,
-    removeOnFail: defaultOpts.removeOnFail,
-    priority: defaultOpts.priority,
+    delay: options?.delay,
+    priority: options?.priority,
+    attempts: options?.attempts || defaultOpts.attempts,
+    backoff: options?.backoff || defaultOpts.backoff,
+    removeOnComplete: options?.removeOnComplete || defaultOpts.removeOnComplete,
+    removeOnFail: options?.removeOnFail || defaultOpts.removeOnFail,
   });
 
   return job.id || '';

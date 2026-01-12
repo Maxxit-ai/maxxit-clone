@@ -150,6 +150,35 @@ export async function waitForLock(
 }
 
 /**
+ * Execute a function after waiting for a lock (with timeout)
+ * Unlike withLock, this WAITS for the lock instead of returning undefined immediately.
+ * 
+ * @param lockKey - Unique key for the lock
+ * @param fn - Function to execute while holding the lock
+ * @param waitTimeout - Maximum time to wait for lock in milliseconds (default: 60s)
+ * @param ttl - Lock TTL in milliseconds
+ * @returns The result of the function, or throws if timeout waiting for lock
+ */
+export async function withLockWait<T>(
+  lockKey: string,
+  fn: () => Promise<T>,
+  waitTimeout: number = 60000,
+  ttl: number = DEFAULT_LOCK_TTL
+): Promise<T> {
+  const acquired = await waitForLock(lockKey, waitTimeout, ttl);
+  
+  if (!acquired) {
+    throw new Error(`Timeout waiting for lock: ${lockKey}`);
+  }
+  
+  try {
+    return await fn();
+  } finally {
+    await releaseLock(lockKey);
+  }
+}
+
+/**
  * Generate a lock key for a signal-deployment pair
  */
 export function getSignalDeploymentLockKey(signalId: string, deploymentId: string): string {
@@ -175,6 +204,14 @@ export function getMessageClassificationLockKey(messageId: string): string {
  */
 export function getSignalGenerationLockKey(postId: string, deploymentId: string, token: string): string {
   return `signal-generation:${postId}:${deploymentId}:${token}`;
+}
+
+/**
+ * Generate a lock key for wallet-level trade execution
+ * This prevents nonce conflicts when multiple trades target the same wallet
+ */
+export function getWalletTradeLockKey(walletAddress: string): string {
+  return `wallet-trade:${walletAddress.toLowerCase()}`;
 }
 
 /**

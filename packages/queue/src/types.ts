@@ -311,8 +311,8 @@ export const DEFAULT_JOB_OPTIONS: Record<QueueName, JobOptions> = {
   [QueueName.TRADE_EXECUTION]: {
     attempts: 3,
     backoff: {
-      type: 'exponential',
-      delay: 5000,
+      type: 'fixed',
+      delay: 2000,
     },
     removeOnComplete: 100,
     removeOnFail: 50,
@@ -347,8 +347,8 @@ export const DEFAULT_JOB_OPTIONS: Record<QueueName, JobOptions> = {
   [QueueName.TELEGRAM_ALPHA_CLASSIFICATION]: {
     attempts: 3,
     backoff: {
-      type: 'exponential',
-      delay: 3000,
+      type: 'fixed',
+      delay: 2000,
     },
     removeOnComplete: 100,
     removeOnFail: 50,

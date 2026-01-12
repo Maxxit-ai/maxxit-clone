@@ -19,7 +19,9 @@ import {
   shutdownQueueService,
   isRedisHealthy,
   withLock,
+  withLockWait,
   getSignalDeploymentLockKey,
+  getWalletTradeLockKey,
   QueueName,
   TradeExecutionJobData,
   ExecuteSignalJobData,
@@ -31,8 +33,8 @@ dotenv.config();
 
 const PORT = process.env.PORT || 5001;
 const WORKER_COUNT = parseInt(process.env.WORKER_COUNT || "3");
-const WORKER_CONCURRENCY = parseInt(process.env.WORKER_CONCURRENCY || "5");
-const TRIGGER_INTERVAL = parseInt(process.env.TRIGGER_INTERVAL || "60000"); // 1 minute
+const WORKER_CONCURRENCY = parseInt(process.env.WORKER_CONCURRENCY || "10");
+const TRIGGER_INTERVAL = parseInt(process.env.TRIGGER_INTERVAL || "15000"); // 15 seconds
 
 // Health check server
 const app = express();
@@ -85,19 +87,37 @@ async function processTradeExecutionJob(
   }
 
   const { signalId, deploymentId } = data as ExecuteSignalJobData;
-  const lockKey = getSignalDeploymentLockKey(signalId, deploymentId);
-
-  // Use distributed lock to prevent duplicate executions
-  const result = await withLock(lockKey, async () => {
-    return await executeSignal(signalId, deploymentId);
+  
+  // First, get the wallet address to apply wallet-level lock
+  // This prevents nonce conflicts when multiple trades target same wallet
+  const deployment = await prisma.agent_deployments.findUnique({
+    where: { id: deploymentId },
+    select: { safe_wallet: true, user_wallet: true },
   });
-
+  
+  if (!deployment) {
+    return { success: false, error: "Deployment not found" };
+  }
+  
+  const walletAddress = deployment.safe_wallet || deployment.user_wallet;
+  const walletLockKey = getWalletTradeLockKey(walletAddress);
+  const signalLockKey = getSignalDeploymentLockKey(signalId, deploymentId);
+  
+  // WALLET-LEVEL LOCK: WAIT for lock (up to 5 minutes) instead of failing
+  // This ensures all trades for same wallet execute sequentially without retry failures
+  console.log(`[TradeExecutor] Waiting for wallet lock: ${walletAddress.substring(0, 10)}...`);
+  
+  const result = await withLockWait(walletLockKey, async () => {
+    console.log(`[TradeExecutor] Acquired wallet lock for ${walletAddress.substring(0, 10)}...`);
+    // SIGNAL-LEVEL LOCK: Prevent duplicate execution of same signal
+    return await withLock(signalLockKey, async () => {
+      return await executeSignal(signalId, deploymentId);
+    }, 120000);
+  }, 300000, 180000); // Wait up to 5 min for lock, lock TTL 3 min
+  
   if (result === undefined) {
-    // Lock could not be acquired, another worker is processing this
-    return {
-      success: true,
-      message: "Job skipped - another worker is processing this signal",
-    };
+    // Inner signal lock failed (shouldn't happen with outer wait)
+    throw new Error(`Signal lock failed for ${signalId.substring(0, 8)}`);
   }
 
   return result;
@@ -433,7 +453,7 @@ async function checkAndQueuePendingSignals(): Promise<void> {
       where: {
         deployment_id: { not: null },
         OR: [
-          { skipped_reason: null },
+          { trade_executed: null },
           {
             AND: [
               {
@@ -459,12 +479,15 @@ async function checkAndQueuePendingSignals(): Promise<void> {
         },
       },
       include: {
+        agents: true,
+        // Include positions to check if one already exists for this signal's deployment
         positions: {
           select: {
             id: true,
             deployment_id: true,
           },
         },
+        // Include the designated deployment to verify it's active
         agent_deployments: true,
         agents: {
           select: {
@@ -538,6 +561,8 @@ async function checkAndQueuePendingSignals(): Promise<void> {
       }
       return true;
     });
+
+    console.log(`[TradeExecutor] Found ${signalsToProcess.length} signals to process`);
 
     if (signalsToProcess.length === 0) {
       console.log(`[Trigger] ⚠️  All ${pendingSignals.length} signals filtered out:`);

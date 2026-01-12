@@ -86,14 +86,14 @@ function setupBullBoard() {
 
   // Create queues for Bull Board (they connect to existing Redis queues)
   const telegramAlphaQueue = createQueue(QueueName.TELEGRAM_ALPHA_CLASSIFICATION);
-//   const tradeExecutionQueue = createQueue(QueueName.TRADE_EXECUTION);
-//   const signalGenerationQueue = createQueue(QueueName.SIGNAL_GENERATION);
+  const tradeExecutionQueue = createQueue(QueueName.TRADE_EXECUTION);
+  const signalGenerationQueue = createQueue(QueueName.SIGNAL_GENERATION);
 
   createBullBoard({
     queues: [
       new BullMQAdapter(telegramAlphaQueue),
-    //   new BullMQAdapter(tradeExecutionQueue),
-    //   new BullMQAdapter(signalGenerationQueue),
+      new BullMQAdapter(tradeExecutionQueue),
+      new BullMQAdapter(signalGenerationQueue),
     ],
     serverAdapter,
   });
@@ -123,14 +123,11 @@ async function processClassificationJob(
   // Use distributed lock to prevent duplicate classification
   const result = await withLock(lockKey, async () => {
     return await classifyMessage(messageId);
-  });
+  }, 120000);
 
   if (result === undefined) {
-    // Lock could not be acquired, another worker is processing this
-    return {
-      success: true,
-      message: "Job skipped - another worker is processing this message",
-    };
+    // Lock could not be acquired, throw error so BullMQ retries
+    throw new Error(`Lock busy for message ${messageId.substring(0, 10)}... - will retry`);
   }
 
   return result;
@@ -335,9 +332,9 @@ async function checkAndQueuePendingMessages(): Promise<void> {
       },
       select: { id: true },
       orderBy: {
-        message_created_at: "asc",
+        message_created_at: "desc",
       },
-      take: 50,
+      // take: 3,
     });
 
     if (unprocessedMessages.length === 0) {
