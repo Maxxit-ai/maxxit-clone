@@ -54,7 +54,7 @@ interface DeploymentStatus {
 }
 
 export default function MyDeployments() {
-  const { authenticated, user, login } = usePrivy();
+  const { authenticated, user, login, ready } = usePrivy();
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [deploymentsLoading, setDeploymentsLoading] = useState(true);
   const [telegramModalOpen, setTelegramModalOpen] = useState(false);
@@ -115,13 +115,12 @@ export default function MyDeployments() {
   useEffect(() => {
     if (authenticated && user?.wallet?.address) {
       fetchDeployments();
-    } else {
-      setDeploymentsLoading(false);
-    }
+    } 
   }, [authenticated, user?.wallet?.address]);
 
   const fetchDeployments = async () => {
     if (!user?.wallet?.address) return;
+    setDeploymentsLoading(true);
 
     try {
       const response = await fetch(
@@ -137,6 +136,7 @@ export default function MyDeployments() {
       if (deploymentsList.length > 0) {
         fetchDeploymentStatuses(deploymentsList);
       }
+      setDeploymentsLoading(false);
     } catch (error) {
       console.error("Failed to fetch deployments:", error);
       setDeployments([]);

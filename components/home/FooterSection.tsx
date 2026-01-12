@@ -26,7 +26,7 @@ const FooterSection = () => {
           {/* Brand Section */}
           <div className="space-y-3 sm:space-y-4">
             <Link href="/" className="flex items-center gap-2 group">
-              <Image src="/logo.png" alt="Maxxit" width={80} height={80} className="sm:w-[100px] sm:h-[100px]" />
+              <Image src="/logo.png" alt="Maxxit" width={1000} height={1000} className="sm:w-[100px]" />
             </Link>
             <p className="text-xs text-[var(--text-muted)] leading-relaxed max-w-sm">
               DeFi trading involves risk. Past performance ≠ future results. Non-custodial & gasless.
