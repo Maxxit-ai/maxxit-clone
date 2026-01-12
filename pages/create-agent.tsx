@@ -16,6 +16,7 @@ import { ResearchInstituteSelector } from '@components/ResearchInstituteSelector
 import { TelegramAlphaUserSelector } from '@components/TelegramAlphaUserSelector';
 import { CtAccountSelector } from '@components/CtAccountSelector';
 import { TopTradersSelector } from '@components/TopTradersSelector';
+import { TokenFilterSelector } from '@components/TokenFilterSelector';
 import { FaXTwitter } from 'react-icons/fa6';
 import dynamic from 'next/dynamic';
 import { STATUS } from 'react-joyride';
@@ -58,6 +59,7 @@ export default function CreateAgent() {
   const [selectedResearchInstitutes, setSelectedResearchInstitutes] = useState<string[]>([]);
   const [selectedTelegramUsers, setSelectedTelegramUsers] = useState<Set<string>>(new Set());
   const [selectedTopTraders, setSelectedTopTraders] = useState<string[]>([]);
+  const [selectedTokenFilters, setSelectedTokenFilters] = useState<string[]>([]);
 
   const Joyride = dynamic(() => import('react-joyride'), { ssr: false });
 
@@ -181,20 +183,16 @@ export default function CreateAgent() {
       setError('Please fix the validation errors');
       return;
     }
-    // Check if at least one signal provider is selected from any category
-    const totalSignalProviders =
+    // Require at least one source from any category
+    const totalSourcesSelected =
+      selectedTopTraders.length +
       selectedResearchInstitutes.length +
       selectedCtAccounts.size +
-      selectedTelegramUsers.size +
-      selectedTopTraders.length;
+      selectedTelegramUsers.size;
 
-    if (totalSignalProviders === 0) {
-      setError('Please select at least one signal provider from any category');
-      // Navigate to the first signal provider step
-      if (selectedTopTraders.length === 0) setStep(3);
-      else if (selectedResearchInstitutes.length === 0) setStep(4);
-      else if (selectedCtAccounts.size === 0) setStep(5);
-      else setStep(6);
+    if (totalSourcesSelected === 0) {
+      setError('Please select at least one source from Top Traders, Research Institutes, CT Accounts, or Telegram');
+      setStep(3); // Go to first source selection step
       return;
     }
     if (!proofOfIntent) {
@@ -224,6 +222,7 @@ export default function CreateAgent() {
           proofOfIntentSignature: proofOfIntent?.signature,
           proofOfIntentTimestamp: proofOfIntent?.timestamp.toISOString(),
           isCopyTradeClub: selectedTopTraders.length > 0,
+          tokenFilters: selectedTopTraders.length > 0 ? selectedTokenFilters : [],
         },
         linkingData: {
           ctAccountIds: Array.from(selectedCtAccounts),
@@ -312,28 +311,25 @@ export default function CreateAgent() {
     if (step === 1) isValid = await trigger('name');
     else if (step === 2) isValid = await trigger('venue');
     else if (step === 3) {
-      // Top traders is optional, so always valid
       isValid = true;
     } else if (step === 4) {
-      // Research institutes are optional, so always valid
       isValid = true;
     } else if (step === 5) {
-      // CT accounts are optional, so always valid
       isValid = true;
     } else if (step === 6) {
-      // Before moving to Wallet step, check if at least one signal provider is selected
-      const totalSignalProviders =
+      const totalSourcesSelected =
+        selectedTopTraders.length +
         selectedResearchInstitutes.length +
         selectedCtAccounts.size +
-        selectedTelegramUsers.size +
-        selectedTopTraders.length;
+        selectedTelegramUsers.size;
 
-      if (totalSignalProviders === 0) {
-        setError('Please select at least one signal provider from top traders, research institutes, ct accounts, or telegram users before proceeding');
+      if (totalSourcesSelected === 0) {
+        setError('Please select at least one source from Top Traders, Research Institutes, CT Accounts, or Telegram');
         return;
       }
       isValid = true;
-    } else if (step === 7) {
+    }
+    else if (step === 7) {
       const validWallet = await trigger('creatorWallet');
       const validProfit = await trigger('profitReceiverAddress');
       isValid = validWallet && validProfit;
@@ -744,6 +740,21 @@ export default function CreateAgent() {
               <h2 className="font-display text-2xl mb-2">TOP TRADERS</h2>
               <p className="text-[var(--text-secondary)] text-sm mb-6">Select top traders to follow. These traders will act as signal providers for your agent. (Optional)</p>
               <TopTradersSelector selectedIds={selectedTopTraders} onChange={setSelectedTopTraders} />
+
+              {/* Token Filters - Only show when top traders are selected */}
+              {selectedTopTraders.length > 0 && (
+                <div className="mt-8 pt-8 border-t border-[var(--border)]">
+                  <h3 className="font-display text-xl mb-2">TOKEN FILTERS</h3>
+                  <p className="text-[var(--text-secondary)] text-sm mb-4">
+                    Restrict which tokens your club will trade. Signals for tokens outside these categories will be automatically rejected.
+                  </p>
+                  <TokenFilterSelector
+                    selectedTokens={selectedTokenFilters}
+                    onChange={setSelectedTokenFilters}
+                  />
+                </div>
+              )}
+
               <div className="flex gap-4">
                 <button type="button" onClick={prevStep} className="flex-1 py-4 border border-[var(--border)] font-bold hover:border-[var(--text-primary)] transition-colors">BACK</button>
                 <button type="button" onClick={nextStep} className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors">NEXT →</button>
@@ -757,6 +768,9 @@ export default function CreateAgent() {
               <h2 className="font-display text-2xl mb-2">RESEARCH INSTITUTES</h2>
               <p className="text-[var(--text-secondary)] text-sm mb-6">Choose which institutes your agent should follow for signals. (Optional)</p>
               <ResearchInstituteSelector selectedIds={selectedResearchInstitutes} onChange={setSelectedResearchInstitutes} />
+              {selectedResearchInstitutes.length === 0 && (
+                <p className="text-sm text-[var(--text-muted)]">💡 Optional - You can skip if you have other sources selected</p>
+              )}
               <div className="flex gap-4">
                 <button type="button" onClick={prevStep} className="flex-1 py-4 border border-[var(--border)] font-bold hover:border-[var(--text-primary)] transition-colors">BACK</button>
                 <button type="button" onClick={nextStep} className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors">NEXT →</button>
@@ -1005,10 +1019,10 @@ export default function CreateAgent() {
                           );
                         })}
                       </div>
+                    ) : selectedTopTraders.length > 0 ? (
+                      <p className="text-sm text-[var(--text-muted)] mt-1">Loading...</p>
                     ) : (
-                      <p className="text-sm text-[var(--text-muted)] mt-1">
-                        Top traders data loading...
-                      </p>
+                      <p className="text-sm text-[var(--text-muted)] mt-1">No top traders selected</p>
                     )}
                   </div>
                 )}
@@ -1057,10 +1071,10 @@ export default function CreateAgent() {
                         </div>
                       ))}
                     </div>
+                  ) : selectedResearchInstitutes.length > 0 ? (
+                    <p className="text-sm text-[var(--text-muted)] mt-1">Loading...</p>
                   ) : (
-                    <p className="text-sm text-[var(--text-muted)] mt-1">
-                      No research institutes resolved yet. They will appear here once loaded.
-                    </p>
+                    <p className="text-sm text-[var(--text-muted)] mt-1">No research institutes selected</p>
                   )}
                 </div>
 
@@ -1103,10 +1117,10 @@ export default function CreateAgent() {
                         </div>
                       ))}
                     </div>
+                  ) : selectedCtAccounts.size > 0 ? (
+                    <p className="text-sm text-[var(--text-muted)] mt-1">Loading...</p>
                   ) : (
-                    <p className="text-sm text-[var(--text-muted)] mt-1">
-                      No CT accounts resolved yet. They will appear here once loaded.
-                    </p>
+                    <p className="text-sm text-[var(--text-muted)] mt-1">No CT accounts selected</p>
                   )}
                 </div>
 
