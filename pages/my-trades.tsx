@@ -878,95 +878,95 @@ export default function MyTrades() {
 
                               {/* Signature Data */}
                               <div>
-                              <h4 className="font-display text-xs sm:text-sm font-bold mb-1.5 sm:mb-2 uppercase tracking-tight">
-                                EIGENAI SIGNATURE
-                              </h4>
+                                <h4 className="font-display text-xs sm:text-sm font-bold mb-1.5 sm:mb-2 uppercase tracking-tight">
+                                  EIGENAI SIGNATURE
+                                </h4>
 
-                              {trade.signatureData ? (
-                                <div className="border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-2 sm:p-3 space-y-2 sm:space-y-2.5">
-                                  {/* Signal Message */}
-                                  <div>
-                                    <p className="text-[9px] sm:text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-0.5 sm:mb-1">
-                                      ORIGINAL SIGNAL
-                                    </p>
-                                    <p className="text-[10px] sm:text-[11px] text-[var(--text-secondary)] italic break-words line-clamp-2">
-                                      "
-                                      {trade.signatureData.messageText.substring(
-                                        0,
-                                        100
-                                      )}
-                                      {trade.signatureData.messageText.length >
-                                        100
-                                        ? "..."
-                                        : ""}
-                                      "
-                                    </p>
-                                  </div>
-
-                                  {/* Compact Info Grid */}
-                                  <div className="grid grid-cols-2 gap-1.5 sm:gap-2 border-t border-[var(--border)] pt-2">
+                                {trade.signatureData ? (
+                                  <div className="border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-2 sm:p-3 space-y-2 sm:space-y-2.5">
+                                    {/* Signal Message */}
                                     <div>
-                                      <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Alpha Trader</p>
-                                      <p className="text-[10px] sm:text-[11px] font-mono truncate">
-                                        @{trade.signatureData.telegramUsername}
+                                      <p className="text-[9px] sm:text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-0.5 sm:mb-1">
+                                        ORIGINAL SIGNAL
                                       </p>
-                                    </div>
-                                    <div>
-                                      <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Model</p>
-                                      <p className="text-[10px] sm:text-[11px] font-mono truncate">
-                                        {trade.signatureData.llmModelUsed}
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Chain ID</p>
-                                      <p className="text-[10px] sm:text-[11px] font-mono">
-                                        {trade.signatureData.llmChainId}
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Confidence</p>
-                                      <p className="text-[11px] sm:text-xs font-bold text-[var(--accent)]">
-                                        {(
-                                          trade.signatureData.confidenceScore *
+                                      <p className="text-[10px] sm:text-[11px] text-[var(--text-secondary)] italic break-words line-clamp-2">
+                                        "
+                                        {trade.signatureData.messageText.substring(
+                                          0,
                                           100
-                                        ).toFixed(0)}%
+                                        )}
+                                        {trade.signatureData.messageText.length >
+                                          100
+                                          ? "..."
+                                          : ""}
+                                        "
                                       </p>
                                     </div>
-                                  </div>
 
-                                  {/* Signature (truncated) */}
-                                  <div className="py-1.5 sm:py-2 border-t border-[var(--border)]">
-                                    <p className="text-[9px] sm:text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-0.5 sm:mb-1">
-                                      Signature
+                                    {/* Compact Info Grid */}
+                                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2 border-t border-[var(--border)] pt-2">
+                                      <div>
+                                        <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Alpha Trader</p>
+                                        <p className="text-[10px] sm:text-[11px] font-mono truncate">
+                                          @{trade.signatureData.telegramUsername}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Model</p>
+                                        <p className="text-[10px] sm:text-[11px] font-mono truncate">
+                                          {trade.signatureData.llmModelUsed}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Chain ID</p>
+                                        <p className="text-[10px] sm:text-[11px] font-mono">
+                                          {trade.signatureData.llmChainId}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Confidence</p>
+                                        <p className="text-[11px] sm:text-xs font-bold text-[var(--accent)]">
+                                          {(
+                                            trade.signatureData.confidenceScore *
+                                            100
+                                          ).toFixed(0)}%
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    {/* Signature (truncated) */}
+                                    <div className="py-1.5 sm:py-2 border-t border-[var(--border)]">
+                                      <p className="text-[9px] sm:text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-0.5 sm:mb-1">
+                                        Signature
+                                      </p>
+                                      <p className="text-[9px] sm:text-[10px] font-mono break-all text-[var(--accent)] leading-tight line-clamp-2">
+                                        {trade.signatureData.llmSignature}
+                                      </p>
+                                    </div>
+
+                                    {/* Verify Button */}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleVerifySignature(trade);
+                                      }}
+                                      className="w-full py-1.5 sm:py-2 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-1.5 mt-1.5 text-[10px] sm:text-xs"
+                                    >
+                                      <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                      VERIFY SIGNATURE
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="border border-dashed border-[var(--border)] bg-[var(--bg-surface)] p-2 sm:p-3 space-y-1.5">
+                                    <p className="font-bold text-[11px] sm:text-xs text-[var(--text-secondary)]">
+                                      No signature available for this signal yet.
                                     </p>
-                                    <p className="text-[9px] sm:text-[10px] font-mono break-all text-[var(--accent)] leading-tight line-clamp-2">
-                                      {trade.signatureData.llmSignature}
+                                    <p className="text-[10px] sm:text-[11px] text-[var(--text-muted)]">
+                                      You can still track the position details and
+                                      status above.
                                     </p>
                                   </div>
-
-                                  {/* Verify Button */}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleVerifySignature(trade);
-                                    }}
-                                    className="w-full py-1.5 sm:py-2 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-1.5 mt-1.5 text-[10px] sm:text-xs"
-                                  >
-                                    <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                    VERIFY SIGNATURE
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="border border-dashed border-[var(--border)] bg-[var(--bg-surface)] p-2 sm:p-3 space-y-1.5">
-                                  <p className="font-bold text-[11px] sm:text-xs text-[var(--text-secondary)]">
-                                    No signature available for this signal yet.
-                                  </p>
-                                  <p className="text-[10px] sm:text-[11px] text-[var(--text-muted)]">
-                                    You can still track the position details and
-                                    status above.
-                                  </p>
-                                </div>
-                              )}
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1176,82 +1176,82 @@ export default function MyTrades() {
                                 </div>
                               )}
 
-                          {/* Right Column - EigenAI Signature for untraded signals */}
-                          <div className="space-y-1.5 sm:space-y-2">
-                            <p className="data-label mb-1 sm:mb-1.5 text-xs sm:text-sm">EIGENAI SIGNATURE</p>
-                            {signal.signatureData ? (
-                              <div className="border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-2 sm:p-3 space-y-2 sm:space-y-2.5">
-                                <div>
-                                  <p className="text-[9px] sm:text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-0.5 sm:mb-1">
-                                    ORIGINAL SIGNAL
-                                  </p>
-                                  <p className="text-[10px] sm:text-[11px] text-[var(--text-secondary)] italic break-words line-clamp-2">
-                                    "
-                                    {signal.signatureData.messageText}
-                                    "
-                                  </p>
-                                </div>
+                            {/* Right Column - EigenAI Signature for untraded signals */}
+                            <div className="space-y-1.5 sm:space-y-2">
+                              <p className="data-label mb-1 sm:mb-1.5 text-xs sm:text-sm">EIGENAI SIGNATURE</p>
+                              {signal.signatureData ? (
+                                <div className="border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-2 sm:p-3 space-y-2 sm:space-y-2.5">
+                                  <div>
+                                    <p className="text-[9px] sm:text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-0.5 sm:mb-1">
+                                      ORIGINAL SIGNAL
+                                    </p>
+                                    <p className="text-[10px] sm:text-[11px] text-[var(--text-secondary)] italic break-words line-clamp-2">
+                                      "
+                                      {signal.signatureData.messageText}
+                                      "
+                                    </p>
+                                  </div>
 
-                                {/* Compact Info Grid */}
-                                <div className="grid grid-cols-2 gap-1.5 sm:gap-2 border-t border-[var(--border)] pt-2">
-                                  <div>
-                                    <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Alpha Trader</p>
-                                    <p className="text-[10px] sm:text-[11px] font-mono truncate">
-                                      @{signal.signatureData.telegramUsername}
-                                    </p>
+                                  {/* Compact Info Grid */}
+                                  <div className="grid grid-cols-2 gap-1.5 sm:gap-2 border-t border-[var(--border)] pt-2">
+                                    <div>
+                                      <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Alpha Trader</p>
+                                      <p className="text-[10px] sm:text-[11px] font-mono truncate">
+                                        @{signal.signatureData.telegramUsername}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Model</p>
+                                      <p className="text-[10px] sm:text-[11px] font-mono truncate">
+                                        {signal.signatureData.llmModelUsed}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Chain ID</p>
+                                      <p className="text-[10px] sm:text-[11px] font-mono">
+                                        {signal.signatureData.llmChainId}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Confidence</p>
+                                      <p className="text-[11px] sm:text-xs font-bold text-[var(--accent)]">
+                                        {(
+                                          signal.signatureData.confidenceScore * 100
+                                        ).toFixed(0)}%
+                                      </p>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Model</p>
-                                    <p className="text-[10px] sm:text-[11px] font-mono truncate">
-                                      {signal.signatureData.llmModelUsed}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Chain ID</p>
-                                    <p className="text-[10px] sm:text-[11px] font-mono">
-                                      {signal.signatureData.llmChainId}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5">Confidence</p>
-                                    <p className="text-[11px] sm:text-xs font-bold text-[var(--accent)]">
-                                      {(
-                                        signal.signatureData.confidenceScore * 100
-                                      ).toFixed(0)}%
-                                    </p>
-                                  </div>
-                                </div>
 
-                                <div className="py-1.5 sm:py-2 border-t border-[var(--border)]">
-                                  <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5 sm:mb-1">
-                                    Signature
-                                  </p>
-                                  <p className="text-[9px] sm:text-[10px] font-mono break-all text-[var(--accent)] leading-tight line-clamp-2">
-                                    {formatAddress(
-                                      signal.signatureData.llmSignature
-                                    )}
-                                  </p>
-                                </div>
+                                  <div className="py-1.5 sm:py-2 border-t border-[var(--border)]">
+                                    <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] mb-0.5 sm:mb-1">
+                                      Signature
+                                    </p>
+                                    <p className="text-[9px] sm:text-[10px] font-mono break-all text-[var(--accent)] leading-tight line-clamp-2">
+                                      {formatAddress(
+                                        signal.signatureData.llmSignature
+                                      )}
+                                    </p>
+                                  </div>
 
-                                <button
-                                  onClick={() => {
-                                    setSelectedTrade(signal);
-                                    setVerificationModalOpen(true);
-                                    setVerificationResult(null);
-                                    handleVerifySignature(signal);
-                                  }}
-                                  className="w-full py-1.5 sm:py-2 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-1.5 mt-1.5 text-[10px] sm:text-xs"
-                                >
-                                  <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                  VERIFY SIGNATURE
-                                </button>
-                              </div>
-                            ) : (
-                              <p className="text-[10px] sm:text-[11px] text-[var(--text-muted)]">
-                                No EigenAI signature available for this signal.
-                              </p>
-                            )}
-                          </div>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedTrade(signal);
+                                      setVerificationModalOpen(true);
+                                      setVerificationResult(null);
+                                      handleVerifySignature(signal);
+                                    }}
+                                    className="w-full py-1.5 sm:py-2 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors flex items-center justify-center gap-1.5 mt-1.5 text-[10px] sm:text-xs"
+                                  >
+                                    <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                    VERIFY SIGNATURE
+                                  </button>
+                                </div>
+                              ) : (
+                                <p className="text-[10px] sm:text-[11px] text-[var(--text-muted)]">
+                                  No EigenAI signature available for this signal.
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
                       )}
