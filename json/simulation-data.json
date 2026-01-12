@@ -1408,6 +1408,231 @@
       "_count": {
         "agents": 4
       }
+    },
+    {
+      "id": "tt-4",
+      "walletAddress": "0xTRADER0000000000000000000000000000000004",
+      "totalVolume": "920000.00",
+      "totalClosedVolume": "780000.00",
+      "totalPnl": "87650.33",
+      "totalProfitTrades": 145,
+      "totalLossTrades": 89,
+      "totalTrades": 234,
+      "lastActiveAt": "2024-01-15T09:30:00Z",
+      "edgeScore": 0.71,
+      "consistencyScore": 0.68,
+      "stakeScore": 0.78,
+      "freshnessScore": 0.75,
+      "impactFactor": 1.25,
+      "createdAt": "2023-11-10T00:00:00Z",
+      "updatedAt": "2024-01-15T09:35:00Z",
+      "_count": {
+        "agents": 2
+      }
+    },
+    {
+      "id": "tt-5",
+      "walletAddress": "0xTRADER0000000000000000000000000000000005",
+      "totalVolume": "2100000.00",
+      "totalClosedVolume": "1850000.00",
+      "totalPnl": "287650.45",
+      "totalProfitTrades": 320,
+      "totalLossTrades": 145,
+      "totalTrades": 465,
+      "lastActiveAt": "2024-01-15T12:15:00Z",
+      "edgeScore": 0.92,
+      "consistencyScore": 0.87,
+      "stakeScore": 0.95,
+      "freshnessScore": 0.92,
+      "impactFactor": 2.18,
+      "createdAt": "2023-07-05T00:00:00Z",
+      "updatedAt": "2024-01-15T12:20:00Z",
+      "_count": {
+        "agents": 5
+      }
+    },
+    {
+      "id": "tt-6",
+      "walletAddress": "0xTRADER0000000000000000000000000000000006",
+      "totalVolume": "680000.00",
+      "totalClosedVolume": "520000.00",
+      "totalPnl": "65420.18",
+      "totalProfitTrades": 98,
+      "totalLossTrades": 67,
+      "totalTrades": 165,
+      "lastActiveAt": "2024-01-14T14:20:00Z",
+      "edgeScore": 0.65,
+      "consistencyScore": 0.63,
+      "stakeScore": 0.72,
+      "freshnessScore": 0.69,
+      "impactFactor": 1.08,
+      "createdAt": "2023-12-01T00:00:00Z",
+      "updatedAt": "2024-01-14T14:25:00Z",
+      "_count": {
+        "agents": 1
+      }
+    },
+    {
+      "id": "tt-7",
+      "walletAddress": "0xTRADER0000000000000000000000000000000007",
+      "totalVolume": "1450000.00",
+      "totalClosedVolume": "1120000.00",
+      "totalPnl": "178920.67",
+      "totalProfitTrades": 245,
+      "totalLossTrades": 118,
+      "totalTrades": 363,
+      "lastActiveAt": "2024-01-15T08:45:00Z",
+      "edgeScore": 0.81,
+      "consistencyScore": 0.77,
+      "stakeScore": 0.88,
+      "freshnessScore": 0.85,
+      "impactFactor": 1.68,
+      "createdAt": "2023-09-25T00:00:00Z",
+      "updatedAt": "2024-01-15T08:50:00Z",
+      "_count": {
+        "agents": 3
+      }
+    },
+    {
+      "id": "tt-8",
+      "walletAddress": "0xTRADER0000000000000000000000000000000008",
+      "totalVolume": "1100000.00",
+      "totalClosedVolume": "950000.00",
+      "totalPnl": "134560.22",
+      "totalProfitTrades": 198,
+      "totalLossTrades": 102,
+      "totalTrades": 300,
+      "lastActiveAt": "2024-01-15T07:20:00Z",
+      "edgeScore": 0.76,
+      "consistencyScore": 0.73,
+      "stakeScore": 0.83,
+      "freshnessScore": 0.79,
+      "impactFactor": 1.45,
+      "createdAt": "2023-10-15T00:00:00Z",
+      "updatedAt": "2024-01-15T07:25:00Z",
+      "_count": {
+        "agents": 2
+      }
+    },
+    {
+      "id": "tt-9",
+      "walletAddress": "0xTRADER0000000000000000000000000000000009",
+      "totalVolume": "1890000.00",
+      "totalClosedVolume": "1650000.00",
+      "totalPnl": "256780.91",
+      "totalProfitTrades": 305,
+      "totalLossTrades": 138,
+      "totalTrades": 443,
+      "lastActiveAt": "2024-01-15T13:00:00Z",
+      "edgeScore": 0.88,
+      "consistencyScore": 0.85,
+      "stakeScore": 0.91,
+      "freshnessScore": 0.89,
+      "impactFactor": 2.01,
+      "createdAt": "2023-08-10T00:00:00Z",
+      "updatedAt": "2024-01-15T13:05:00Z",
+      "_count": {
+        "agents": 4
+      }
+    },
+    {
+      "id": "tt-10",
+      "walletAddress": "0xTRADER0000000000000000000000000000000010",
+      "totalVolume": "750000.00",
+      "totalClosedVolume": "610000.00",
+      "totalPnl": "72340.56",
+      "totalProfitTrades": 112,
+      "totalLossTrades": 78,
+      "totalTrades": 190,
+      "lastActiveAt": "2024-01-13T18:15:00Z",
+      "edgeScore": 0.68,
+      "consistencyScore": 0.66,
+      "stakeScore": 0.75,
+      "freshnessScore": 0.71,
+      "impactFactor": 1.15,
+      "createdAt": "2023-11-20T00:00:00Z",
+      "updatedAt": "2024-01-13T18:20:00Z",
+      "_count": {
+        "agents": 1
+      }
     }
-  ]
+  ],
+  "availablePairs": {
+    "tokens": [
+      { "id": 1, "symbol": "BTC/USD", "group": "Crypto Major", "maxLeverage": 50 },
+      { "id": 2, "symbol": "ETH/USD", "group": "Crypto Major", "maxLeverage": 50 },
+      { "id": 3, "symbol": "SOL/USD", "group": "Crypto Major", "maxLeverage": 50 },
+      { "id": 4, "symbol": "ARB/USD", "group": "Crypto Major", "maxLeverage": 30 },
+      { "id": 5, "symbol": "OP/USD", "group": "Crypto Major", "maxLeverage": 30 },
+      { "id": 6, "symbol": "MATIC/USD", "group": "Crypto Major", "maxLeverage": 30 },
+      { "id": 7, "symbol": "AVAX/USD", "group": "Crypto Major", "maxLeverage": 40 },
+      { "id": 8, "symbol": "LINK/USD", "group": "Crypto Major", "maxLeverage": 25 },
+      { "id": 9, "symbol": "XAU/USD", "group": "Precious Metals", "maxLeverage": 20 },
+      { "id": 10, "symbol": "XAG/USD", "group": "Precious Metals", "maxLeverage": 20 },
+      { "id": 11, "symbol": "WTI/USD", "group": "Energy", "maxLeverage": 20 },
+      { "id": 12, "symbol": "BRENT/USD", "group": "Energy", "maxLeverage": 20 },
+      { "id": 13, "symbol": "NGAS/USD", "group": "Energy", "maxLeverage": 15 },
+      { "id": 14, "symbol": "EUR/USD", "group": "Forex Major", "maxLeverage": 100 },
+      { "id": 15, "symbol": "GBP/USD", "group": "Forex Major", "maxLeverage": 100 },
+      { "id": 16, "symbol": "USD/JPY", "group": "Forex Major", "maxLeverage": 100 },
+      { "id": 17, "symbol": "USD/CHF", "group": "Forex Major", "maxLeverage": 100 },
+      { "id": 18, "symbol": "AUD/USD", "group": "Forex Major", "maxLeverage": 100 },
+      { "id": 19, "symbol": "USD/CAD", "group": "Forex Major", "maxLeverage": 100 },
+      { "id": 20, "symbol": "SPX/USD", "group": "US Indices", "maxLeverage": 20 },
+      { "id": 21, "symbol": "NDX/USD", "group": "US Indices", "maxLeverage": 20 },
+      { "id": 22, "symbol": "DJI/USD", "group": "US Indices", "maxLeverage": 20 },
+      { "id": 23, "symbol": "RUT/USD", "group": "US Indices", "maxLeverage": 15 },
+      { "id": 24, "symbol": "DOGE/USD", "group": "Crypto Alt", "maxLeverage": 20 },
+      { "id": 25, "symbol": "ADA/USD", "group": "Crypto Alt", "maxLeverage": 25 },
+      { "id": 26, "symbol": "DOT/USD", "group": "Crypto Alt", "maxLeverage": 25 },
+      { "id": 27, "symbol": "ATOM/USD", "group": "Crypto Alt", "maxLeverage": 20 },
+      { "id": 28, "symbol": "UNI/USD", "group": "Crypto Alt", "maxLeverage": 20 },
+      { "id": 29, "symbol": "AAVE/USD", "group": "Crypto Alt", "maxLeverage": 20 },
+      { "id": 30, "symbol": "SUI/USD", "group": "Crypto Alt", "maxLeverage": 25 }
+    ],
+    "groupedTokens": {
+      "Crypto Major": [
+        { "id": 1, "symbol": "BTC/USD", "group": "Crypto Major", "maxLeverage": 50 },
+        { "id": 2, "symbol": "ETH/USD", "group": "Crypto Major", "maxLeverage": 50 },
+        { "id": 3, "symbol": "SOL/USD", "group": "Crypto Major", "maxLeverage": 50 },
+        { "id": 4, "symbol": "ARB/USD", "group": "Crypto Major", "maxLeverage": 30 },
+        { "id": 5, "symbol": "OP/USD", "group": "Crypto Major", "maxLeverage": 30 },
+        { "id": 6, "symbol": "MATIC/USD", "group": "Crypto Major", "maxLeverage": 30 },
+        { "id": 7, "symbol": "AVAX/USD", "group": "Crypto Major", "maxLeverage": 40 },
+        { "id": 8, "symbol": "LINK/USD", "group": "Crypto Major", "maxLeverage": 25 }
+      ],
+      "Precious Metals": [
+        { "id": 9, "symbol": "XAU/USD", "group": "Precious Metals", "maxLeverage": 20 },
+        { "id": 10, "symbol": "XAG/USD", "group": "Precious Metals", "maxLeverage": 20 }
+      ],
+      "Energy": [
+        { "id": 11, "symbol": "WTI/USD", "group": "Energy", "maxLeverage": 20 },
+        { "id": 12, "symbol": "BRENT/USD", "group": "Energy", "maxLeverage": 20 },
+        { "id": 13, "symbol": "NGAS/USD", "group": "Energy", "maxLeverage": 15 }
+      ],
+      "Forex Major": [
+        { "id": 14, "symbol": "EUR/USD", "group": "Forex Major", "maxLeverage": 100 },
+        { "id": 15, "symbol": "GBP/USD", "group": "Forex Major", "maxLeverage": 100 },
+        { "id": 16, "symbol": "USD/JPY", "group": "Forex Major", "maxLeverage": 100 },
+        { "id": 17, "symbol": "USD/CHF", "group": "Forex Major", "maxLeverage": 100 },
+        { "id": 18, "symbol": "AUD/USD", "group": "Forex Major", "maxLeverage": 100 },
+        { "id": 19, "symbol": "USD/CAD", "group": "Forex Major", "maxLeverage": 100 }
+      ],
+      "US Indices": [
+        { "id": 20, "symbol": "SPX/USD", "group": "US Indices", "maxLeverage": 20 },
+        { "id": 21, "symbol": "NDX/USD", "group": "US Indices", "maxLeverage": 20 },
+        { "id": 22, "symbol": "DJI/USD", "group": "US Indices", "maxLeverage": 20 },
+        { "id": 23, "symbol": "RUT/USD", "group": "US Indices", "maxLeverage": 15 }
+      ],
+      "Crypto Alt": [
+        { "id": 24, "symbol": "DOGE/USD", "group": "Crypto Alt", "maxLeverage": 20 },
+        { "id": 25, "symbol": "ADA/USD", "group": "Crypto Alt", "maxLeverage": 25 },
+        { "id": 26, "symbol": "DOT/USD", "group": "Crypto Alt", "maxLeverage": 25 },
+        { "id": 27, "symbol": "ATOM/USD", "group": "Crypto Alt", "maxLeverage": 20 },
+        { "id": 28, "symbol": "UNI/USD", "group": "Crypto Alt", "maxLeverage": 20 },
+        { "id": 29, "symbol": "AAVE/USD", "group": "Crypto Alt", "maxLeverage": 20 },
+        { "id": 30, "symbol": "SUI/USD", "group": "Crypto Alt", "maxLeverage": 25 }
+      ]
+    }
+  }
 }

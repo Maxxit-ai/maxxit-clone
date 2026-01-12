@@ -168,6 +168,7 @@ export default function MyDeployments() {
           }));
         });
       }
+      setDeploymentsLoading(false);
     } catch (error) {
       console.error("Failed to load deployments:", error);
       setDeployments([]);

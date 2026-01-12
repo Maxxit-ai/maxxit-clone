@@ -6,6 +6,7 @@ import { ResearchInstituteSelector } from '@components/ResearchInstituteSelector
 import { TelegramAlphaUserSelector } from '@components/TelegramAlphaUserSelector';
 import { CtAccountSelector } from '@components/CtAccountSelector';
 import { TopTradersSelector } from '@components/TopTradersSelector';
+import { TokenFilterSelector } from '@components/TokenFilterSelector';
 import { FaXTwitter } from 'react-icons/fa6';
 import { Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -36,6 +37,7 @@ export default function EditAgent() {
   const [selectedCtAccounts, setSelectedCtAccounts] = useState<Set<string>>(new Set());
   const [selectedTelegramUsers, setSelectedTelegramUsers] = useState<Set<string>>(new Set());
   const [selectedTopTraders, setSelectedTopTraders] = useState<string[]>([]);
+  const [selectedTokenFilters, setSelectedTokenFilters] = useState<string[]>([]);
 
   const [reviewData, setReviewData] = useState<{
     researchInstitutes: Array<{ id: string; name: string; description: string | null; x_handle: string | null }>;
@@ -119,6 +121,18 @@ export default function EditAgent() {
   const handleSave = async () => {
     if (!id || typeof id !== 'string') return;
 
+    // Require at least one source from any category
+    const totalSourcesSelected =
+      selectedTopTraders.length +
+      selectedResearchInstitutes.length +
+      selectedCtAccounts.size +
+      selectedTelegramUsers.size;
+
+    if (totalSourcesSelected === 0) {
+      setError('Please select at least one source from Top Traders, Research Institutes, CT Accounts, or Telegram');
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
@@ -164,14 +178,6 @@ export default function EditAgent() {
   const nextStep = () => {
     if (step === 1 && !formData.name.trim()) {
       setError('Please enter an agent name');
-      return;
-    }
-    if (step === 2 && selectedResearchInstitutes.length === 0) {
-      setError('Please select at least one research institute');
-      return;
-    }
-    if (step === 3 && selectedCtAccounts.size === 0) {
-      setError('Please select at least one CT account');
       return;
     }
 
@@ -263,7 +269,7 @@ export default function EditAgent() {
     return (
       <div className="min-h-screen bg-[var(--bg-deep)]">
         <Header />
-        <div className="max-w-4xl mx-auto px-6 py-12 text-center">
+        <div className="flex flex-col items-center justify-center min-h-screen max-w-4xl mx-auto px-6 py-12 text-center">
           <Activity className="h-12 w-12 animate-pulse text-[var(--accent)] mx-auto mb-4" />
           <p className="text-[var(--text-secondary)]">Loading agent data...</p>
         </div>
@@ -420,6 +426,21 @@ export default function EditAgent() {
               <h2 className="font-display text-2xl mb-2">TOP TRADERS</h2>
               <p className="text-[var(--text-secondary)] text-sm mb-6">Select top traders to copy trade from. Their wallet addresses will be used as signal providers.</p>
               <TopTradersSelector selectedIds={selectedTopTraders} onChange={setSelectedTopTraders} />
+
+              {/* Token Filters - Only show when top traders are selected */}
+              {selectedTopTraders.length > 0 && (
+                <div className="mt-8 pt-8 border-t border-[var(--border)]">
+                  <h3 className="font-display text-xl mb-2">TOKEN FILTERS</h3>
+                  <p className="text-[var(--text-secondary)] text-sm mb-4">
+                    Restrict which tokens your club will trade. Signals for tokens outside these categories will be automatically rejected.
+                  </p>
+                  <TokenFilterSelector
+                    selectedTokens={selectedTokenFilters}
+                    onChange={setSelectedTokenFilters}
+                  />
+                </div>
+              )}
+
               <div className="flex gap-4">
                 <button type="button" onClick={prevStep} className="flex-1 py-4 border border-[var(--border)] font-bold hover:border-[var(--text-primary)] transition-colors">BACK</button>
                 <button type="button" onClick={nextStep} className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors">NEXT →</button>
@@ -434,7 +455,7 @@ export default function EditAgent() {
               <p className="text-[var(--text-secondary)] text-sm mb-6">Choose which institutes your agent should follow for signals.</p>
               <ResearchInstituteSelector selectedIds={selectedResearchInstitutes} onChange={setSelectedResearchInstitutes} />
               {selectedResearchInstitutes.length === 0 && (
-                <p className="text-sm text-[var(--accent)]">⚠️ Select at least one institute</p>
+                <p className="text-sm text-[var(--text-muted)]">💡 Optional - You can skip if you have other sources selected</p>
               )}
               <div className="flex gap-4">
                 <button type="button" onClick={prevStep} className="flex-1 py-4 border border-[var(--border)] font-bold hover:border-[var(--text-primary)] transition-colors">BACK</button>
@@ -455,7 +476,7 @@ export default function EditAgent() {
                 onBack={prevStep}
               />
               {selectedCtAccounts.size === 0 && (
-                <p className="text-sm text-[var(--accent)]">⚠️ Select at least one CT account</p>
+                <p className="text-sm text-[var(--text-muted)]">💡 Optional - You can skip if you have other sources selected</p>
               )}
             </div>
           )}
@@ -552,8 +573,10 @@ export default function EditAgent() {
                           );
                         })}
                       </div>
-                    ) : (
+                    ) : selectedTopTraders.length > 0 ? (
                       <p className="text-sm text-[var(--text-muted)] mt-1">Loading...</p>
+                    ) : (
+                      <p className="text-sm text-[var(--text-muted)] mt-1">No top traders selected</p>
                     )}
                   </div>
                 )}
@@ -589,8 +612,10 @@ export default function EditAgent() {
                         </div>
                       ))}
                     </div>
-                  ) : (
+                  ) : selectedResearchInstitutes.length > 0 ? (
                     <p className="text-sm text-[var(--text-muted)] mt-1">Loading...</p>
+                  ) : (
+                    <p className="text-sm text-[var(--text-muted)] mt-1">No research institutes selected</p>
                   )}
                 </div>
 
@@ -628,8 +653,10 @@ export default function EditAgent() {
                         </div>
                       ))}
                     </div>
-                  ) : (
+                  ) : selectedCtAccounts.size > 0 ? (
                     <p className="text-sm text-[var(--text-muted)] mt-1">Loading...</p>
+                  ) : (
+                    <p className="text-sm text-[var(--text-muted)] mt-1">No CT accounts selected</p>
                   )}
                 </div>
 

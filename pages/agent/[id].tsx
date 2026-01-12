@@ -485,7 +485,7 @@ export default function AgentDashboard() {
       <div className="min-h-screen bg-background">
         <Header />
         <div className="max-w-7xl mx-auto px-4 py-8 flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
+          <div className="flex flex-col items-center justify-center min-h-screen text-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
             <p className="text-muted-foreground">Loading agent data...</p>
           </div>
@@ -522,7 +522,7 @@ export default function AgentDashboard() {
       <div className="min-h-screen bg-background">
         <Header />
         <div className="max-w-7xl mx-auto px-4 py-8 flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
+          <div className="flex flex-col items-center justify-center min-h-screen text-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
             <p className="text-muted-foreground">Loading agent data...</p>
           </div>
