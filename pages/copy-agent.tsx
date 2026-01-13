@@ -4,34 +4,150 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { insertAgentSchema, VenueEnum, InsertAgent } from '@shared/schema';
-import { db } from '../client/src/lib/db';
 import { useRouter } from 'next/router';
 import { Check, User, Building2, Sliders, Wallet, Eye, Rocket, Twitter, Search, Plus as PlusIcon, X, Shield, Send, Activity, TrendingUp } from 'lucide-react';
 import { Header } from '@components/Header';
-import { usePrivy } from '@privy-io/react-auth';
-import { createProofOfIntentWithMetaMask } from '@lib/proof-of-intent';
-import { HyperliquidConnect } from '@components/HyperliquidConnect';
-import { OstiumConnect } from '@components/OstiumConnect';
-import { OstiumApproval } from '@components/OstiumApproval';
-import { ResearchInstituteSelector } from '@components/ResearchInstituteSelector';
-import { TelegramAlphaUserSelector } from '@components/TelegramAlphaUserSelector';
-import { CtAccountSelector } from '@components/CtAccountSelector';
+// Removed deployment-related components since they depend on backend services
+// Using local mock components instead of backend-dependent ones
 import { TopTradersSelector } from '@components/TopTradersSelector';
 import { FaXTwitter } from 'react-icons/fa6';
 import dynamic from 'next/dynamic';
 import { STATUS } from 'react-joyride';
 import type { CallBackProps, Step as JoyrideStep } from 'react-joyride';
 
-const wizardSchema = insertAgentSchema.extend({
+// Simplified schema without backend dependencies
+const wizardSchema = z.object({
+  name: z.string().min(1, 'Agent name is required').max(100),
   description: z.string().max(500).optional(),
+  venue: z.enum(['MULTI', 'OSTIUM', 'HYPERLIQUID', 'GMX', 'SPOT']),
+  weights: z.array(z.number()).length(8),
+  status: z.enum(['DRAFT', 'ACTIVE', 'PAUSED']),
+  creatorWallet: z.string().min(1, 'Creator wallet is required'),
+  profitReceiverAddress: z.string().min(1, 'Profit receiver address is required'),
 });
 
 type WizardFormData = z.infer<typeof wizardSchema>;
 
+// Mock Research Institute Selector Component
+function MockResearchInstituteSelector({ selectedIds, onChange }: { selectedIds: string[], onChange: (ids: string[]) => void }) {
+  const mockInstitutes = [
+    { id: 'inst1', name: 'Alpha Research Labs', description: 'Leading crypto research institute', x_handle: 'alpharesearch' },
+    { id: 'inst2', name: 'DeFi Analytics', description: 'Specialized in DeFi protocol analysis', x_handle: 'defianalytics' },
+    { id: 'inst3', name: 'Blockchain Insights', description: 'Market intelligence and trading signals', x_handle: 'blockchaininsights' },
+    { id: 'inst4', name: 'Crypto Strategy Group', description: 'Professional trading strategies', x_handle: 'cryptostrategy' },
+  ];
+
+  const toggleInstitute = (id: string) => {
+    if (selectedIds.includes(id)) {
+      onChange(selectedIds.filter(i => i !== id));
+    } else {
+      onChange([...selectedIds, id]);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {mockInstitutes.map(inst => (
+        <div key={inst.id} className={`p-4 border transition-all cursor-pointer ${selectedIds.includes(inst.id) ? 'border-[var(--accent)] bg-[var(--accent)]/10' : 'border-[var(--border)] hover:border-[var(--accent)]/50'}`} onClick={() => toggleInstitute(inst.id)}>
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h3 className="font-bold text-[var(--text-primary)]">{inst.name}</h3>
+              <p className="text-sm text-[var(--text-secondary)] mt-1">{inst.description}</p>
+              <a href={`https://x.com/${inst.x_handle}`} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--accent)] hover:underline mt-2 inline-flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                <Twitter className="h-3 w-3" />@{inst.x_handle}
+              </a>
+            </div>
+            {selectedIds.includes(inst.id) && <Check className="h-5 w-5 text-[var(--accent)] flex-shrink-0" />}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Mock Telegram Alpha User Selector Component  
+function MockTelegramAlphaUserSelector({ selectedIds, onToggle }: { selectedIds: Set<string>, onToggle: (id: string) => void }) {
+  const mockUsers = [
+    { id: 'tg1', telegram_username: 'alpha_trader_1', first_name: 'Alpha', last_name: 'Trader', credit_price: '500' },
+    { id: 'tg2', telegram_username: 'crypto_signals', first_name: 'Crypto', last_name: 'Signals', credit_price: '750' },
+    { id: 'tg3', telegram_username: 'defi_whale', first_name: 'DeFi', last_name: 'Whale', credit_price: '1000' },
+    { id: 'tg4', telegram_username: 'market_maven', first_name: 'Market', last_name: 'Maven', credit_price: '300' },
+  ];
+
+  return (
+    <div className="space-y-3">
+      {mockUsers.map(user => {
+        const displayName = user.telegram_username ? `@${user.telegram_username}` : `${user.first_name} ${user.last_name}`.trim();
+        const isSelected = selectedIds.has(user.id);
+        return (
+          <div key={user.id} className={`p-4 border transition-all cursor-pointer ${isSelected ? 'border-[var(--accent)] bg-[var(--accent)]/10' : 'border-[var(--border)] hover:border-[var(--accent)]/50'}`} onClick={() => onToggle(user.id)}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 flex-1">
+                <Send className="h-4 w-4 text-[var(--accent)]" />
+                <div>
+                  <p className="font-semibold text-[var(--text-primary)]">{displayName}</p>
+                  <p className="text-xs text-[var(--text-muted)]">{Number(user.credit_price)} credits</p>
+                </div>
+              </div>
+              {isSelected && <Check className="h-5 w-5 text-[var(--accent)] flex-shrink-0" />}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Mock CT Account Selector Component
+function MockCtAccountSelector({ selectedIds, onToggle, onNext, onBack }: { selectedIds: Set<string>, onToggle: (id: string) => void, onNext: () => void, onBack: () => void }) {
+  const mockAccounts = [
+    { id: 'ct1', xUsername: 'cryptotrader', displayName: 'Crypto Trader Pro', followersCount: 45000 },
+    { id: 'ct2', xUsername: 'defi_degen', displayName: 'DeFi Degen', followersCount: 32000 },
+    { id: 'ct3', xUsername: 'alpha_hunter', displayName: 'Alpha Hunter', followersCount: 78000 },
+    { id: 'ct4', xUsername: 'yield_farmer', displayName: 'Yield Farmer', followersCount: 23000 },
+    { id: 'ct5', xUsername: 'nft_whale', displayName: 'NFT Whale', followersCount: 56000 },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <h2 className="font-display text-2xl mb-2">CT ACCOUNTS</h2>
+      <p className="text-[var(--text-secondary)] text-sm mb-6">Select CT accounts your agent should mirror.</p>
+
+      <div className="space-y-3">
+        {mockAccounts.map(acc => {
+          const isSelected = selectedIds.has(acc.id);
+          return (
+            <div key={acc.id} className={`p-4 border transition-all cursor-pointer ${isSelected ? 'border-[var(--accent)] bg-[var(--accent)]/10' : 'border-[var(--border)] hover:border-[var(--accent)]/50'}`} onClick={() => onToggle(acc.id)}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 flex-1">
+                  <FaXTwitter className="h-4 w-4 text-[var(--accent)]" />
+                  <div>
+                    <p className="font-semibold text-[var(--text-primary)]">@{acc.xUsername}</p>
+                    {acc.displayName && <p className="text-xs text-[var(--text-secondary)]">{acc.displayName}</p>}
+                    <p className="text-xs text-[var(--text-muted)] mt-1">{acc.followersCount.toLocaleString()} followers</p>
+                  </div>
+                </div>
+                {isSelected && <Check className="h-5 w-5 text-[var(--accent)] flex-shrink-0" />}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {selectedIds.size === 0 && (
+        <p className="text-sm text-[var(--accent)]">⚠️ Select at least one CT account</p>
+      )}
+
+      <div className="flex gap-4">
+        <button type="button" onClick={onBack} className="flex-1 py-4 border border-[var(--border)] font-bold hover:border-[var(--text-primary)] transition-colors">BACK</button>
+        <button type="button" onClick={onNext} className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors">NEXT →</button>
+      </div>
+    </div>
+  );
+}
+
 export default function CopyAgent() {
   const router = useRouter();
-  const { authenticated, user, login } = usePrivy();
   const [step, setStep] = useState(1);
   const [runJoyride, setRunJoyride] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -41,20 +157,10 @@ export default function CopyAgent() {
   const [showDeployModal, setShowDeployModal] = useState(false);
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [hyperliquidModalOpen, setHyperliquidModalOpen] = useState(false);
-  const [hyperliquidAgentId, setHyperliquidAgentId] = useState('');
-  const [hyperliquidAgentName, setHyperliquidAgentName] = useState('');
-  const [ostiumModalOpen, setOstiumModalOpen] = useState(false);
-  const [ostiumAgentId, setOstiumAgentId] = useState('');
-  const [ostiumAgentName, setOstiumAgentName] = useState('');
-  const [ostiumIsProcessing, setOstiumIsProcessing] = useState(false);
+  // Removed deployment modal state variables
 
-  const [proofOfIntent, setProofOfIntent] = useState<{
-    message: string;
-    signature: string;
-    timestamp: Date;
-  } | null>(null);
-  const [isSigningProof, setIsSigningProof] = useState(false);
+  // Removed proof of intent since it requires wallet signing
+  // Removed database import since we're not using backend services
 
   const [selectedCtAccounts, setSelectedCtAccounts] = useState<Set<string>>(new Set());
   const [selectedResearchInstitutes, setSelectedResearchInstitutes] = useState<string[]>([]);
@@ -99,12 +205,7 @@ export default function CopyAgent() {
 
   const formData = watch();
 
-  useEffect(() => {
-    if (authenticated && user?.wallet?.address) {
-      setValue('creatorWallet', user.wallet.address, { shouldValidate: true, shouldDirty: true });
-      setValue('profitReceiverAddress', user.wallet.address, { shouldValidate: true, shouldDirty: true });
-    }
-  }, [authenticated, user?.wallet?.address, setValue]);
+  // Removed wallet auto-population since we're not using authentication
 
   // Joyride: ensure client-side only & load per-step completion flags
   useEffect(() => {
@@ -148,31 +249,7 @@ export default function CopyAgent() {
     setSelectedCtAccounts(newSelected);
   };
 
-  const createProofOfIntent = async () => {
-    if (!authenticated || !user?.wallet?.address) {
-      setError('Please connect your wallet first');
-      return;
-    }
-    if (!formData.name) {
-      setError('Please enter an agent name first');
-      return;
-    }
-    setIsSigningProof(true);
-    setError(null);
-    try {
-      const tempAgentId = `temp-${Date.now()}`;
-      const proof = await createProofOfIntentWithMetaMask(tempAgentId, user.wallet.address, formData.name);
-      setProofOfIntent({ message: proof.message, signature: proof.signature, timestamp: proof.timestamp });
-    } catch (error: any) {
-      if (error.message.includes('User rejected')) {
-        setError('Signature rejected. Please try again.');
-      } else {
-        setError(`Failed to create proof: ${error.message}`);
-      }
-    } finally {
-      setIsSigningProof(false);
-    }
-  };
+  // Removed proof of intent creation function
 
   const onSubmit = async (data: WizardFormData) => {
     const isValid = await trigger();
@@ -193,58 +270,33 @@ export default function CopyAgent() {
       setStep(5);
       return;
     }
-    if (!proofOfIntent) {
-      setError('Please create a proof of intent');
-      setStep(8);
-      return;
-    }
-    if (!authenticated) {
-      setError('Please connect your wallet first');
-      login();
-      return;
-    }
 
     setIsSubmitting(true);
     setError(null);
+
+    // Simulate agent creation without backend
     try {
-      const { description, ...agentData } = data;
-      const creatorWallet = user?.wallet?.address || data.creatorWallet;
+      // Create a mock agent ID
+      const mockAgentId = `agent-${Date.now()}`;
 
-      const payload = {
-        agentData: {
-          ...agentData,
-          creatorWallet,
-          profitReceiverAddress: agentData.profitReceiverAddress || creatorWallet,
-          proofOfIntentMessage: proofOfIntent?.message,
-          proofOfIntentSignature: proofOfIntent?.signature,
-          proofOfIntentTimestamp: proofOfIntent?.timestamp.toISOString(),
-        },
-        linkingData: {
-          ctAccountIds: Array.from(selectedCtAccounts),
-          researchInstituteIds: selectedResearchInstitutes,
-          telegramAlphaUserIds: Array.from(selectedTelegramUsers),
-          topTraderIds: selectedTopTraders,
-        }
-      };
+      // Simulate processing time
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const response = await fetch('/api/agents/create-with-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+      console.log('Agent created (mock):', {
+        id: mockAgentId,
+        name: data.name,
+        description: data.description,
+        venue: data.venue,
+        creatorWallet: data.creatorWallet,
+        profitReceiverAddress: data.profitReceiverAddress,
+        selectedResearchInstitutes,
+        selectedCtAccounts: Array.from(selectedCtAccounts),
+        selectedTelegramUsers: Array.from(selectedTelegramUsers),
+        selectedTopTraders
       });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || result.error || 'Failed to create agent');
-      }
-
-      if (result.success && result.agent?.id) {
-        setCreatedAgentId(result.agent.id);
-        setShowDeployModal(true);
-      } else {
-        router.push('/creator');
-      }
+      setCreatedAgentId(mockAgentId);
+      setShowDeployModal(true);
     } catch (err: any) {
       setError(err.message || 'Failed to create agent');
     } finally {
@@ -252,52 +304,18 @@ export default function CopyAgent() {
     }
   };
 
-  const [ostiumApprovalModal, setOstiumApprovalModal] = useState<{
-    deploymentId: string;
-    agentAddress: string;
-    userWallet: string;
-  } | null>(null);
+  // Removed Ostium approval modal state
 
-  const deployOstiumAgent = async (agentId: string) => {
-    try {
-      setIsSubmitting(true);
-      setError(null);
-      if (!authenticated || !user?.wallet?.address) {
-        await login();
-        return;
-      }
-      const userWallet = user.wallet.address;
-      const response = await fetch('/api/ostium/deploy-complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId, userWallet }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to deploy');
-      setOstiumApprovalModal({
-        deploymentId: data.deploymentId,
-        agentAddress: data.agentAddress,
-        userWallet: data.userWallet,
-      });
-    } catch (err: any) {
-      setError(err.message || 'Failed to deploy');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // Removed Ostium deployment function since it requires backend API
 
   const handleDeploy = () => {
     if (createdAgentId) {
       setShowDeployModal(false);
-      if (formData.venue === 'HYPERLIQUID') {
-        setHyperliquidAgentId(createdAgentId);
-        setHyperliquidAgentName(formData.name);
-        setHyperliquidModalOpen(true);
-      } else if (formData.venue === 'OSTIUM') {
-        deployOstiumAgent(createdAgentId);
-      } else {
-        window.location.href = `/deploy-agent/${createdAgentId}`;
-      }
+      // Simplified deployment - just redirect to a mock deployment page
+      console.log('Deploying agent:', createdAgentId, 'with venue:', formData.venue);
+      // In a real scenario without backend, you might redirect to a different page
+      // or show a different success message
+      router.push('/dashboard');
     }
   };
 
@@ -325,7 +343,7 @@ export default function CopyAgent() {
       const validWallet = await trigger('creatorWallet');
       const validProfit = await trigger('profitReceiverAddress');
       isValid = validWallet && validProfit;
-    } else if (step === 8) isValid = !!proofOfIntent;
+    } else if (step === 8) isValid = true; // Skip proof of intent validation
 
     if (isValid && step < 9) {
       setStep(step + 1);
@@ -345,7 +363,7 @@ export default function CopyAgent() {
     { number: 5, label: 'CT', icon: FaXTwitter },
     { number: 6, label: 'TELEGRAM', icon: Send },
     { number: 7, label: 'WALLET', icon: Wallet },
-    { number: 8, label: 'PROOF', icon: Shield },
+    { number: 8, label: 'CONFIRM', icon: Shield },
     { number: 9, label: 'REVIEW', icon: Eye },
   ];
 
@@ -394,7 +412,7 @@ export default function CopyAgent() {
     },
     {
       target: '[data-tour="step-8"]',
-      content: 'Sign a message proving you are the legitimate creator of this agent.',
+      content: 'Confirm your Alpha Club configuration before proceeding to create it.',
       disableBeacon: true,
       placement: 'top',
     },
@@ -414,7 +432,7 @@ export default function CopyAgent() {
     5: 'Pick CT accounts your agent should mirror.',
     6: 'Connect Telegram alpha sources your agent will listen to.',
     7: 'Configure the wallet that owns the agent and receives profits.',
-    8: 'Sign a message to prove you are the legitimate creator.',
+    8: 'Confirm your Alpha Club configuration.',
     9: 'Review all settings before creating your agent.',
   };
 
@@ -451,36 +469,47 @@ export default function CopyAgent() {
   };
 
   const fetchReviewData = async () => {
+    // Mock data for review since we removed backend API calls
     try {
-      const researchResponse = await fetch('/api/research-institutes');
-      const researchJson = await researchResponse.json();
-      const selectedInstitutes =
-        researchJson.institutes?.filter((inst: any) =>
-          selectedResearchInstitutes.includes(inst.id)
-        ) || [];
+      // Mock research institutes
+      const mockResearchInstitutes = selectedResearchInstitutes.map(id => ({
+        id,
+        name: `Research Institute ${id}`,
+        description: `Mock description for research institute ${id}`,
+        x_handle: `institute_${id}`
+      }));
 
-      // CT accounts
-      const ctAccountsData = await db.get('ct_accounts');
-      const selectedCtAccountsData =
-        ctAccountsData?.filter((acc: any) => selectedCtAccounts.has(acc.id)) || [];
+      // Mock CT accounts
+      const mockCtAccounts = Array.from(selectedCtAccounts).map(id => ({
+        id,
+        xUsername: `ct_user_${id}`,
+        displayName: `CT User ${id}`,
+        followersCount: Math.floor(Math.random() * 100000)
+      }));
 
-      // Telegram users
-      const telegramResponse = await fetch('/api/telegram-alpha-users');
-      const telegramJson = await telegramResponse.json();
-      const selectedTelegramData =
-        telegramJson.alphaUsers?.filter((u: any) => selectedTelegramUsers.has(u.id)) || [];
+      // Mock telegram users
+      const mockTelegramUsers = Array.from(selectedTelegramUsers).map(id => ({
+        id,
+        telegram_username: `tg_user_${id}`,
+        first_name: `User`,
+        last_name: id,
+        credit_price: Math.floor(Math.random() * 1000).toString()
+      }));
 
-      // Top traders
-      const topTradersResponse = await fetch('/api/top-traders?limit=10');
-      const topTradersJson = await topTradersResponse.json();
-      const selectedTopTradersData =
-        topTradersJson.topTraders?.filter((trader: any) => selectedTopTraders.includes(trader.id)) || [];
+      // Mock top traders
+      const mockTopTraders = selectedTopTraders.map(id => ({
+        id,
+        walletAddress: `0x${Math.random().toString(16).substr(2, 40)}`,
+        impactFactor: Math.random() * 10,
+        totalPnl: (Math.random() * 1000000).toString(),
+        totalTrades: Math.floor(Math.random() * 1000)
+      }));
 
       setReviewData({
-        researchInstitutes: selectedInstitutes,
-        ctAccounts: selectedCtAccountsData,
-        telegramUsers: selectedTelegramData,
-        topTraders: selectedTopTradersData,
+        researchInstitutes: mockResearchInstitutes,
+        ctAccounts: mockCtAccounts,
+        telegramUsers: mockTelegramUsers,
+        topTraders: mockTopTraders,
       });
     } catch (err) {
       console.error('Failed to fetch review data', err);
@@ -729,7 +758,7 @@ export default function CopyAgent() {
             <div className="space-y-6" data-tour="step-4">
               <h2 className="font-display text-2xl mb-2">RESEARCH INSTITUTES</h2>
               <p className="text-[var(--text-secondary)] text-sm mb-6">Choose which institutes your agent should follow for signals.</p>
-              <ResearchInstituteSelector selectedIds={selectedResearchInstitutes} onChange={setSelectedResearchInstitutes} />
+              <MockResearchInstituteSelector selectedIds={selectedResearchInstitutes} onChange={setSelectedResearchInstitutes} />
               {selectedResearchInstitutes.length === 0 && (
                 <p className="text-sm text-[var(--accent)]">⚠️ Select at least one institute</p>
               )}
@@ -742,8 +771,8 @@ export default function CopyAgent() {
 
           {/* Step 5: CT Accounts */}
           {step === 5 && (
-            <div data-tour="step-4">
-              <CtAccountSelector
+            <div data-tour="step-5">
+              <MockCtAccountSelector
                 selectedIds={selectedCtAccounts}
                 onToggle={toggleCtAccount}
                 onNext={nextStep}
@@ -757,7 +786,7 @@ export default function CopyAgent() {
             <div className="space-y-6" data-tour="step-6">
               <h2 className="font-display text-2xl mb-2">TELEGRAM ALPHA</h2>
               <p className="text-[var(--text-secondary)] text-sm mb-6">Select Telegram users whose DM signals your agent should follow.</p>
-              <TelegramAlphaUserSelector
+              <MockTelegramAlphaUserSelector
                 selectedIds={selectedTelegramUsers}
                 onToggle={(id) => {
                   const newSelected = new Set(selectedTelegramUsers);
@@ -777,12 +806,9 @@ export default function CopyAgent() {
           {step === 7 && (
             <div className="space-y-6" data-tour="step-7">
               <h2 className="font-display text-2xl mb-6">WALLET SETUP</h2>
-              {!authenticated && (
-                <div className="p-4 border border-[var(--accent)] bg-[var(--accent)]/10 mb-4 shadow-[0_0_20px_rgba(0,255,136,0.1)]">
-                  <p className="text-sm mb-3 text-[var(--text-secondary)]">Connect your wallet for the best experience.</p>
-                  <button type="button" onClick={login} className="px-6 py-2 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors">CONNECT WALLET</button>
-                </div>
-              )}
+              <div className="p-4 border border-[var(--border)] bg-[var(--bg-elevated)] mb-4">
+                <p className="text-sm text-[var(--text-secondary)]">Enter the wallet addresses manually for your Alpha Club configuration.</p>
+              </div>
               <div>
                 <label className="data-label block mb-2">CLUB OWNER WALLET *</label>
                 <input
@@ -790,7 +816,6 @@ export default function CopyAgent() {
                   {...register('creatorWallet')}
                   className="w-full px-4 py-3 bg-[var(--bg-deep)] border border-[var(--border)] font-mono text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]/20 transition-colors"
                   placeholder="0x..."
-                  readOnly={authenticated && !!user?.wallet?.address}
                 />
                 {errors.creatorWallet && <p className="text-[var(--danger)] text-sm mt-1">{errors.creatorWallet.message}</p>}
               </div>
@@ -811,57 +836,41 @@ export default function CopyAgent() {
             </div>
           )}
 
-          {/* Step 8: Proof of Intent */}
+          {/* Step 8: Confirmation */}
           {step === 8 && (
             <div className="space-y-6" data-tour="step-8">
-              <h2 className="font-display text-2xl mb-6">PROOF OF INTENT</h2>
-              <p className="text-[var(--text-secondary)] text-sm mb-6">Sign a message to prove your intent to create this Alpha Club.</p>
+              <h2 className="font-display text-2xl mb-6">CONFIRMATION</h2>
+              <p className="text-[var(--text-secondary)] text-sm mb-6">Confirm that you want to create this Alpha Club with the selected configuration.</p>
 
-              {!proofOfIntent ? (
-                <div className="space-y-4">
-                  <div className="p-4 border border-[var(--border)] bg-[var(--bg-elevated)]">
-                    <div className="flex items-start gap-3">
-                      <Shield className="h-5 w-5 text-[var(--accent)] mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="font-bold mb-2 text-[var(--text-primary)]">WHY SIGN?</p>
-                        <ul className="text-sm text-[var(--text-secondary)] space-y-1">
-                          <li>• Proves you are the legitimate creator</li>
-                          <li>• Ensures all signals are authorized</li>
-                          <li>• Required for club activation</li>
-                        </ul>
-                      </div>
+              <div className="space-y-4">
+                <div className="p-4 border border-[var(--accent)] bg-[var(--accent)]/10 shadow-[0_0_20px_rgba(0,255,136,0.1)]">
+                  <div className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-[var(--accent)] mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-bold text-[var(--accent)]">READY TO CREATE</p>
+                      <p className="text-sm text-[var(--text-secondary)]">Your Alpha Club configuration is complete</p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={createProofOfIntent}
-                    disabled={isSigningProof || !authenticated}
-                    className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {isSigningProof ? <><Activity className="h-5 w-5 animate-pulse" />SIGNING...</> : <><Shield className="h-5 w-5" />SIGN PROOF</>}
-                  </button>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="p-4 border border-[var(--accent)] bg-[var(--accent)]/10 shadow-[0_0_20px_rgba(0,255,136,0.1)]">
-                    <div className="flex items-start gap-3">
-                      <Check className="h-5 w-5 text-[var(--accent)] mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="font-bold text-[var(--accent)]">PROOF CREATED</p>
-                        <p className="text-sm text-[var(--text-secondary)]">Signature verified and ready</p>
-                      </div>
+
+                <div className="p-4 border border-[var(--border)] bg-[var(--bg-elevated)]">
+                  <div className="flex items-start gap-3">
+                    <Shield className="h-5 w-5 text-[var(--accent)] mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-bold mb-2 text-[var(--text-primary)]">WHAT HAPPENS NEXT?</p>
+                      <ul className="text-sm text-[var(--text-secondary)] space-y-1">
+                        <li>• Your Alpha Club will be created with the selected configuration</li>
+                        <li>• All selected signal sources will be linked to your club</li>
+                        <li>• You can deploy and activate your club after creation</li>
+                      </ul>
                     </div>
                   </div>
-                  <div className="p-3 bg-[var(--bg-elevated)] border border-[var(--border)] text-xs font-mono text-[var(--text-secondary)] break-all">
-                    <p className="mb-2"><span className="text-[var(--text-muted)]">Timestamp:</span> {proofOfIntent.timestamp.toLocaleString()}</p>
-                    <p><span className="text-[var(--text-muted)]">Signature:</span> {proofOfIntent.signature.slice(0, 20)}...{proofOfIntent.signature.slice(-20)}</p>
-                  </div>
                 </div>
-              )}
+              </div>
 
               <div className="flex gap-4">
                 <button type="button" onClick={prevStep} className="flex-1 py-4 border border-[var(--border)] font-bold hover:border-[var(--text-primary)] transition-colors">BACK</button>
-                <button type="button" onClick={nextStep} disabled={!proofOfIntent} className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">NEXT →</button>
+                <button type="button" onClick={nextStep} className="flex-1 py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors">NEXT →</button>
               </div>
             </div>
           )}
@@ -1195,33 +1204,28 @@ export default function CopyAgent() {
                   </div>
                 </div>
 
-                {/* Proof of Intent summary */}
-                {proofOfIntent && (
-                  <div className="p-4 border border-[var(--accent)] bg-[var(--accent)]/10">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="data-label text-[var(--accent)]">PROOF OF INTENT</p>
-                      <button
-                        type="button"
-                        onClick={() => setStep(8)}
-                        className="text-xs text-[var(--accent)] hover:underline"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                    <div className="flex items-start gap-2 mt-2">
-                      <Check className="h-5 w-5 text-[var(--accent)] mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-sm text-[var(--text-primary)] font-semibold">Signed and Verified</p>
-                        <p className="text-xs text-[var(--text-secondary)] mt-1">
-                          Timestamp: {proofOfIntent.timestamp.toLocaleString()}
-                        </p>
-                        <p className="text-xs font-mono text-[var(--text-muted)] mt-1 break-all">
-                          {proofOfIntent.signature.slice(0, 20)}...{proofOfIntent.signature.slice(-20)}
-                        </p>
-                      </div>
+                {/* Confirmation summary */}
+                <div className="p-4 border border-[var(--accent)] bg-[var(--accent)]/10">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="data-label text-[var(--accent)]">CONFIGURATION CONFIRMED</p>
+                    <button
+                      type="button"
+                      onClick={() => setStep(8)}
+                      className="text-xs text-[var(--accent)] hover:underline"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <div className="flex items-start gap-2 mt-2">
+                    <Check className="h-5 w-5 text-[var(--accent)] mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm text-[var(--text-primary)] font-semibold">Ready to Create</p>
+                      <p className="text-xs text-[var(--text-secondary)] mt-1">
+                        All configuration steps completed
+                      </p>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
 
               <div className="flex gap-4">
@@ -1259,8 +1263,11 @@ export default function CopyAgent() {
                 <p className="text-[var(--text-secondary)]">Your Alpha Club is ready</p>
               </div>
               <div className="space-y-4">
-                <button onClick={() => router.push('/creator')} className="w-full py-4 border border-[var(--border)] font-bold hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-colors text-[var(--text-primary)]">
-                  VIEW MY CLUBS
+                <button onClick={() => router.push('/dashboard')} className="w-full py-4 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors">
+                  GO TO DASHBOARD
+                </button>
+                <button onClick={() => setShowDeployModal(false)} className="w-full py-4 border border-[var(--border)] font-bold hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-colors text-[var(--text-primary)]">
+                  CLOSE
                 </button>
               </div>
             </div>
@@ -1268,40 +1275,7 @@ export default function CopyAgent() {
         )
       }
 
-      {
-        hyperliquidModalOpen && (
-          <HyperliquidConnect
-            agentId={hyperliquidAgentId}
-            agentName={hyperliquidAgentName}
-            agentVenue={formData.venue}
-            onClose={() => setHyperliquidModalOpen(false)}
-            onSuccess={() => { setHyperliquidModalOpen(false); router.push('/my-deployments'); }}
-          />
-        )
-      }
-
-      {
-        ostiumModalOpen && (
-          <OstiumConnect
-            agentId={ostiumAgentId}
-            agentName={ostiumAgentName}
-            onClose={() => setOstiumModalOpen(false)}
-            onSuccess={() => { setOstiumModalOpen(false); router.push('/my-deployments'); }}
-          />
-        )
-      }
-
-      {
-        ostiumApprovalModal && (
-          <OstiumApproval
-            deploymentId={ostiumApprovalModal.deploymentId}
-            agentAddress={ostiumApprovalModal.agentAddress}
-            userWallet={ostiumApprovalModal.userWallet}
-            onApprovalComplete={() => { setOstiumApprovalModal(null); router.push('/my-deployments'); }}
-            onClose={() => setOstiumApprovalModal(null)}
-          />
-        )
-      }
+      {/* Removed deployment modals since they depend on backend services */}
     </div >
   );
 }

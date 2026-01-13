@@ -553,7 +553,8 @@ const AgentsSection = ({ agents, loading, error, onCardClick, onDeployClick, use
                     <div className="pt-4 sm:pt-6">
                       {(() => {
                         const agentCost = agent.totalCost || 0;
-                        const isCreator = userWallet && agent.creatorWallet &&
+                        const isWalletConnected = userWallet && userWallet.trim() !== '';
+                        const isCreator = isWalletConnected && agent.creatorWallet &&
                           userWallet.toLowerCase() === agent.creatorWallet.toLowerCase();
                         const alreadyDeployed = agentDeployments[agent.id]?.length > 0;
                         const hasInsufficientCredits = !isCreator && !alreadyDeployed && agentCost > 0 && (creditBalance === undefined || creditBalance < agentCost);
@@ -568,13 +569,18 @@ const AgentsSection = ({ agents, loading, error, onCardClick, onDeployClick, use
                                 onDeployClick(agent);
                               }
                             }}
-                            disabled={hasInsufficientCredits}
+                            disabled={hasInsufficientCredits || false}
                             className={`w-full py-2.5 sm:py-3 border-2 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 relative transition-all ${hasInsufficientCredits
                               ? 'border-red-500/50 bg-red-500/5 text-red-500 cursor-not-allowed opacity-70'
                               : 'button-animated border-[var(--border)] bg-[var(--bg-elevated)] group/btn'
                               }`}
                           >
-                            {alreadyDeployed ? (
+                            {!isWalletConnected ? (
+                              <>
+                                <Wallet className="relative z-10" size={16} />
+                                <span className="relative z-10 font-bold">CONNECT WALLET</span>
+                              </>
+                            ) : alreadyDeployed ? (
                               <>
                                 <CheckCircle className="relative z-10" size={16} />
                                 <span className="relative z-10 font-bold">JOINED</span>

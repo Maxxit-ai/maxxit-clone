@@ -365,8 +365,8 @@ export default function MyTrades() {
         {/* Header */}
         <div className="mb-6 sm:mb-12">
           <p className="data-label mb-2 text-xs sm:text-sm">BLOCKCHAIN VERIFICATION</p>
-          <h1 className="font-display text-2xl sm:text-4xl md:text-5xl mb-3 sm:mb-4">MY TRADES</h1>
-          <p className="text-[var(--text-secondary)] text-sm sm:text-base max-w-2xl">
+          <h1 className="font-display text-3xl sm:text-4xl md:text-5xl mb-3 sm:mb-4 leading-tight">MY TRADES</h1>
+          <p className="text-[var(--text-secondary)] text-sm sm:text-base max-w-2xl leading-relaxed">
             All your open trades on Ostium platform with eigenAI signature
             verification. Each trade is cryptographically signed by EigenLabs
             operator ensuring authenticity and transparency.
@@ -377,23 +377,22 @@ export default function MyTrades() {
         {authenticated && (
           <div className="mb-6 sm:mb-8 border border-[var(--border)] bg-[var(--bg-surface)] p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-start sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
+              <div className="flex items-start gap-3 sm:gap-4 w-full sm:w-auto min-w-0">
                 {telegramConnected ? (
                   <>
-                    <div className="w-12 h-12 border border-[var(--accent)] bg-[var(--accent)]/10 flex items-center justify-center">
-                      <Bell className="w-6 h-6 text-[var(--accent)]" />
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 border border-[var(--accent)] bg-[var(--accent)]/10 flex items-center justify-center flex-shrink-0">
+                      <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-[var(--accent)]" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-display text-base sm:text-lg mb-1">
+                      <h3 className="font-display text-sm sm:text-lg mb-1">
                         TELEGRAM CONNECTED
                       </h3>
                       <p className="text-xs sm:text-sm text-[var(--text-secondary)] break-words">
                         Notifications enabled for @
                         {telegramUsername || "your account"}
                       </p>
-                      <p className="text-xs text-[var(--text-muted)] mt-1 hidden sm:block">
-                        You'll receive real-time updates when positions are
-                        opened or closed
+                      <p className="text-xs text-[var(--text-muted)] mt-1 sm:block">
+                        Real-time updates for position changes
                       </p>
                     </div>
                   </>
@@ -403,25 +402,24 @@ export default function MyTrades() {
                       <BellOff className="w-5 h-5 sm:w-6 sm:h-6 text-[var(--text-muted)]" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-display text-base sm:text-lg mb-1">
+                      <h3 className="font-display text-sm sm:text-lg mb-1">
                         TELEGRAM NOTIFICATIONS
                       </h3>
                       <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
                         Get instant notifications about your trades on Telegram
                       </p>
-                      <p className="text-xs text-[var(--text-muted)] mt-1 hidden sm:block">
-                        • New positions opened • Positions closed • Stop loss /
-                        Take profit hits
+                      <p className="text-xs text-[var(--text-muted)] mt-1 sm:block">
+                        • New positions • Closed positions • Stop loss/Take profit hits
                       </p>
                     </div>
                   </>
                 )}
               </div>
-              <div className="w-full sm:w-auto">
+              <div className="w-full sm:w-auto flex-shrink-0">
                 {telegramConnected ? (
                   <button
                     onClick={checkTelegramStatus}
-                    className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 border border-[var(--accent)] text-[var(--accent)] font-bold hover:bg-[var(--accent)]/10 transition-colors text-sm"
+                    className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 border border-[var(--accent)] text-[var(--accent)] font-bold hover:bg-[var(--accent)]/10 transition-colors text-sm whitespace-nowrap"
                   >
                     ✓ CONNECTED
                   </button>
@@ -429,7 +427,7 @@ export default function MyTrades() {
                   <button
                     onClick={handleConnectTelegram}
                     disabled={telegramLoading}
-                    className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+                    className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-[var(--accent)] text-[var(--bg-deep)] font-bold hover:bg-[var(--accent-dim)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm whitespace-nowrap"
                   >
                     {telegramLoading ? (
                       <>
@@ -457,28 +455,28 @@ export default function MyTrades() {
         {/* Overview cards */}
         {authenticated && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
-            <div className="border border-[var(--border)] bg-[var(--bg-surface)] p-3 sm:p-4">
-              <p className="data-label mb-1 text-xs">TOTAL TRADES</p>
-              <p className="font-display text-2xl sm:text-3xl">{summary.total}</p>
-              <p className="text-[var(--text-muted)] text-xs sm:text-sm">
+            <div className="border border-[var(--border)] bg-[var(--bg-surface)] p-4 sm:p-4">
+              <p className="data-label mb-2 text-xs">TOTAL TRADES</p>
+              <p className="font-display text-3xl sm:text-3xl">{summary.total}</p>
+              <p className="text-[var(--text-muted)] text-xs sm:text-sm leading-relaxed">
                 All signals linked to your deployments
               </p>
             </div>
-            <div className="border border-[var(--border)] bg-[var(--bg-surface)] p-3 sm:p-4">
-              <p className="data-label mb-1 text-xs">OPEN POSITIONS</p>
-              <p className="font-display text-2xl sm:text-3xl text-green-400">
+            <div className="border border-[var(--border)] bg-[var(--bg-surface)] p-4 sm:p-4">
+              <p className="data-label mb-2 text-xs">OPEN POSITIONS</p>
+              <p className="font-display text-3xl sm:text-3xl text-green-400">
                 {openCount}
               </p>
-              <p className="text-[var(--text-muted)] text-xs sm:text-sm">
+              <p className="text-[var(--text-muted)] text-xs sm:text-sm leading-relaxed">
                 Currently active trades
               </p>
             </div>
-            <div className="border border-[var(--border)] bg-[var(--bg-surface)] p-3 sm:p-4">
-              <p className="data-label mb-1 text-xs">CLOSED / FILLED</p>
-              <p className="font-display text-2xl sm:text-3xl text-[var(--text-muted)]">
+            <div className="border border-[var(--border)] bg-[var(--bg-surface)] p-4 sm:p-4">
+              <p className="data-label mb-2 text-xs">CLOSED / FILLED</p>
+              <p className="font-display text-3xl sm:text-3xl text-[var(--text-muted)]">
                 {closedCount}
               </p>
-              <p className="text-[var(--text-muted)] text-xs sm:text-sm">
+              <p className="text-[var(--text-muted)] text-xs sm:text-sm leading-relaxed">
                 Completed or inactive trades
               </p>
             </div>
@@ -1267,7 +1265,7 @@ export default function MyTrades() {
       {/* Verification Modal */}
       {verificationModalOpen && selectedTrade && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-2 sm:p-4 overflow-hidden overscroll-contain"
+          className="fixed inset-0 z-50 bg-black/80 flex items-start sm:items-center justify-center p-0 sm:p-4 overflow-hidden overscroll-contain"
           onWheel={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
           onClick={(e) => {
@@ -1276,17 +1274,17 @@ export default function MyTrades() {
             }
           }}
         >
-          <div className="bg-[var(--bg-deep)] border border-[var(--border)] max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+          <div className="bg-[var(--bg-deep)] border-0 sm:border border-[var(--border)] max-w-4xl w-full h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="border-b border-[var(--border)] p-3 sm:p-4 md:p-6 sticky top-0 bg-[var(--bg-deep)] z-10">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                   <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-[var(--accent)] flex-shrink-0" />
                   <div className="min-w-0">
-                    <h2 className="font-display text-base sm:text-xl truncate">
+                    <h2 className="font-display text-lg sm:text-xl">
                       SIGNATURE VERIFICATION
                     </h2>
-                    <p className="text-xs text-[var(--text-muted)] truncate">
+                    <p className="text-xs text-[var(--text-muted)] break-words">
                       {selectedTrade.tokenSymbol} {selectedTrade.side} Trade
                     </p>
                   </div>
@@ -1295,7 +1293,7 @@ export default function MyTrades() {
                   onClick={() => setVerificationModalOpen(false)}
                   className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors flex-shrink-0"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-5 w-5 sm:h-6 sm:w-6" />
                 </button>
               </div>
             </div>
@@ -1350,21 +1348,20 @@ export default function MyTrades() {
                           <div>
                             <span className="text-[var(--text-muted)]">
                               Chain ID:
-                            </span>{" "}
-                            {verificationResult.details.chainId}
+                            </span>
+                            <span className="break-all">{verificationResult.details.chainId}</span>
                           </div>
-                          <div>
-                            <span className="text-[var(--text-muted)]">
+                          <div className="flex flex-col sm:flex-row sm:gap-2">
+                            <span className="text-[var(--text-muted)] flex-shrink-0">
                               Model:
-                            </span>{" "}
-                            {verificationResult.details.model}
+                            </span>
+                            <span className="break-all">{verificationResult.details.model}</span>
                           </div>
-                          <div>
-                            <span className="text-[var(--text-muted)]">
+                          <div className="flex flex-col sm:flex-row sm:gap-2">
+                            <span className="text-[var(--text-muted)] flex-shrink-0">
                               Message Length:
-                            </span>{" "}
-                            {verificationResult.details.messageLength}{" "}
-                            characters
+                            </span>
+                            <span>{verificationResult.details.messageLength} characters</span>
                           </div>
                         </div>
                       </div>
@@ -1378,7 +1375,7 @@ export default function MyTrades() {
                           <p className="text-[var(--text-muted)] mb-1 sm:mb-2">
                             Original Message:
                           </p>
-                          <p className="text-[var(--text-secondary)] italic break-words">
+                          <p className="text-[var(--text-secondary)] italic break-words leading-relaxed">
                             "{selectedTrade.signatureData?.messageText}"
                           </p>
                         </div>
@@ -1408,7 +1405,7 @@ export default function MyTrades() {
                         </p>
                         <div className="space-y-2 sm:space-y-3 text-[11px] sm:text-xs">
                           <div>
-                            <p className="text-[var(--text-muted)] mb-1">
+                            <p className="text-[var(--text-muted)] mb-2">
                               Expected Signer (EigenLabs):
                             </p>
                             <p className="font-mono bg-[var(--bg-elevated)] p-1.5 sm:p-2 break-all text-[9px] sm:text-[10px] md:text-xs">
@@ -1416,7 +1413,7 @@ export default function MyTrades() {
                             </p>
                           </div>
                           <div>
-                            <p className="text-[var(--text-muted)] mb-1">
+                            <p className="text-[var(--text-muted)] mb-2">
                               Recovered Signer:
                             </p>
                             <p
