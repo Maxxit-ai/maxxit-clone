@@ -28,18 +28,26 @@ const AnimatedNumber = memo(
     const [displayValue, setDisplayValue] = useState<number | string>(
       typeof value === "number" ? 0 : value
     );
-    const hasAnimatedRef = useRef(false);
+    const lastAnimatedValueRef = useRef<number | string | null>(null);
     const elementRef = useRef<HTMLSpanElement>(null);
     const rafRef = useRef<number | null>(null);
+    const animationStartValueRef = useRef<number | null>(null);
 
     useEffect(() => {
       const observer = new IntersectionObserver(
         (entries) => {
           const entry = entries[0];
-          if (entry.isIntersecting && !hasAnimatedRef.current) {
-            hasAnimatedRef.current = true;
+          if (entry.isIntersecting) {
+            if (lastAnimatedValueRef.current === value) {
+              return;
+            }
+            lastAnimatedValueRef.current = value;
 
             if (typeof value === "number") {
+              if (animationStartValueRef.current !== value) {
+                setDisplayValue(0);
+                animationStartValueRef.current = value;
+              }
               const startValue = 0;
               const endValue = value;
               const startTime = performance.now();
@@ -103,7 +111,7 @@ AnimatedNumber.displayName = "AnimatedNumber";
 const HeroSection = memo(
   ({ onDeployScroll, onLearnMoreScroll }: HeroSectionProps) => {
     const router = useRouter();
-    const [tradingPairs, setTradingPairs] = useState<number>(261);
+    const [tradingPairs, setTradingPairs] = useState<number>(0);
 
     useEffect(() => {
       async function fetchStats() {
