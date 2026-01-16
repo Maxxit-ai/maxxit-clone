@@ -28,18 +28,26 @@ const AnimatedNumber = memo(
     const [displayValue, setDisplayValue] = useState<number | string>(
       typeof value === "number" ? 0 : value
     );
-    const hasAnimatedRef = useRef(false);
+    const lastAnimatedValueRef = useRef<number | string | null>(null);
     const elementRef = useRef<HTMLSpanElement>(null);
     const rafRef = useRef<number | null>(null);
+    const animationStartValueRef = useRef<number | null>(null);
 
     useEffect(() => {
       const observer = new IntersectionObserver(
         (entries) => {
           const entry = entries[0];
-          if (entry.isIntersecting && !hasAnimatedRef.current) {
-            hasAnimatedRef.current = true;
+          if (entry.isIntersecting) {
+            if (lastAnimatedValueRef.current === value) {
+              return;
+            }
+            lastAnimatedValueRef.current = value;
 
             if (typeof value === "number") {
+              if (animationStartValueRef.current !== value) {
+                setDisplayValue(0);
+                animationStartValueRef.current = value;
+              }
               const startValue = 0;
               const endValue = value;
               const startTime = performance.now();
@@ -103,6 +111,24 @@ AnimatedNumber.displayName = "AnimatedNumber";
 const HeroSection = memo(
   ({ onDeployScroll, onLearnMoreScroll }: HeroSectionProps) => {
     const router = useRouter();
+    const [tradingPairs, setTradingPairs] = useState<number>(0);
+
+    useEffect(() => {
+      async function fetchStats() {
+        try {
+          const response = await fetch('/api/stats');
+          if (response.ok) {
+            const data = await response.json();
+            if (data.tradingPairs) {
+              setTradingPairs(data.tradingPairs);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch stats:', error);
+        }
+      }
+      fetchStats();
+    }, []);
 
     const handleDeployClick = useCallback(
       (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -238,7 +264,7 @@ const HeroSection = memo(
           <div className="flex flex-wrap justify-center gap-4 sm:gap-6 md:gap-8 lg:gap-16">
             <div className="text-center">
               <p className="font-display text-3xl sm:text-4xl md:text-5xl text-accent">
-                <AnimatedNumber value={261} duration={2000} />
+                <AnimatedNumber value={tradingPairs} duration={2000} />
               </p>
               <p className="text-xs text-[var(--text-muted)] mt-1">
                 TRADING PAIRS
